@@ -1,0 +1,9 @@
+./*.v
+./*.json
+./*.fir
+test_run_dir
+gen-dir
+target
+.idea
+.bsp
+test_data_dir
