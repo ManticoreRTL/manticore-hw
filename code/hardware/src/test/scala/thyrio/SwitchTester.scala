@@ -46,8 +46,8 @@ class SwitchTester extends FlatSpec  with ChiselScalatestTester with Matchers {
   val config = ThyrioISA
   val NUM_TESTS = 4096
   val rdgen = Random
-  def genAddress = Random.nextInt(1 << config.ID_BITS).U
-  def genData = Random.nextInt(1 << config.DATA_BITS).U
+  def genAddress = Random.nextInt(1 << config.IdBits).U
+  def genData = Random.nextInt(1 << config.DataBits).U
   def genValid = Random.nextInt(2).B
 
   def randomPacketXY: NoCBundle = {
@@ -133,7 +133,7 @@ class SwitchTester extends FlatSpec  with ChiselScalatestTester with Matchers {
   behavior of "Switch"
   it should "route L to X and Y based on the xHops and yHops in the packet " +
     "and drop \"self\" packets" in  {
-    test(new Switch(config = config, DIMX = DIMX, DIMY = DIMY)).withAnnotations(Seq(USE_VERILATOR)) { dut =>
+    test(new Switch(config = config, DimX = DIMX, DimY = DIMY)).withAnnotations(Seq(USE_VERILATOR)) { dut =>
       for (i <- Range(0, NUM_TESTS)) {
         // simple test, route through X
         val packet: NoCBundle = randomPacketXY

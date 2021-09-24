@@ -14,7 +14,7 @@ object Assembler {
 
   private case class BinaryField(value: Long, num_bits: Int)
   private case class BinaryInstructionBuilder(val fields: Seq[BinaryField] = Seq()) {
-    def + (value: Int, num_bits: Int): BinaryInstructionBuilder = {
+    def ++(value: Int, num_bits: Int): BinaryInstructionBuilder = {
       val pos = fields.map(_.num_bits).sum.toLong
       BinaryInstructionBuilder(BinaryField((clipped(value, num_bits).toLong) << pos, num_bits) +: fields)
     }
@@ -28,26 +28,26 @@ object Assembler {
   def assemble(inst: Instruction)(implicit equation: Seq[Equation]): Long = {
 
     def arithmetic(funct: StandardALU.Functs.Functs)(rd: Register, rs1: Register, rs2: Register): Long = {
-      val inst = BinaryInstructionBuilder() +
-        (ThyrioISA.Arithmetic.value, ThyrioISA.OPCODE_BITS) +
-        (rd.index, ThyrioISA.ID_BITS) +
-        (funct.id, ThyrioISA.FUNCT_BITS) +
-        (rs1.index, ThyrioISA.ID_BITS) +
-        (rs2.index, ThyrioISA.ID_BITS) +
-        (0, 2 * ThyrioISA.ID_BITS)
+      val inst = BinaryInstructionBuilder() ++
+        (ThyrioISA.Arithmetic.value, ThyrioISA.OpcodeBits) ++
+        (rd.index, ThyrioISA.IdBits) ++
+        (funct.id, ThyrioISA.FunctBits) ++
+        (rs1.index, ThyrioISA.IdBits) ++
+        (rs2.index, ThyrioISA.IdBits) ++
+        (0, 2 * ThyrioISA.IdBits)
       inst.build
     }
 
     inst match {
       case Custom0(rd, func, rs1, rs2, rs3, rs4) =>
-        val inst = BinaryInstructionBuilder() +
-            (ThyrioISA.Custom0.value, ThyrioISA.OPCODE_BITS) +
-            (rd.index, ThyrioISA.ID_BITS) +
-            (equation.indexOf(func), ThyrioISA.FUNCT_BITS) +
-            (rs1.index, ThyrioISA.ID_BITS) +
-            (rs2.index, ThyrioISA.ID_BITS) +
-            (rs3.index, ThyrioISA.ID_BITS) +
-            (rs4.index, ThyrioISA.ID_BITS)
+        val inst = BinaryInstructionBuilder() ++
+            (ThyrioISA.Custom0.value, ThyrioISA.OpcodeBits) ++
+            (rd.index, ThyrioISA.IdBits) ++
+            (equation.indexOf(func), ThyrioISA.FunctBits) ++
+            (rs1.index, ThyrioISA.IdBits) ++
+            (rs2.index, ThyrioISA.IdBits) ++
+            (rs3.index, ThyrioISA.IdBits) ++
+            (rs4.index, ThyrioISA.IdBits)
         inst.build
       case Add2(rd, rs1, rs2) =>
         arithmetic(StandardALU.Functs.ADD2)(rd, rs1, rs2)
@@ -72,59 +72,60 @@ object Assembler {
       case Mux2(rd, rs1, rs2) =>
         arithmetic(StandardALU.Functs.MUX)(rd, rs1, rs2)
       case LocalLoad(rd, base, offset) =>
-        val inst: BinaryInstructionBuilder = BinaryInstructionBuilder() +
-          (ThyrioISA.LocalLoad.value, ThyrioISA.OPCODE_BITS) +
-          (rd.index, ThyrioISA.ID_BITS) +
-          (StandardALU.Functs.ADD2.id, ThyrioISA.FUNCT_BITS) +
-          (base.index, ThyrioISA.ID_BITS) +
-          (0, 3 * ThyrioISA.ID_BITS - ThyrioISA.DATA_BITS) +
-          (offset.toInt, ThyrioISA.DATA_BITS)
+        val inst: BinaryInstructionBuilder = BinaryInstructionBuilder() ++
+          (ThyrioISA.LocalLoad.value, ThyrioISA.OpcodeBits) ++
+          (rd.index, ThyrioISA.IdBits) ++
+          (StandardALU.Functs.ADD2.id, ThyrioISA.FunctBits) ++
+          (base.index, ThyrioISA.IdBits) ++
+          (0, 3 * ThyrioISA.IdBits - ThyrioISA.DataBits) ++
+          (offset.toInt, ThyrioISA.DataBits)
         inst.build
       case LocalStore(rs, base, offset) =>
-        val inst: BinaryInstructionBuilder = BinaryInstructionBuilder() +
-          (ThyrioISA.LocalStore.value, ThyrioISA.OPCODE_BITS) +
-          (0, ThyrioISA.ID_BITS) +
-          (StandardALU.Functs.ADD2.id, ThyrioISA.FUNCT_BITS) +
-          (base.index, ThyrioISA.ID_BITS) +
-          (rs.index, ThyrioISA.ID_BITS) +
-          (0, 2 * ThyrioISA.ID_BITS - ThyrioISA.DATA_BITS) +
-          (offset.toInt, ThyrioISA.DATA_BITS)
+        val inst: BinaryInstructionBuilder = BinaryInstructionBuilder() ++
+          (ThyrioISA.LocalStore.value, ThyrioISA.OpcodeBits) ++
+          (0, ThyrioISA.IdBits) ++
+          (StandardALU.Functs.ADD2.id, ThyrioISA.FunctBits) ++
+          (base.index, ThyrioISA.IdBits) ++
+          (rs.index, ThyrioISA.IdBits) ++
+          (0, 2 * ThyrioISA.IdBits - ThyrioISA.DataBits) ++
+          (offset.toInt, ThyrioISA.DataBits)
         inst.build
       case SetValue(rd, value) =>
-        val inst: BinaryInstructionBuilder = BinaryInstructionBuilder() +
-          (ThyrioISA.SetValue.value, ThyrioISA.OPCODE_BITS) +
-          (rd.index, ThyrioISA.ID_BITS) +
-          (StandardALU.Functs.ADD2.id, ThyrioISA.FUNCT_BITS) +
-          (0, 4 * ThyrioISA.ID_BITS - ThyrioISA.DATA_BITS) +
-          (value, ThyrioISA.DATA_BITS)
+        val inst: BinaryInstructionBuilder = BinaryInstructionBuilder() ++
+          (ThyrioISA.SetValue.value, ThyrioISA.OpcodeBits) ++
+          (rd.index, ThyrioISA.IdBits) ++
+          (StandardALU.Functs.ADD2.id, ThyrioISA.FunctBits) ++
+          (0, 4 * ThyrioISA.IdBits - ThyrioISA.DataBits) ++
+          (value, ThyrioISA.DataBits)
         inst.build
       case Expect(value, expected, message) =>
-        val inst: BinaryInstructionBuilder = BinaryInstructionBuilder() +
-          (ThyrioISA.Expect.value, ThyrioISA.OPCODE_BITS) +
-          (0, ThyrioISA.ID_BITS) +
-          (StandardALU.Functs.SEQ.id, ThyrioISA.FUNCT_BITS) +
-          (value.index, ThyrioISA.ID_BITS) +
-          (expected.index, ThyrioISA.ID_BITS) +
-          (0, 2 * ThyrioISA.ID_BITS)
+        val inst: BinaryInstructionBuilder = BinaryInstructionBuilder() ++
+          (ThyrioISA.Expect.value, ThyrioISA.OpcodeBits) ++
+          (0, ThyrioISA.IdBits) ++
+          (StandardALU.Functs.SEQ.id, ThyrioISA.FunctBits) ++
+          (value.index, ThyrioISA.IdBits) ++
+          (expected.index, ThyrioISA.IdBits) ++
+          (0, 2 * ThyrioISA.IdBits)
         inst.build
       case Nop() =>
-        val inst: BinaryInstructionBuilder = BinaryInstructionBuilder() +
-          (ThyrioISA.SetValue.value, ThyrioISA.OPCODE_BITS) +
-          (0, ThyrioISA.ID_BITS) +
-          (StandardALU.Functs.ADD2.id, ThyrioISA.FUNCT_BITS) +
-          (0, ThyrioISA.ID_BITS) +
-          (0, ThyrioISA.ID_BITS) +
-          (0, 2 * ThyrioISA.ID_BITS)
+        val inst: BinaryInstructionBuilder = BinaryInstructionBuilder() ++
+          (ThyrioISA.SetValue.value, ThyrioISA.OpcodeBits) ++
+          (0, ThyrioISA.IdBits) ++
+          (StandardALU.Functs.ADD2.id, ThyrioISA.FunctBits) ++
+          (0, ThyrioISA.IdBits) ++
+          (0, ThyrioISA.IdBits) ++
+          (0, 2 * ThyrioISA.IdBits)
         inst.build
       case Send(target, rs, addrX, addrY) =>
-        val inst: BinaryInstructionBuilder = BinaryInstructionBuilder() +
-          (ThyrioISA.Send.value, ThyrioISA.OPCODE_BITS) +
-          (target.index, ThyrioISA.ID_BITS) +
-          (StandardALU.Functs.ADD2.id, ThyrioISA.FUNCT_BITS) +
-          (0, ThyrioISA.ID_BITS) +
-          (rs.index, ThyrioISA.ID_BITS) +
-          (0, 2 * ThyrioISA.ID_BITS - ThyrioISA.DATA_BITS) +
-          (addrX.toInt + (addrY << 4).toInt, ThyrioISA.DATA_BITS)
+        require(ThyrioISA.DataBits % 2 == 0)
+        val inst: BinaryInstructionBuilder = BinaryInstructionBuilder() ++
+          (ThyrioISA.Send.value, ThyrioISA.OpcodeBits) ++
+          (target.index, ThyrioISA.IdBits) ++
+          (StandardALU.Functs.ADD2.id, ThyrioISA.FunctBits) ++
+          (0, ThyrioISA.IdBits) ++
+          (rs.index, ThyrioISA.IdBits) ++
+          (0, 2 * ThyrioISA.IdBits - ThyrioISA.DataBits) ++
+          (addrX.toInt + (addrY << (ThyrioISA.DataBits / 2)).toInt, ThyrioISA.DataBits)
         inst.build
       case GlobalLoad(rd, addrlo, addrmid, addrhi, offset) => ???
       case GlobalStore(rs, addrlo, addrmid, addrhi, offset) => ???

@@ -35,17 +35,18 @@ class UniProcessorTester extends FlatSpec with Matchers with ChiselScalatestTest
 
   def makeProcessor =
     new Processor(config = ThyrioISA,
-      EQUATIONS = equations,
-      INITIAL_REGISTERS =
+      DimX = 16, DimY = 16,
+      equations = equations,
+      initial_registers =
         UniProcessorTestUtils.createMemoryDataFiles {
-          Range(0, 1 << ThyrioISA.ID_BITS).updated(2, 0)
+          Range(0, 1 << ThyrioISA.IdBits).updated(2, 0)
         } {
              Paths.get("test_data_dir" + File.separator +
                 sanitizeFileName(scalaTestContext.value.get.name) + File.separator + "rf.data").toAbsolutePath
       },
-      INITIAL_ARRAY =
+      initial_array =
         UniProcessorTestUtils.createMemoryDataFiles(
-          Seq.fill(1 << ThyrioISA.ID_BITS)(0)) {
+          Seq.fill(1 << ThyrioISA.IdBits)(0)) {
           Paths.get("test_data_dir" + File.separator +
             sanitizeFileName(scalaTestContext.value.get.name) + File.separator + "ra.data").toAbsolutePath
         }
@@ -86,9 +87,13 @@ class UniProcessorTester extends FlatSpec with Matchers with ChiselScalatestTest
               if (dut.io.packet_out.valid.peek().litToBoolean) {
                 if (dut.io.packet_out.address.peek.litValue().toInt == 2) {
                   dut.io.packet_out.data.expect(counter.U)
+                  dut.io.packet_out.xHops.expect(2.U)
+                  dut.io.packet_out.yHops.expect(2.U)
                   (counter + 1, expected)
                 } else {
                   dut.io.packet_out.data.expect(expected.head.U)
+                  dut.io.packet_out.xHops.expect(expected.head.U)
+                  dut.io.packet_out.yHops.expect(expected.head.U)
                   (counter, expected.tail)
                 }
               } else {

@@ -28,8 +28,8 @@ import thyrio.ISA
 
 
 class BareNoCBundle(val config: ISA) extends Bundle {
-  val data: UInt = UInt(config.DATA_BITS.W)
-  val address: UInt = UInt(config.ID_BITS.W)
+  val data: UInt = UInt(config.DataBits.W)
+  val address: UInt = UInt(config.IdBits.W)
   val valid: Bool = Bool()
 
 }
@@ -37,14 +37,14 @@ class BareNoCBundle(val config: ISA) extends Bundle {
 /**
  * A data and control bundle that traverses NoC hops
  *
- * @param DIMX   number of switches in the X direction
- * @param DIMY   number of switches in the Y direction
+ * @param DimX   number of switches in the X direction
+ * @param DimY   number of switches in the Y direction
  * @param config the configuration of the processors
  */
-class NoCBundle(val DIMX: Int, val DIMY: Int, override val config: ISA) extends
+class NoCBundle(val DimX: Int, val DimY: Int, override val config: ISA) extends
   BareNoCBundle(config) {
-  val xHops: UInt = UInt(log2Ceil(DIMX).W)
-  val yHops: UInt = UInt(log2Ceil(DIMY).W)
+  val xHops: UInt = UInt(log2Ceil(DimX).W)
+  val yHops: UInt = UInt(log2Ceil(DimY).W)
 }
 
 object NoCBundle {
@@ -76,7 +76,7 @@ object NoCBundle {
    * @return
    */
   def passX(orig: NoCBundle): NoCBundle = {
-    val passed = Wire(new NoCBundle(orig.DIMX, orig.DIMY, orig.config))
+    val passed = Wire(new NoCBundle(orig.DimX, orig.DimY, orig.config))
     passed := orig
     passed.xHops := orig.xHops - 1.U
     passed
@@ -89,7 +89,7 @@ object NoCBundle {
    * @return
    */
   def passY(orig: NoCBundle): NoCBundle = {
-    val passed = Wire(new NoCBundle(orig.DIMX, orig.DIMY, orig.config))
+    val passed = Wire(new NoCBundle(orig.DimX, orig.DimY, orig.config))
     passed := orig
     passed.yHops := orig.yHops - 1.U
     passed
@@ -103,7 +103,7 @@ object NoCBundle {
    * @return
    */
   def terminal(orig: NoCBundle): NoCBundle = {
-    val reached = Wire(empty(orig.DIMX, orig.DIMY, orig.config))
+    val reached = Wire(empty(orig.DimX, orig.DimY, orig.config))
     reached.address := orig.address
     reached.data := orig.data
     reached
@@ -116,17 +116,17 @@ object NoCBundle {
  * NoC Switch input and output interface with three input interfaces X, Y, L and two output interfaces X and Y. The
  * is time-multiplexed between routing packets through Y or delivering them to the local PE.
  *
- * @param DIMX
- * @param DIMY
+ * @param DimX
+ * @param DimY
  * @param config
  */
-class SwitchInterface(DIMX: Int, DIMY: Int, config: ISA) extends Bundle {
+class SwitchInterface(DimX: Int, DimY: Int, config: ISA) extends Bundle {
   // input from x direction
-  val xInput: NoCBundle = Input(NoCBundle(DIMX, DIMY, config))
+  val xInput: NoCBundle = Input(NoCBundle(DimX, DimY, config))
   // input from y direction
-  val yInput: NoCBundle = Input(NoCBundle(DIMX, DIMY, config))
+  val yInput: NoCBundle = Input(NoCBundle(DimX, DimY, config))
   // input from the local PE
-  val lInput: NoCBundle = Input(NoCBundle(DIMX, DIMY, config))
+  val lInput: NoCBundle = Input(NoCBundle(DimX, DimY, config))
 
   // output to the PE, defining whether the PE is the destination,
   // note that it should always be the case:
@@ -135,9 +135,9 @@ class SwitchInterface(DIMX: Int, DIMY: Int, config: ISA) extends Bundle {
   val terminal: Bool = Output(Bool())
 
   // output in the x direction
-  val xOutput: NoCBundle = Output(NoCBundle(DIMX, DIMY, config))
+  val xOutput: NoCBundle = Output(NoCBundle(DimX, DimY, config))
   // output in the y direction
-  val yOutput: NoCBundle = Output(NoCBundle(DIMX, DIMY, config))
+  val yOutput: NoCBundle = Output(NoCBundle(DimX, DimY, config))
 
 }
 
@@ -158,17 +158,17 @@ class SwitchInterface(DIMX: Int, DIMY: Int, config: ISA) extends Bundle {
  * in a single cycle we can have both X -> X, Y -> Y. In this case any packet originating from L is dropped (e.g.,
  * L -> Y). Another example is X->Y, L->X, in this case any packet on Y is dropped.
  *
- * @param DIMX
- * @param DIMY
+ * @param DimX
+ * @param DimY
  * @param config
  */
-class Switch(DIMX: Int, DIMY: Int, config: ISA) extends Module {
-  val io = IO(new SwitchInterface(DIMX, DIMY, config))
+class Switch(DimX: Int, DimY: Int, config: ISA) extends Module {
+  val io = IO(new SwitchInterface(DimX, DimY, config))
 
-  val empty = Wire(NoCBundle(DIMX, DIMY, config))
+  val empty = Wire(NoCBundle(DimX, DimY, config))
 
-  val x_reg: NoCBundle = Reg(NoCBundle(DIMX, DIMY, config))
-  val y_reg: NoCBundle = Reg(NoCBundle(DIMX, DIMY, config))
+  val x_reg: NoCBundle = Reg(NoCBundle(DimX, DimY, config))
+  val y_reg: NoCBundle = Reg(NoCBundle(DimX, DimY, config))
   val terminal_reg: Bool = Reg(Bool())
 
 

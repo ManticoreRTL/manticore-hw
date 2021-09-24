@@ -1,5 +1,5 @@
 package thyrio.core
 
-class ProcessorArray {
+class Orchestrator {
 
 }

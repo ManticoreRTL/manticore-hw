@@ -49,7 +49,7 @@ class ExecuteTester extends FlatSpec with ChiselScalatestTester with Matchers {
 
   def computeStandard(x: Int, y: Int, funct: Functs): Int = ALUSpec.compute(x, y, funct)
 
-  def randomValue = rdgen.nextInt(1 << ThyrioISA.DATA_BITS)
+  def randomValue = rdgen.nextInt(1 << ThyrioISA.DataBits)
 
   def randomOpcode = {
     val which = Opcode(rdgen.nextInt(9))
@@ -80,7 +80,7 @@ class ExecuteTester extends FlatSpec with ChiselScalatestTester with Matchers {
     val (opcode_pipe, opcode) = randomOpcode
     val x, y, u, v = randomValue
     val imm = randomValue
-    val rd = rdgen.nextInt(1 << ThyrioISA.ID_BITS)
+    val rd = rdgen.nextInt(1 << ThyrioISA.IdBits)
     dut.io.regs_in.x.poke(x.U)
     dut.io.regs_in.y.poke(y.U)
     dut.io.regs_in.u.poke(u.U)
@@ -151,7 +151,7 @@ class ExecuteTester extends FlatSpec with ChiselScalatestTester with Matchers {
   //  def executeLLoad(opcode, )
   it should "correctly handle computation and send out data and result in 3 cycles" in {
 
-    test(new ExecutePiped(config = ThyrioISA, EQUATIONS = equations)).withAnnotations(Seq(USE_VERILATOR)) { dut =>
+    test(new ExecutePiped(config = ThyrioISA, equations = equations)).withAnnotations(Seq(USE_VERILATOR)) { dut =>
       drainAfter(3000)(Seq.fill(3) {
         setPipeIn(dut)
       })(dut)
@@ -160,7 +160,7 @@ class ExecuteTester extends FlatSpec with ChiselScalatestTester with Matchers {
   }
 
   it should "correctly handle computation and send out data and result in a single cycle" in
-    test(new ExecuteComb(ThyrioISA, EQUATIONS = equations)).withAnnotations(Seq(USE_VERILATOR)) { dut =>
+    test(new ExecuteComb(ThyrioISA, equation = equations)).withAnnotations(Seq(USE_VERILATOR)) { dut =>
       drainAfter(3000)(Seq.fill(1) {
         setPipeIn(dut)
       })(dut)

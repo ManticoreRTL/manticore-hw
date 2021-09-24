@@ -12,15 +12,15 @@ object ProgrammerTestUtils {
       val body_length = rdgen.nextInt(20)
       val epilogue_length = rdgen.nextInt(20)
       val sleep_length = rdgen.nextInt(300)
-      (body_length +: Seq.fill(body_length * (isa.NUM_BITS / isa.DATA_BITS)) {
-        rdgen.nextInt(1 << isa.DATA_BITS)
+      (body_length +: Seq.fill(body_length * (isa.NumBits / isa.DataBits)) {
+        rdgen.nextInt(1 << isa.DataBits)
         //            0
       } :+
         epilogue_length :+ sleep_length)
     }
 
     val content: Seq[Int] = streams.zip(xy).flatMap{ case(s, (x, y)) =>
-      val dest = (y << (isa.DATA_BITS / 2)) | x
+      val dest = (y << (isa.DataBits / 2)) | x
       dest +: s
     }.toArray
 

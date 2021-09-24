@@ -51,12 +51,12 @@ import thyrio.{ISA, ThyrioISA}
 class FetchInterface(config: ISA) extends Bundle {
   class ProgrammingInterface extends Bundle {
     val enable: Bool = Bool()
-    val instruction: UInt = UInt(config.NUM_BITS.W)
-    val address: UInt = UInt(config.NUM_PC_BITS.W)
+    val instruction: UInt = UInt(config.NumBits.W)
+    val address: UInt = UInt(config.NumPcBits.W)
   }
-  val program_counter: UInt = Output(UInt(config.NUM_PC_BITS.W))
+  val program_counter: UInt = Output(UInt(config.NumPcBits.W))
   val execution_enable: Bool = Input(Bool())
-  val instruction: UInt = Output(UInt(config.NUM_BITS.W))
+  val instruction: UInt = Output(UInt(config.NumBits.W))
 //  val packet: BareNoCBundle = Input(new BareNoCBundle(config))
 //  val init_enable: Bool = Input(Bool())
   val programmer: ProgrammingInterface = Input(new ProgrammingInterface)
@@ -84,7 +84,7 @@ class FetchCore(config: ISA) extends Module{
 
   val io = IO(new FetchCoreInterface(config))
 
-  val pc = RegInit(UInt(config.NUM_PC_BITS.W), 0.U)
+  val pc = RegInit(UInt(config.NumPcBits.W), 0.U)
 
 //  // a pointer to the next place and instruction can be written
 //  val inst_write_pointer = RegInit(UInt(config.NUM_PC_BITS.W), 0.U)
@@ -101,8 +101,8 @@ class FetchCore(config: ISA) extends Module{
 
   val stopped = RegInit(Bool(), true.B)
 
-  require(config.NUM_PC_BITS / 8 <= 8, "Can only support up to 64-bit instructions")
-  require(config.DATA_BITS == 16, "Not sure if can do other than 16-bit data path")
+  require(config.NumPcBits / 8 <= 8, "Can only support up to 64-bit instructions")
+  require(config.DataBits == 16, "Not sure if can do other than 16-bit data path")
   // 8 bits of byte enable assuming 64-bit instruction
 //  val write_byte_en = RegInit(UInt((config.NUM_BITS / 8).W), 0x00003.U)
 
@@ -137,7 +137,7 @@ class FetchCore(config: ISA) extends Module{
   io.memory_interface.addrb := io.core_interface.programmer.address
   io.memory_interface.dinb := io.core_interface.programmer.instruction
   io.memory_interface.web := io.core_interface.programmer.enable
-  io.memory_interface.bweb := UInt("b" + ("1" * (config.NUM_BITS / 8)))
+  io.memory_interface.bweb := UInt("b" + ("1" * (config.NumBits / 8)))
 
 
 
@@ -152,10 +152,10 @@ class FetchCore(config: ISA) extends Module{
 
 object FetchGenerator extends App {
   println(ThyrioISA.Immediate.length)
-  println(ThyrioISA.ID_BITS)
-  println(ThyrioISA.FUNCT_BITS)
-  println(ThyrioISA.DATA_BITS)
-  println(ThyrioISA.NUM_PC_BITS)
+  println(ThyrioISA.IdBits)
+  println(ThyrioISA.FunctBits)
+  println(ThyrioISA.DataBits)
+  println(ThyrioISA.NumPcBits)
 
   def emitVerilog() = new ChiselStage().emitSystemVerilog(new FetchCore(ThyrioISA),
     Array("--target-dir", "gen-dir"))

@@ -23,7 +23,7 @@ class ProgrammerTester extends FlatSpec with ChiselScalatestTester with Matchers
   it should "correctly read instruction stream from the cache and stream it out" in {
 
 
-    test(new Programmer(config = isa, DIMX = DimX, DIMY = DimY)).withAnnotations(
+    test(new Programmer(config = isa, DimX = DimX, DimY = DimY)).withAnnotations(
       Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)
     ){ dut =>
 

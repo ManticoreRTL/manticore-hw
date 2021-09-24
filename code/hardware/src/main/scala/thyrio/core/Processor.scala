@@ -5,7 +5,7 @@ import Chisel._
 import chisel3.dontTouch
 import chisel3.experimental.ChiselEnum
 import chisel3.stage.ChiselStage
-import memory.SimpleDualPortMemory
+import memory.{CacheConfig, CacheFrontInterface, SimpleDualPortMemory}
 import thyrio.{ISA, ThyrioISA}
 
 import scala.util.Random
@@ -17,22 +17,25 @@ class ProcessorInterface(config: ISA) extends Bundle {
   val packet_in = Input(new BareNoCBundle(config))
   val packet_out = Output(NoCBundle(DIMX, DIMY, config))
   val active = Output(Bool())
+  val cache_interface: CacheFrontInterface = Flipped(CacheConfig.frontInterface())
 }
 
 
 class ProcessorBase(config: ISA,
-                    EQUATIONS: Seq[Seq[Int]],
-                    INITIAL_REGISTERS: String = "",
-                    INITIAL_ARRAY: String = "") extends Module {
+                    equations: Seq[Seq[Int]],
+                    initial_registers: String = "",
+                    initial_array: String = "") extends Module {
   val io = IO(new ProcessorInterface(config))
 
 }
 
 class Processor(config: ISA,
-                EQUATIONS: Seq[Seq[Int]],
-                INITIAL_REGISTERS: String = "",
-                INITIAL_ARRAY: String = "") extends
-  ProcessorBase(config, EQUATIONS, INITIAL_REGISTERS, INITIAL_ARRAY) {
+                DimX: Int,
+                DimY: Int,
+                equations: Seq[Seq[Int]],
+                initial_registers: String = "",
+                initial_array: String = "") extends
+  ProcessorBase(config, equations, initial_registers, initial_array) {
   //  val EQUATIONS = Seq.fill(1 << config.FUNCT_BITS)(Seq.fill(config.DATA_BITS)(rdgen.nextInt(16)))
 
 
@@ -50,38 +53,39 @@ class Processor(config: ISA,
   }
 
 
+
   val state = RegInit(ProcessorPhase(), ProcessorPhase.DynamicReceiveProgramLength)
 
   // the timer should count at least up to 2^12, because there could be 2^12 instructions in this processor, however,
   // since other processors should initialize as well, and there are DIMX * DIMY of them, we need 256 * 2 ^ 12 for
   // initialization (upper bound). But let's go with 2^22 reading since streaming form the DRAM could take longer
-  val countdown_timer = RegInit(UInt(config.DATA_BITS.W), 0.U)
+  val countdown_timer = RegInit(UInt(config.DataBits.W), 0.U)
 
-  val program_body_length = RegInit(UInt(config.NUM_PC_BITS.W), 0.U)
-  val program_epilogue_length = RegInit(UInt(config.NUM_PC_BITS.W), 0.U)
-  val program_sleep_length = RegInit(UInt(config.NUM_PC_BITS.W), 0.U)
+  val program_body_length = RegInit(UInt(config.NumPcBits.W), 0.U)
+  val program_epilogue_length = RegInit(UInt(config.NumPcBits.W), 0.U)
+  val program_sleep_length = RegInit(UInt(config.NumPcBits.W), 0.U)
 
-  val program_pointer = RegInit(UInt(config.NUM_PC_BITS.W), 0.U)
+  val program_pointer = RegInit(UInt(config.NumPcBits.W), 0.U)
 
-  require(config.NUM_PC_BITS / 8 <= 8, "Can only support up to 64-bit instructions")
-  require(config.DATA_BITS == 16, "Not sure if can do other than 16-bit data path")
-  val NumInstructionChunks: Int = config.NUM_BITS / config.DATA_BITS
+  require(config.NumPcBits / 8 <= 8, "Can only support up to 64-bit instructions")
+  require(config.DataBits == 16, "Not sure if can do other than 16-bit data path")
+  val NumInstructionChunks: Int = config.NumBits / config.DataBits
   val inst_builder_pos: UInt = RegInit(UInt(NumInstructionChunks.W), 1.U)
-  val inst_builder_reg: Vec[UInt] = Reg(Vec(NumInstructionChunks - 1, UInt(config.DATA_BITS.W)))
+  val inst_builder_reg: Vec[UInt] = Reg(Vec(NumInstructionChunks - 1, UInt(config.DataBits.W)))
 
   val fetch_stage = Module(new Fetch(config))
   val decode_stage = Module(new Decode(config))
-  val execute_stage: ExecuteBase = Module(new ExecuteComb(config, EQUATIONS))
+  val execute_stage: ExecuteBase = Module(new ExecuteComb(config, equations))
 
-  val memory_stage = Module(new MemoryAccess(config))
+  val memory_stage = Module(new MemoryAccess(config, DimX, DimY))
 
-  val register_file = Module(new RegisterFile(config, INITIAL_REGISTERS))
-  val array_memory = Module(new SimpleDualPortMemory(config.ID_BITS,
-    config.DATA_BITS, memory.MemStyle.BRAM, INITIAL_ARRAY))
+  val register_file = Module(new RegisterFile(config, initial_registers))
+  val array_memory = Module(new SimpleDualPortMemory(config.IdBits,
+    config.DataBits, memory.MemStyle.BRAM, initial_array))
 
   val skip_exec = Wire(Bool())
   val skip_sleep = Wire(Bool())
-  val total_program_length = Wire(UInt(config.NUM_PC_BITS.W))
+  val total_program_length = Wire(UInt(config.NumPcBits.W))
 
   total_program_length := (program_epilogue_length + program_body_length)
   skip_exec := (total_program_length === 0.U)
@@ -192,11 +196,11 @@ class Processor(config: ISA,
         fetch_stage.io.programmer.enable := true.B
         fetch_stage.io.programmer.instruction :=
           Cat(Seq(
-            0.U((config.Immediate.length - config.DATA_BITS).W),
+            0.U((config.Immediate.length - config.DataBits).W),
             io.packet_in.data,
-            0.U((config.ID_BITS + config.FUNCT_BITS).W),
+            0.U((config.IdBits + config.FunctBits).W),
             io.packet_in.address,
-            config.SetValue.value.U(config.OPCODE_BITS.W)))
+            config.SetValue.value.U(config.OpcodeBits.W)))
       } otherwise {
         fetch_stage.io.programmer.enable := false.B
       }
@@ -246,10 +250,10 @@ class Processor(config: ISA,
 
 
   // exec --> memory and write back implementation
-  memory_stage.io.memory_interface <> array_memory.io
+  memory_stage.io.local_memory_interface <> array_memory.io
   memory_stage.io.pipe_in := execute_stage.io.pipe_out
   register_file.io.w.en := memory_stage.io.pipe_out.write_back & (memory_stage.io.pipe_out.rd =/= 0.U)
-  when(memory_stage.io.pipe_out.load) {
+  when(memory_stage.io.pipe_out.lload) {
     register_file.io.w.din := memory_stage.io.pipe_out.mem_data
   } otherwise {
     register_file.io.w.din := memory_stage.io.pipe_out.result
@@ -257,6 +261,10 @@ class Processor(config: ISA,
   register_file.io.w.addr := memory_stage.io.pipe_out.rd
 
   io.packet_out := memory_stage.io.pipe_out.packet
+
+  if (config.WithGlobalMemory) {
+    io.cache_interface <> memory_stage.io.global_memory_interface
+  }
 
 }
 
@@ -266,8 +274,8 @@ object ProcessorEmitter extends App {
   val equations: Seq[Seq[Int]] = Seq.fill(32)(Seq.fill(16)(rdgen.nextInt(1 << 16)))
 
   def makeProcessor() =
-    new Processor(config = ThyrioISA,
-      EQUATIONS = equations
+    new Processor(config = ThyrioISA, DimX = 16, DimY = 16,
+      equations = equations
     )
 
   new ChiselStage().emitVerilog(

@@ -74,7 +74,7 @@ class UniProcessorCoupledCountersTester extends FlatSpec with Matchers with Chis
     val cond_y_as_sel = freshReg
 
     val reset_cond = freshReg
-    val mux_eq = CustomFunction(Seq.fill(ThyrioISA.DATA_BITS){0xcaca})
+    val mux_eq = CustomFunction(Seq.fill(ThyrioISA.DataBits){0xcaca})
 
     /**
      * The program does the following at every virtual cycle:
@@ -182,15 +182,15 @@ class UniProcessorCoupledCountersTester extends FlatSpec with Matchers with Chis
     }
 
     test{
-      new Processor(config = ThyrioISA,
-        EQUATIONS = equations,
-        INITIAL_REGISTERS = UniProcessorTestUtils.createMemoryDataFiles{
+      new Processor(config = ThyrioISA, DimX = 16, DimY = 16,
+        equations = equations,
+        initial_registers = UniProcessorTestUtils.createMemoryDataFiles{
           interp.env.register_file.toSeq
         }{
           Paths.get("test_data_dir" + File.separator +
             sanitizeFileName(scalaTestContext.value.get.name) + File.separator + "rf.data").toAbsolutePath
         },
-        INITIAL_ARRAY = UniProcessorTestUtils.createMemoryDataFiles{
+        initial_array = UniProcessorTestUtils.createMemoryDataFiles{
           interp.env.register_array.toSeq
         }{
           Paths.get("test_data_dir" + File.separator +
@@ -255,15 +255,15 @@ class UniProcessorCoupledCountersTester extends FlatSpec with Matchers with Chis
     )
 
     test{
-      new Processor(config = ThyrioISA,
-        EQUATIONS = equations,
-        INITIAL_REGISTERS = UniProcessorTestUtils.createMemoryDataFiles{
+      new Processor(config = ThyrioISA, DimX = 16, DimY = 16,
+        equations = equations,
+        initial_registers = UniProcessorTestUtils.createMemoryDataFiles{
           interp.env.register_file.toSeq
         }{
           Paths.get("test_data_dir" + File.separator +
             sanitizeFileName(scalaTestContext.value.get.name) + File.separator + "rf.data").toAbsolutePath
         },
-        INITIAL_ARRAY = UniProcessorTestUtils.createMemoryDataFiles{
+        initial_array = UniProcessorTestUtils.createMemoryDataFiles{
           interp.env.register_array.toSeq
         }{
           Paths.get("test_data_dir" + File.separator +

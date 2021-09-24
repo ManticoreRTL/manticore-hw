@@ -16,7 +16,7 @@ import scala.util.{Failure, Random}
 object ALUSpec {
   import StandardALU.Functs._
   def clipped(x: Int): Int = {
-    x & ((1 << ThyrioISA.DATA_BITS) - 1)
+    x & ((1 << ThyrioISA.DataBits) - 1)
   }
   def compute(x: Int, y: Int, funct: Functs): Int =
     funct match {

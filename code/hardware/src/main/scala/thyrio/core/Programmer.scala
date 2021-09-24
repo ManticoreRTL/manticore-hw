@@ -7,9 +7,9 @@ import memory.{Cache, CacheCommand, CacheConfig, CacheFrontInterface}
 import thyrio.ISA
 
 
-class ProgrammerInterface(config: ISA, DIMX: Int, DIMY: Int) extends Bundle {
+class ProgrammerInterface(config: ISA, DimX: Int, DimY: Int) extends Bundle {
 
-  val packet_out: NoCBundle = Output(new NoCBundle(config = config, DIMX = DIMX, DIMY = DIMY))
+  val packet_out: NoCBundle = Output(new NoCBundle(config = config, DimX = DimX, DimY = DimY))
   // base byte-addressable address of the allocated instruction stream which has the following format
   // assuming a 16-bit data path if
   // [X0, Y0] (physical address of the first processor)
@@ -30,16 +30,16 @@ class ProgrammerInterface(config: ISA, DIMX: Int, DIMY: Int) extends Bundle {
   val pause_exec: Bool = Input(Bool())
   val resume_exec: Bool = Input(Bool())
   val halt_exec: Bool = Input(Bool())
-  val core_active: Vec[Bool] = Input(Vec(DIMY * DIMX, Bool()))
+  val core_active: Vec[Bool] = Input(Vec(DimY * DimX, Bool()))
   val done: Bool = Output(Bool())
   val idle: Bool = Output(Bool())
   val global_synch: Bool = Output(Bool())
   val cache_frontend: CacheFrontInterface = Flipped(CacheConfig.frontInterface())
 }
 
-class Programmer(config: ISA, DIMX: Int, DIMY: Int) extends Module {
-  require(config.DATA_BITS == 16, "Only 16-bit data width is supported with the cache implementation")
-  val io: ProgrammerInterface = IO(new ProgrammerInterface(config, DIMX, DIMY))
+class Programmer(config: ISA, DimX: Int, DimY: Int) extends Module {
+  require(config.DataBits == 16, "Only 16-bit data width is supported with the cache implementation")
+  val io: ProgrammerInterface = IO(new ProgrammerInterface(config, DimX, DimY))
 
   object Phase extends ChiselEnum {
     val Idle,
@@ -60,10 +60,10 @@ class Programmer(config: ISA, DIMX: Int, DIMY: Int) extends Module {
   val instruction_stream_addr_reg: UInt = Reg(UInt(CacheConfig.UsedAddressBits.W))
   val enable_addr_increment: Bool = Wire(Bool())
 
-  require(CacheConfig.UsedAddressBits > config.NUM_PC_BITS)
+  require(CacheConfig.UsedAddressBits > config.NumPcBits)
   val body_length_end: UInt = Reg(UInt(CacheConfig.UsedAddressBits.W))
 
-  val delay_value: UInt = Reg(UInt(config.DATA_BITS.W))
+  val delay_value: UInt = Reg(UInt(config.DataBits.W))
 
   when(io.start) {
     instruction_stream_addr_reg := io.instruction_stream_base(CacheConfig.UsedAddressBits, 1) // drop the byte offset
@@ -92,8 +92,8 @@ class Programmer(config: ISA, DIMX: Int, DIMY: Int) extends Module {
     io.value := count_reg
   }
 
-  val x_counter = Module(new WrappingCounter(DIMX))
-  val y_counter = Module(new WrappingCounter(DIMY))
+  val x_counter = Module(new WrappingCounter(DimX))
+  val y_counter = Module(new WrappingCounter(DimY))
 
   x_counter.io.en := false.B
   y_counter.io.en := false.B
@@ -103,8 +103,8 @@ class Programmer(config: ISA, DIMX: Int, DIMY: Int) extends Module {
     y_counter.io.en := x_counter.io.wrap
   }
 
-  val dest_x: UInt = Reg(UInt(log2Ceil(DIMX).W))
-  val dest_y: UInt = Reg(UInt(log2Ceil(DIMY).W))
+  val dest_x: UInt = Reg(UInt(log2Ceil(DimX).W))
+  val dest_y: UInt = Reg(UInt(log2Ceil(DimY).W))
   io.idle := (phase === Phase.Idle)
   io.done := false.B
   io.packet_out.valid := false.B
@@ -133,7 +133,7 @@ class Programmer(config: ISA, DIMX: Int, DIMY: Int) extends Module {
       when(io.start) {
         phase := Phase.StartCacheRead
         phase_next := Phase.StreamDest
-        delay_value := (DIMX * DIMY + 2).U
+        delay_value := (DimX * DimY + 2).U
         instruction_stream_addr_reg := io.instruction_stream_base
       }
     }
@@ -146,8 +146,8 @@ class Programmer(config: ISA, DIMX: Int, DIMY: Int) extends Module {
 
     is(Phase.StreamDest) {
       when(io.cache_frontend.done) {
-        dest_x := io.cache_frontend.rdata.tail(config.DATA_BITS / 2)
-        dest_y := io.cache_frontend.rdata.head(config.DATA_BITS / 2)
+        dest_x := io.cache_frontend.rdata.tail(config.DataBits / 2)
+        dest_y := io.cache_frontend.rdata.head(config.DataBits / 2)
 
         xyCountUp()
 
@@ -160,9 +160,9 @@ class Programmer(config: ISA, DIMX: Int, DIMY: Int) extends Module {
       when(io.cache_frontend.done) {
         io.packet_out.valid := true.B
         phase := Phase.StartCacheRead
-        require(config.NUM_BITS % config.DATA_BITS == 0, "Instruction length should be aligned to data length")
+        require(config.NumBits % config.DataBits == 0, "Instruction length should be aligned to data length")
         body_length_end :=
-          instruction_stream_addr_reg + (io.cache_frontend.rdata << log2Ceil(config.NUM_BITS / config.DATA_BITS))
+          instruction_stream_addr_reg + (io.cache_frontend.rdata << log2Ceil(config.NumBits / config.DataBits))
         when(io.cache_frontend.rdata === 0.U) {
           // no instructions
           phase_next := Phase.StreamEpilogueLength
@@ -208,8 +208,8 @@ class Programmer(config: ISA, DIMX: Int, DIMY: Int) extends Module {
     }
     is(Phase.StreamCountDown) {
       xyCountUp()
-      io.packet_out.xHops := (DIMX - 1).U - x_counter.io.value
-      io.packet_out.yHops := (DIMY - 1).U - y_counter.io.value
+      io.packet_out.xHops := (DimX - 1).U - x_counter.io.value
+      io.packet_out.yHops := (DimY - 1).U - y_counter.io.value
       io.packet_out.valid := true.B
       io.packet_out.data := delay_value
       delay_value := delay_value - 1.U

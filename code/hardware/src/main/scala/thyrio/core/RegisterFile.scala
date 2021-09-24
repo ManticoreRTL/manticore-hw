@@ -29,8 +29,8 @@ import memory.{GenericMemory, GenericMemoryInterface, SimpleDualPortMemory, Simp
 import thyrio.{ISA, ThyrioISA}
 
 class RegisterFileInterface(config: ISA) extends Bundle {
-  def makeAddr = Input(UInt(config.ID_BITS.W))
-  def makeDout = Output(UInt(config.DATA_BITS.W))
+  def makeAddr = Input(UInt(config.IdBits.W))
+  def makeDout = Output(UInt(config.DataBits.W))
   class ReadIf extends Bundle {
     val addr = makeAddr
     val dout = makeDout
@@ -48,7 +48,7 @@ class RegisterFileInterface(config: ISA) extends Bundle {
   }
   class WriteIf extends Bundle {
     val addr = makeAddr
-    val din = Input(UInt(config.DATA_BITS.W))
+    val din = Input(UInt(config.DataBits.W))
     val en = Input(Bool())
 
     def <->(mem_if: GenericMemoryInterface): Unit = {
@@ -71,8 +71,8 @@ class RegisterFile(config: ISA, INIT: String = "") extends Module {
 
   val io = IO(new RegisterFileInterface(config))
 
-  def makeBank = new SimpleDualPortMemory(ADDRESS_WIDTH = config.ID_BITS,
-    DATA_WIDTH = config.DATA_BITS, INIT = INIT)
+  def makeBank = new SimpleDualPortMemory(ADDRESS_WIDTH = config.IdBits,
+    DATA_WIDTH = config.DataBits, INIT = INIT)
   val xbank, ybank, ubank, vbank = Module(makeBank)
 
   io.w <-> xbank.io

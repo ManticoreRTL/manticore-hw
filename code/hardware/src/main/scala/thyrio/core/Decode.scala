@@ -44,21 +44,21 @@ object Decode {
   }
 
   class PipeOut(config: ISA) extends Bundle {
-    private def regIdOut = UInt(config.ID_BITS.W)
+    private def regIdOut = UInt(config.IdBits.W)
     val rd: UInt = regIdOut
     val rs1: UInt = regIdOut
     val rs2: UInt = regIdOut
     val rs3: UInt = regIdOut
     val rs4: UInt = regIdOut
     val opcode: OpcodePipe = new OpcodePipe
-    val funct: UInt = UInt(config.FUNCT_BITS.W)
-    val immediate: UInt = UInt(config.DATA_BITS.W)
+    val funct: UInt = UInt(config.FunctBits.W)
+    val immediate: UInt = UInt(config.DataBits.W)
   }
 
 
 }
 class DecodeInterface(config: ISA) extends Bundle {
-  val instruction = Input(UInt(config.NUM_BITS.W))
+  val instruction = Input(UInt(config.NumBits.W))
 
   val pipe_out = Output(new Decode.PipeOut(config))
 //  val rd: UInt = regIdOut
@@ -85,8 +85,8 @@ class Decode(config: ISA) extends Module {
       reg := false.B
     }
 
-  val opcode: UInt = Wire(UInt(config.OPCODE_BITS.W))
-  opcode := io.instruction(config.OPCODE_BITS - 1, 0)
+  val opcode: UInt = Wire(UInt(config.OpcodeBits.W))
+  opcode := io.instruction(config.OpcodeBits - 1, 0)
 
   val opcode_regs = Reg(new Decode.OpcodePipe)
 
@@ -106,13 +106,15 @@ class Decode(config: ISA) extends Module {
   io.pipe_out.opcode := opcode_regs
 
   val funct_reg = Reg(UInt(config.Funct.W))
-  val immediate_reg = Reg(UInt(config.Immediate.W))
-  val rd_reg = Reg(UInt(config.ID_BITS.W))
+
+//  require(config.Immediate.length <= config.DATA_BITS)
+  val immediate_reg = Reg(UInt(config.DataBits.W))
+  val rd_reg = Reg(UInt(config.IdBits.W))
 
   funct_reg := io.instruction(config.Funct.toIndex, config.Funct.fromIndex)
   io.pipe_out.funct := funct_reg
 
-  immediate_reg := io.instruction.head(config.DATA_BITS)
+  immediate_reg := io.instruction.head(config.DataBits)
   io.pipe_out.immediate := immediate_reg
 
   rd_reg := io.instruction(config.DestReg.toIndex, config.DestReg.fromIndex)

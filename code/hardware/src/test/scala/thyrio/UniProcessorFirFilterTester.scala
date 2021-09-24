@@ -15,17 +15,19 @@ import java.io.{File, PrintWriter}
 import java.nio.file.{Files, Path, Paths}
 import scala.annotation.tailrec
 import scala.language.postfixOps
-class UniProcessorFirFilterTester extends FlatSpec with Matchers with ChiselScalatestTester{
 
+class UniProcessorFirFilterTester extends FlatSpec with Matchers with ChiselScalatestTester {
 
 
   val rdgen = new scala.util.Random(0)
 
   val coeffs = Seq(187, 212, 61)
-//  val x_vals = Range(1, 101)
-  val x_vals = Seq.fill(100){1}
+  //  val x_vals = Range(1, 101)
+  val x_vals = Seq.fill(100) {
+    1
+  }
   val y_vals = x_vals sliding(coeffs.size, 1) map { xs: Seq[Int] =>
-    coeffs zip xs map { case (c, x) => (x * c) & ((1 << ThyrioISA.DATA_BITS) - 1)} sum
+    coeffs zip xs map { case (c, x) => (x * c) & ((1 << ThyrioISA.DataBits) - 1) } sum
   } toSeq
   val x_vals_start = 1024
   val y_vals_start = 1024 + x_vals.size * 2
@@ -60,7 +62,7 @@ class UniProcessorFirFilterTester extends FlatSpec with Matchers with ChiselScal
     /// make a reset pulse
     interp.env.register_array(0) = 1
 
-    x_vals.zipWithIndex.foreach{ case (x, i) =>
+    x_vals.zipWithIndex.foreach { case (x, i) =>
       interp.env.register_array(x_vals_start + i) = x
     }
 
@@ -70,11 +72,13 @@ class UniProcessorFirFilterTester extends FlatSpec with Matchers with ChiselScal
     val y_vals_base = R(8)
     interp.env.register_file(y_vals_base) = y_vals_start
     var ix: Int = 20
+
     def freshReg = {
       val reg = R(ix)
       ix = ix + 1
       reg
     }
+
     // registers with dynamic values
     val reset_ptr = freshReg
     interp.env.register_file(reset_ptr) = 0
@@ -94,7 +98,7 @@ class UniProcessorFirFilterTester extends FlatSpec with Matchers with ChiselScal
     val tap1b1 = freshReg
     val tap2b2 = freshReg
     val sum01 = freshReg
-    val sum   = freshReg
+    val sum = freshReg
     val x_ptr_plus_1 = freshReg
     val y_ptr_plus_1 = freshReg
 
@@ -126,7 +130,6 @@ class UniProcessorFirFilterTester extends FlatSpec with Matchers with ChiselScal
 
     (program, Map("y_ptr" -> y_ptr, "x_ptr" -> x_ptr, "y_value" -> y_value), interp)
   }
-
 
 
   def streamInstructions(p: Array[Instruction])(implicit dut: Processor): Unit = {
@@ -178,6 +181,7 @@ class UniProcessorFirFilterTester extends FlatSpec with Matchers with ChiselScal
       )
     )
   }
+
   // create MUX LUT equations
   val equations: Seq[Seq[Int]] = Seq.fill(32)(Seq.fill(16)(0xcaca))
 
@@ -186,12 +190,13 @@ class UniProcessorFirFilterTester extends FlatSpec with Matchers with ChiselScal
       sanitizeFileName(scalaTestContext.value.get.name) + File.separator + name).toAbsolutePath
     Files.createDirectories(filepath.getParent)
     val fw = new PrintWriter(filepath.toFile)
-    data.foreach{ v =>
+    data.foreach { v =>
       fw.println(s"%016d".format(v.toBinaryString.toLong))
     }
     fw.close()
     filepath.toString
   }
+
   behavior of "Processor"
 
   it should "compute correct fir filter output values" in {
@@ -200,28 +205,27 @@ class UniProcessorFirFilterTester extends FlatSpec with Matchers with ChiselScal
 
 
     test {
-      new Processor(config = ThyrioISA,
-        EQUATIONS = equations,
-        INITIAL_REGISTERS = UniProcessorTestUtils.createMemoryDataFiles{
+      new Processor(config = ThyrioISA, DimX = 16, DimY = 16,
+        equations = equations,
+        initial_registers = UniProcessorTestUtils.createMemoryDataFiles {
           interp.env.register_file.toSeq
-        }{
+        } {
           Paths.get("test_data_dir" + File.separator +
             sanitizeFileName(scalaTestContext.value.get.name) + File.separator + "rf.data").toAbsolutePath
         },
-        INITIAL_ARRAY = UniProcessorTestUtils.createMemoryDataFiles{
+        initial_array = UniProcessorTestUtils.createMemoryDataFiles {
           interp.env.register_array.toSeq
-        }{
+        } {
           Paths.get("test_data_dir" + File.separator +
             sanitizeFileName(scalaTestContext.value.get.name) + File.separator + "ra.data").toAbsolutePath
         }
       )
-    }.withAnnotations(Seq(USE_VERILATOR)){ implicit dut =>
-
+    }.withAnnotations(Seq(USE_VERILATOR)) { implicit dut =>
 
 
       val num_vcycles = x_vals.size
 
-      Range(0, num_vcycles).map{ i =>
+      Range(0, num_vcycles).map { i =>
         interp.run(program)
       }
 
@@ -233,12 +237,12 @@ class UniProcessorFirFilterTester extends FlatSpec with Matchers with ChiselScal
       }
 
       // stream instructions to the processor
-//      streamInstructions(program)
+      //      streamInstructions(program)
 
       UniProcessorTestUtils.programProcessor(
         program.map(Assembler.assemble(_)(equations)),
         2, 30, 50, dut
-      ){
+      ) {
         rdgen.nextInt(10) == 0
       }
       // start hardware simulation
@@ -248,6 +252,7 @@ class UniProcessorFirFilterTester extends FlatSpec with Matchers with ChiselScal
       def executeChecked(unchecked: Seq[Int]): Unit = {
         if (unchecked.nonEmpty) {
           dut.clock.step()
+          
           if (dut.io.packet_out.valid.peek().litToBoolean) {
             dut.io.packet_out.data.expect(unchecked.head.U)
             dut.io.packet_out.address.expect(vars("y_value").index.U)
@@ -263,7 +268,6 @@ class UniProcessorFirFilterTester extends FlatSpec with Matchers with ChiselScal
     }
 
   }
-
 
 
 }
