@@ -4,7 +4,7 @@ import Chisel._
 import memory.{Cache, CacheBackInterface, CacheConfig}
 import thyrio.{ISA, ThyrioISA, ThyrioISAWithGlobalMemory}
 
-import scala.reflect.io.Path
+
 
 
 class ProgrammableRegisters(config: ISA) extends Bundle {

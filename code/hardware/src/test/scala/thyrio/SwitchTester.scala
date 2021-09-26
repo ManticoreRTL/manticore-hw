@@ -46,46 +46,11 @@ class SwitchTester extends FlatSpec  with ChiselScalatestTester with Matchers {
   val config = ThyrioISA
   val NUM_TESTS = 4096
   val rdgen = Random
-  def genAddress = Random.nextInt(1 << config.IdBits).U
-  def genData = Random.nextInt(1 << config.DataBits).U
-  def genValid = Random.nextInt(2).B
 
-  def randomPacketXY: NoCBundle = {
-    NoCBundle(DIMX, DIMY, config).Lit(
-      _.data -> genData,
-      _.address -> genAddress,
-      _.valid -> true.B,
-      _.xHops -> Random.nextInt(1 << log2Ceil(DIMX)).U,
-      _.yHops -> Random.nextInt(1 << log2Ceil(DIMY)).U
-    )
-  }
-  def randomPacketY: NoCBundle = {
-    NoCBundle(DIMX, DIMY, config).Lit(
-      _.data -> genData,
-      _.address -> genAddress,
-      _.valid -> true.B,
-      _.xHops -> 0.U,
-      _.yHops -> (Random.nextInt((1 << log2Ceil(DIMY)) - 1)).U
-    )
-  }
-  def randomPacketX: NoCBundle = {
-    NoCBundle(DIMX, DIMY, config).Lit(
-      _.data -> genData,
-      _.address -> genAddress,
-      _.valid -> true.B,
-      _.xHops -> (Random.nextInt((1 << log2Ceil(DIMX)) - 1)).U,
-      _.yHops -> 0.U
-    )
-  }
-  def emptyPacket = {
-    NoCBundle(DIMX, DIMY, config).Lit(
-      _.data -> 0.U,
-      _.address -> 0.U,
-      _.valid -> false.B,
-      _.xHops -> 0.U,
-      _.yHops -> 0.U
-    )
-  }
+  def randomPacketXY: NoCBundle = SwitchTestUtils.randomPacketXY(DIMX, DIMY, config)(rdgen)
+  def randomPacketY: NoCBundle = SwitchTestUtils.randomPacketY(DIMX, DIMY, config)(rdgen)
+  def randomPacketX: NoCBundle = SwitchTestUtils.randomPacketX(DIMX, DIMY, config)(rdgen)
+  def emptyPacket: NoCBundle = SwitchTestUtils.emptyPacket(DIMX, DIMY, config)
 
   def passX(orig: NoCBundle): NoCBundle = {
     NoCBundle(DIMX, DIMY, config).Lit(
