@@ -27,13 +27,11 @@ class ProgrammerInterface(config: ISA, DimX: Int, DimY: Int) extends Bundle {
 
   val instruction_stream_base: UInt = Input(UInt(64.W))
   val start: Bool = Input(Bool())
-  val pause_exec: Bool = Input(Bool())
-  val resume_exec: Bool = Input(Bool())
-  val halt_exec: Bool = Input(Bool())
-  val core_active: Vec[Bool] = Input(Vec(DimY * DimX, Bool()))
-  val done: Bool = Output(Bool())
-  val idle: Bool = Output(Bool())
-  val global_synch: Bool = Output(Bool())
+  val finish: Bool = Input(Bool())
+//  val core_active: Vec[Bool] = Input(Vec(DimY * DimX, Bool()))
+  val running: Bool = Output(Bool())
+
+//  val global_synch: Bool = Output(Bool())
   val cache_frontend: CacheFrontInterface = Flipped(CacheConfig.frontInterface())
 }
 
@@ -105,8 +103,8 @@ class Programmer(config: ISA, DimX: Int, DimY: Int) extends Module {
 
   val dest_x: UInt = Reg(UInt(log2Ceil(DimX).W))
   val dest_y: UInt = Reg(UInt(log2Ceil(DimY).W))
-  io.idle := (phase === Phase.Idle)
-  io.done := false.B
+
+  io.running := (phase === Phase.Running)
   io.packet_out.valid := false.B
 
   io.packet_out.data := io.cache_frontend.rdata
@@ -122,12 +120,12 @@ class Programmer(config: ISA, DimX: Int, DimY: Int) extends Module {
 
   enable_addr_increment := false.B
 
-  io.global_synch := io.core_active.forall(_ === false.B)
+//  io.global_synch := io.core_active.forall(_ === false.B)
 
 
   val phase_next: Phase.Type = Reg(Phase.Type(), Phase.Idle)
 
-  io.idle := (Phase.Idle === phase)
+
   switch(phase) {
     is(Phase.Idle) {
       when(io.start) {
@@ -222,23 +220,8 @@ class Programmer(config: ISA, DimX: Int, DimY: Int) extends Module {
     }
 
     is(Phase.Running) {
-      when(io.pause_exec) {
-        phase := Phase.Paused
-      }.elsewhen(io.halt_exec) {
+      when(io.finish) {
         phase := Phase.Idle
-        io.done := true.B
-      } otherwise {
-        phase := Phase.Running
-      }
-    }
-    is(Phase.Paused) {
-      when(io.resume_exec) {
-        phase := Phase.Running
-      }.elsewhen(io.halt_exec) {
-        phase := Phase.Idle
-        io.done := true.B
-      }.otherwise {
-        phase := Phase.Paused
       }
     }
   }

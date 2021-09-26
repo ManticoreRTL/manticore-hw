@@ -74,7 +74,7 @@ class UniProcessorTester extends FlatSpec with Matchers with ChiselScalatestTest
 
         @tailrec
         def waitForStart(): Unit = {
-          if (!dut.io.active.peek().litToBoolean) {
+          if (!dut.io.periphery.active.peek().litToBoolean) {
             dut.clock.step()
             waitForStart()
           }
@@ -82,7 +82,7 @@ class UniProcessorTester extends FlatSpec with Matchers with ChiselScalatestTest
 
         @tailrec
         def execute(expected: Seq[Int], msgs: Seq[(Int, Int)]): Unit = {
-          if (dut.io.active.peek.litToBoolean) {
+          if (dut.io.periphery.active.peek.litToBoolean) {
             val next =
               if (dut.io.packet_out.valid.peek().litToBoolean) {
                 if (dut.io.packet_out.address.peek.litValue().toInt == 2) {

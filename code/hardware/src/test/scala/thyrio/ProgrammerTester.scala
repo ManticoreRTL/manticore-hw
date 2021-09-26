@@ -73,8 +73,7 @@ class ProgrammerTester extends FlatSpec with ChiselScalatestTester with Matchers
               } else {
                 (check_index, expected_stream)
               }
-            dut.io.idle.expect(false.B)
-            dut.io.done.expect(false.B)
+
             dut.clock.step()
             loop(next_index, new_access, next_expected_stream)
           }
@@ -85,34 +84,34 @@ class ProgrammerTester extends FlatSpec with ChiselScalatestTester with Matchers
         dut.clock.step()
         dut.clock.setTimeout(DimX * DimY * 1024)
         dut.io.start.poke(false.B)
-        dut.io.core_active.foreach{v => v.poke(false.B)}
+//        dut.io.core_active.foreach{v => v.poke(false.B)}
         loop(memory_spec.base_address, None, memory_spec.expected_stream)
       }
 
       println("Starting stream validation, this may take a while...")
       validateStreaming()
 
-      def checkSyn(exec_times: Seq[Int]): Unit = {
-        @tailrec
-        def loop(counters: Seq[Int]): Unit = {
-          if (counters.exists(_ != 0)) {
-
-            counters zip dut.io.core_active foreach { case (v, port) => port.poke((v > 0).B) }
-            val next_counters = counters.map(x => 0 max (x - 1))
-            dut.clock.step()
-            dut.io.global_synch.expect(false.B)
-            loop(next_counters)
-          }
-        }
-        loop(exec_times)
-        dut.io.core_active.foreach(port => port.poke(false.B))
-        dut.clock.step()
-        dut.io.global_synch.expect(true.B)
-        dut.io.core_active.foreach(p => p.poke(false.B))
-        dut.clock.step()
-      }
-
-      checkSyn(Seq.fill(DimX * DimY){rdgen.nextInt(300)})
+//      def checkSyn(exec_times: Seq[Int]): Unit = {
+//        @tailrec
+//        def loop(counters: Seq[Int]): Unit = {
+//          if (counters.exists(_ != 0)) {
+//
+//            counters zip dut.io.core_active foreach { case (v, port) => port.poke((v > 0).B) }
+//            val next_counters = counters.map(x => 0 max (x - 1))
+//            dut.clock.step()
+//            dut.io.global_synch.expect(false.B)
+//            loop(next_counters)
+//          }
+//        }
+//        loop(exec_times)
+//        dut.io.core_active.foreach(port => port.poke(false.B))
+//        dut.clock.step()
+//        dut.io.global_synch.expect(true.B)
+//        dut.io.core_active.foreach(p => p.poke(false.B))
+//        dut.clock.step()
+//      }
+//
+//      checkSyn(Seq.fill(DimX * DimY){rdgen.nextInt(300)})
 
 
 

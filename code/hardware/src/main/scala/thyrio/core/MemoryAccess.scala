@@ -62,7 +62,7 @@ class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
 
   require(io.pipe_in.immediate.getWidth % 2 == 0)
 
-  val hop_bits = io.pipe_in.immediate.getWidth / 2
+  val hop_bits: Int = io.pipe_in.immediate.getWidth / 2
 
   //  packet_reg.xHops := io.pipe_in.immediate(log2Ceil(DimX) - 1, 0)
   packet_reg.xHops := io.pipe_in.immediate.tail(hop_bits)

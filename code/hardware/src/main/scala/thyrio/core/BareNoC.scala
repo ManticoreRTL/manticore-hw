@@ -7,10 +7,18 @@ import thyrio.ISA
 class BareNoCInterface(DimX: Int, DimY: Int, config: ISA) extends Bundle {
   def makePacketArray(): Vec[Vec[NoCBundle]] = Vec(DimX, Vec(DimY, new NoCBundle(DimX, DimY, config)))
 
-  val lInput: Vec[Vec[NoCBundle]] = Input(makePacketArray())
-  val lOuput: Vec[Vec[NoCBundle]] = Output(makePacketArray())
+  val corePacketInput: Vec[Vec[NoCBundle]] = Input(makePacketArray())
+  val corePacketOutput: Vec[Vec[NoCBundle]] = Output(makePacketArray())
+  val configPacket: NoCBundle = Input(new NoCBundle(DimX, DimY, config))
+  val configEnable: Bool = Input(Bool())
 }
 
+/**
+ * Bare-bone NoC that only contains an 2D torus of switches
+ * @param DimX
+ * @param DimY
+ * @param config
+ */
 class BareNoC(DimX: Int, DimY: Int, config: ISA) extends Module {
 
   val io = IO(new BareNoCInterface(DimX, DimY, config))
@@ -24,7 +32,11 @@ class BareNoC(DimX: Int, DimY: Int, config: ISA) extends Module {
   // connect the row ports in the switches
 
   switch_array.transpose.foreach { row =>
-    row.head.io.xInput := row.last.io.xOutput
+    when (io.configEnable) {
+      row.head.io.xInput := io.configPacket
+    } otherwise {
+      row.head.io.xInput := row.last.io.xOutput
+    }
     row.sliding(2, 1).foreach { case Seq(left: Switch, right: Switch) =>
       right.io.xInput := left.io.xOutput
     }
@@ -39,9 +51,9 @@ class BareNoC(DimX: Int, DimY: Int, config: ISA) extends Module {
   }
 
 
-
+  // connect ios
   switch_array.flatten.
-    zip(io.lInput.flatten.zip(io.lOuput.flatten))
+    zip(io.corePacketInput.flatten.zip(io.corePacketOutput.flatten))
     .foreach { case (_switch, (_in, _out)) =>
       _switch.io.lInput := _in
       _out := _switch.io.yOutput

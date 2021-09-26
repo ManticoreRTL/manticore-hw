@@ -9,18 +9,21 @@ import chisel3.stage.ChiselStage
 /**
  * Cache back-end interface. The backend interface connects to a module that talks to the memory through a bus (e.g.,
  * AXI). Such a back-end should be able to perform a single read or a write-back accompanied by a read.
+ *
  * @param CacheLineBits the number of bits in a cache line, e.g., 256
- * @param AddressBits the number of bits in the "half-word address" aligned to the cache-line size
- *                    (i.e., not byte-addressable)
+ * @param AddressBits   the number of bits in the "half-word address" aligned to the cache-line size
+ *                      (i.e., not byte-addressable)
  */
 
 object CacheBackendCommand extends Enumeration {
   type Type = Value
   val Read, Write, WriteBack = Value
+
   def instance() = UInt(log2Ceil(this.maxId).W)
 
 }
-class CacheBackInterface(CacheLineBits: Int, AddressBits: Int) extends  Bundle {
+
+class CacheBackInterface(CacheLineBits: Int, AddressBits: Int) extends Bundle {
 
 
   /**
@@ -74,9 +77,10 @@ class CacheBackInterface(CacheLineBits: Int, AddressBits: Int) extends  Bundle {
 
   /**
    * start a write-back-then-read operation
-   * @param dirty_line the dirty line to write back
+   *
+   * @param dirty_line    the dirty line to write back
    * @param write_address address of the dirty line in the memory (cache aligned half-word address)
-   * @param read_address address of the read location
+   * @param read_address  address of the read location
    */
   def startWriteBackLine(dirty_line: UInt, write_address: UInt, read_address: UInt): Unit = {
     start := true.B
@@ -88,6 +92,7 @@ class CacheBackInterface(CacheLineBits: Int, AddressBits: Int) extends  Bundle {
 
   /**
    * Start a read operation
+   *
    * @param read_addr address to read from
    */
   def startReadLine(read_addr: UInt) = {
@@ -119,27 +124,53 @@ object CacheCommand extends ChiselEnum {
 
 /**
  * Cache front-end interface
- * @param DataBits number of bits in a half word (e.g., 16 bits)
+ *
+ * @param DataBits    number of bits in a half word (e.g., 16 bits)
  * @param AddressBits number of bits in a half-word address
  */
 class CacheFrontInterface(DataBits: Int, AddressBits: Int) extends Bundle {
 
   val addr = Input(UInt(AddressBits.W))
   val wdata = Input(UInt(DataBits.W))
-  val rdata = Output(UInt(DataBits.W))
   val start = Input(Bool())
-  val done = Output(Bool())
   val cmd = Input(CacheCommand.Type())
+  val rdata = Output(UInt(DataBits.W))
+  val done = Output(Bool())
+
+  def ==>(that: CacheFrontInterface): Unit = {
+    this.addr.dir match {
+      case INPUT =>
+        throwException("Cannot bind, invalid direction")
+      case OUTPUT =>
+        that.addr := this.addr
+        that.wdata := this.wdata
+        that.start := this.start
+        that.cmd := this.cmd
+        this.rdata := that.rdata
+        this.done := that.done
+    }
+  }
+
+  def bindToFlipped(thatFlipped: CacheFrontInterface): Unit = {
+    require(thatFlipped.addr.dir == OUTPUT)
+    this.addr := thatFlipped.addr
+    this.wdata := thatFlipped.wdata
+    this.start := thatFlipped.start
+    this.cmd := thatFlipped.cmd
+    thatFlipped.rdata := this.rdata
+    thatFlipped.done := this.done
+  }
 
 }
 
 /**
  * Cache front- and back-end interfaces
- * @param DataBits number of bits in a half-word
+ *
+ * @param DataBits      number of bits in a half-word
  * @param CacheLineBits number of bits in a cache line
- * @param AddressBits number of bits in a half-word address
+ * @param AddressBits   number of bits in a half-word address
  */
-class CacheInterface(DataBits: Int, CacheLineBits: Int,AddressBits: Int) extends Bundle {
+class CacheInterface(DataBits: Int, CacheLineBits: Int, AddressBits: Int) extends Bundle {
   val front = new CacheFrontInterface(DataBits, AddressBits)
   val back = new CacheBackInterface(CacheLineBits, AddressBits)
 }
@@ -183,7 +214,6 @@ object CacheConfig {
   val NumBanks: Int = CacheLineBits / BankLineBits
 
 
-
   // number of offset bits in the address
   val OffsetBits = log2Ceil(CacheLineBits / DataBits)
 
@@ -196,10 +226,13 @@ object CacheConfig {
   val BankLineHalfWords: Int = BankLineBits / DataBits
 
   def frontInterface() = new CacheFrontInterface(DataBits, UsedAddressBits)
+
   def backInterface() = new CacheBackInterface(DataBits, UsedAddressBits)
+
   def interface() = new CacheInterface(DataBits, CacheLineBits, UsedAddressBits)
 
 }
+
 /**
  * Cache module
  */
@@ -243,7 +276,7 @@ class Cache extends Module {
 
     cached_tag := module.io.douta.head(TagBits)
     cached_hwords.zipWithIndex.foreach { case (chw, i) =>
-      chw := module.io.douta(( i + 1 ) * DataBits - 1, i * DataBits)
+      chw := module.io.douta((i + 1) * DataBits - 1, i * DataBits)
     }
 
     loaded_hwords.zipWithIndex.foreach { case (lhw, i) =>
@@ -251,21 +284,19 @@ class Cache extends Module {
       lhw := io.back.rline((flat_ix + 1) * DataBits - 1, flat_ix * DataBits)
     }
 
-//    cached_tag := module.io.douta.head(TagBits)
+    //    cached_tag := module.io.douta.head(TagBits)
 
 
     // disable writing by default
     module.io.bweb := UInt("b" + "1" * (BankLineTaggedBits / 8))
     module.io.web := false.B
 
-//    module.io.addra := io.front.addr(IndexBits + OffsetBits - 1, OffsetBits)
+    //    module.io.addra := io.front.addr(IndexBits + OffsetBits - 1, OffsetBits)
 
     module.io.dinb := Cat(
       write_tag, Cat(write_hwords.reverse)
     )
-//    module.io.addrb := write_addr
-
-
+    //    module.io.addrb := write_addr
 
 
   }
@@ -277,13 +308,11 @@ class Cache extends Module {
   banks.last.cached_tag := banks.last.module.io.douta.head(TagBits).tail(2)
 
 
-
   val dirty_bit = Wire(Bool())
   val valid_bit = Wire(Bool())
 
   dirty_bit := banks.last.module.io.douta.head(2).tail(1)
   valid_bit := banks.last.module.io.douta.head(1)
-
 
 
   val addr = Reg(UInt(AddressBits.W))
@@ -359,69 +388,69 @@ class Cache extends Module {
           banks.foreach(b => b.module.io.addra := io.front.addr(IndexBits + OffsetBits - 1, OffsetBits))
           // read the requested line from the banks
           decoded := StateValue.HitCheck
-        } .elsewhen(io.front.cmd === CacheCommand.Flush) {
+        }.elsewhen(io.front.cmd === CacheCommand.Flush) {
 
           decoded := StateValue.Flush
-        } .elsewhen(io.front.cmd === CacheCommand.Reset) {
+        }.elsewhen(io.front.cmd === CacheCommand.Reset) {
 
           decoded := StateValue.Reset
-        } .otherwise {
+        }.otherwise {
           decoded := StateValue.Idle
         }
         pstate := decoded
 
       }
     }
-    is (StateValue.HitCheck) {
+    is(StateValue.HitCheck) {
 
-        rdata_reg := rdata
-        when(hit) {
-          when(cmd_reg === CacheCommand.Write) {
-            // write hit
-            banks.foreach { b =>
-              b.module.io.web := true.B
-              // the cachline is valid and dirty
-              if (b == banks.last)
-                b.write_tag := Cat(UInt("b11"), b.cached_tag.tail(2))
-              else
-                b.write_tag := b.cached_tag
-              b.write_hwords := b.cached_hwords
-              b.write_hwords.zipWithIndex.foreach { case (hword, hword_ix) =>
-                val hword_offset = b.id * BankLineHalfWords + hword_ix
-                when (addr_reg(OffsetBits - 1, 0) === hword_offset.U) {
-                  hword := wdata_reg
-                }
-                // otherwise gets the cached half-word
+      rdata_reg := rdata
+      when(hit) {
+        when(cmd_reg === CacheCommand.Write) {
+          // write hit
+          banks.foreach { b =>
+            b.module.io.web := true.B
+            // the cachline is valid and dirty
+            if (b == banks.last)
+              b.write_tag := Cat(UInt("b11"), b.cached_tag.tail(2))
+            else
+              b.write_tag := b.cached_tag
+            b.write_hwords := b.cached_hwords
+            b.write_hwords.zipWithIndex.foreach { case (hword, hword_ix) =>
+              val hword_offset = b.id * BankLineHalfWords + hword_ix
+              when(addr_reg(OffsetBits - 1, 0) === hword_offset.U) {
+                hword := wdata_reg
               }
+              // otherwise gets the cached half-word
             }
-            io.front.done := true.B
-          } otherwise {
-            // read hit
-            io.front.rdata := rdata
-            io.front.done := true.B
           }
-          pstate := StateValue.Idle
+          io.front.done := true.B
         } otherwise {
-          val offset_mask = 0.U(OffsetBits.W)
-          when(dirty_bit) {
-            // the missed line is dirty, so we need to flush the cache line to the memory
-            io.back.startWriteBackLine(
-              Cat(rdata_cache_line.reverse),
-              Cat(write_back_addr.head(AddressBits - OffsetBits), offset_mask),
-              Cat(addr_reg.head(AddressBits - OffsetBits), offset_mask))
-          } otherwise {
-            // fetch a line from the memory and replace the existing "clean" line
-            io.back.startReadLine(
-              Cat(addr_reg.head(AddressBits - OffsetBits), offset_mask))
-          }
-          pstate := StateValue.WaitResponse
+          // read hit
+          io.front.rdata := rdata
+          io.front.done := true.B
         }
+        pstate := StateValue.Idle
+      } otherwise {
+        val offset_mask = 0.U(OffsetBits.W)
+        when(dirty_bit) {
+          // the missed line is dirty, so we need to flush the cache line to the memory
+          io.back.startWriteBackLine(
+            Cat(rdata_cache_line.reverse),
+            Cat(write_back_addr.head(AddressBits - OffsetBits), offset_mask),
+            Cat(addr_reg.head(AddressBits - OffsetBits), offset_mask))
+        } otherwise {
+          // fetch a line from the memory and replace the existing "clean" line
+          io.back.startReadLine(
+            Cat(addr_reg.head(AddressBits - OffsetBits), offset_mask))
+        }
+        pstate := StateValue.WaitResponse
+      }
     }
-    is (StateValue.WaitResponse) {
+    is(StateValue.WaitResponse) {
       // wait for the "done" signal from the backend
-      when (io.back.done) {
+      when(io.back.done) {
 
-        when (cmd_reg === CacheCommand.Write) {
+        when(cmd_reg === CacheCommand.Write) {
           banks.foreach { b =>
             b.module.io.web := true.B
             if (b == banks.last)
@@ -433,7 +462,7 @@ class Cache extends Module {
             b.write_hwords := b.loaded_hwords
             b.write_hwords.zipWithIndex.foreach { case (hword, hword_ix) =>
               val hword_offset = b.id * BankLineHalfWords + hword_ix
-              when (addr_reg(OffsetBits - 1, 0) === hword_offset.U) {
+              when(addr_reg(OffsetBits - 1, 0) === hword_offset.U) {
                 hword := wdata_reg
               }
               // otherwise gets the loaded half-word
@@ -462,34 +491,34 @@ class Cache extends Module {
       }
     }
 
-    is (StateValue.Flush) {
+    is(StateValue.Flush) {
 
       banks.foreach(b => b.module.io.addra := flush_pointer)
       pstate := StateValue.FlushCheck
     }
 
-    is (StateValue.FlushCheck) {
+    is(StateValue.FlushCheck) {
 
-      when (valid_bit && dirty_bit) {
+      when(valid_bit && dirty_bit) {
         val offset_mask = 0.U(OffsetBits.W)
         io.back.startWriteLine(
           Cat(rdata_cache_line.reverse),
           Cat(banks.map(_.cached_tag).reverse :+ flush_pointer :+ offset_mask))
         pstate := StateValue.FlushResponse
       } otherwise {
-        when (flush_pointer === ((1 << IndexBits) - 1).U) {
+        when(flush_pointer === ((1 << IndexBits) - 1).U) {
           pstate := StateValue.Idle
           flush_pointer := 0.U
           io.front.done := true.B
         } otherwise {
-          banks.foreach{ b => b.module.io.addra := flush_pointer + 1.U }
+          banks.foreach { b => b.module.io.addra := flush_pointer + 1.U }
           flush_pointer := flush_pointer + 1.U
           pstate := StateValue.FlushCheck
         }
       }
     }
 
-    is (StateValue.FlushResponse) {
+    is(StateValue.FlushResponse) {
 
       when(io.back.done) {
 
@@ -498,7 +527,7 @@ class Cache extends Module {
           flush_pointer := 0.U
           io.front.done := true.B
         } otherwise {
-          banks.foreach{ b => b.module.io.addra := flush_pointer + 1.U }
+          banks.foreach { b => b.module.io.addra := flush_pointer + 1.U }
           flush_pointer := flush_pointer + 1.U
           pstate := StateValue.FlushCheck
         }
@@ -506,9 +535,9 @@ class Cache extends Module {
       }
     }
 
-    is (StateValue.Reset) {
+    is(StateValue.Reset) {
 
-      when (flush_pointer === ((1 << IndexBits) - 1).U) {
+      when(flush_pointer === ((1 << IndexBits) - 1).U) {
         pstate := StateValue.Idle
         io.front.done := true.B
       } otherwise {
@@ -527,7 +556,6 @@ class Cache extends Module {
 
 
 }
-
 
 
 class TailTest extends Module {

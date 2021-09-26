@@ -24,8 +24,8 @@ class BareNoCTester extends FlatSpec with ChiselScalatestTester with Matchers {
   def checkRoutable(implicit dut: BareNoC): Unit = {
 
 
-    val DimX = dut.io.lInput.length
-    val DimY = dut.io.lInput.head.length
+    val DimX = dut.io.corePacketInput.length
+    val DimY = dut.io.corePacketInput.head.length
 
     case class ExpectedPacket(data: Int, address: Int, target: Position, latency: Int)
     case class Position(x: Int, y: Int)
@@ -36,10 +36,10 @@ class BareNoCTester extends FlatSpec with ChiselScalatestTester with Matchers {
       if (cycles < DimX * DimY) {
         val x = expected.target.x
         val y = expected.target.y
-        if (dut.io.lOuput(x)(y).valid.peek().litToBoolean) {
+        if (dut.io.corePacketOutput(x)(y).valid.peek().litToBoolean) {
           // check if the data is correct
-          dut.io.lOuput(x)(y).data.expect(expected.data.U)
-          dut.io.lOuput(x)(y).data.expect(expected.address.U)
+          dut.io.corePacketOutput(x)(y).data.expect(expected.data.U)
+          dut.io.corePacketOutput(x)(y).data.expect(expected.address.U)
           if (cycles != expected.latency) {
             fail(s"Packet did not meet timing requirements, " +
               s"expected latency is ${expected.latency} but packet received after ${cycles}")
@@ -100,9 +100,9 @@ class BareNoCTester extends FlatSpec with ChiselScalatestTester with Matchers {
         )
 
         println(s"Sending ${packet} from ${source} to ${target}")
-        dut.io.lInput(source.x)(source.y).poke(packet)
+        dut.io.corePacketInput(source.x)(source.y).poke(packet)
         dut.clock.step()
-        dut.io.lInput(source.x)(source.y).poke(
+        dut.io.corePacketInput(source.x)(source.y).poke(
           new NoCBundle(DimX, DimY, config).Lit(
             _.data -> 0.U,
             _.address -> 0.U,
@@ -132,7 +132,7 @@ class BareNoCTester extends FlatSpec with ChiselScalatestTester with Matchers {
       }
       loop(Set())
     }
-
+    dut.io.configEnable.poke(false.B)
     testUntilCoverage(99.9)
   }
 

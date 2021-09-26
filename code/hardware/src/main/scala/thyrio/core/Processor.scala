@@ -11,21 +11,29 @@ import thyrio.{ISA, ThyrioISA}
 import scala.util.Random
 
 
-class ProcessorInterface(config: ISA) extends Bundle {
-
-  val DIMX, DIMY = 16
-  val packet_in = Input(new BareNoCBundle(config))
-  val packet_out = Output(NoCBundle(DIMX, DIMY, config))
-  val active = Output(Bool())
-  val cache_interface: CacheFrontInterface = Flipped(CacheConfig.frontInterface())
+class NamedError(nameBits: Int) extends Bundle {
+  val error: Bool = Bool()
+  val id: UInt = UInt(nameBits.W)
 }
 
+class PeripheryProcessorInterface(config: ISA) extends Bundle {
 
-class ProcessorBase(config: ISA,
-                    equations: Seq[Seq[Int]],
-                    initial_registers: String = "",
-                    initial_array: String = "") extends Module {
-  val io = IO(new ProcessorInterface(config))
+  val active: Bool = Output(Bool())
+  val cache: CacheFrontInterface = Flipped(CacheConfig.frontInterface())
+  val gmem_access_failure_error: Bool = Output(Bool())
+  val exception: NamedError = Output(new NamedError(config.DataBits))
+
+}
+class ProcessorInterface(config: ISA, DimX: Int, DimY: Int) extends Bundle {
+
+
+  val packet_in = Input(new BareNoCBundle(config))
+  val packet_out = Output(NoCBundle(DimX, DimY, config))
+  val periphery: PeripheryProcessorInterface = new PeripheryProcessorInterface(config)
+//  val active = Output(Bool())
+//  val cache_interface: CacheFrontInterface = Flipped(CacheConfig.frontInterface())
+//  val gmem_access_failure_error: Bool = Output(Bool())
+//  val exception: NamedError = Output(new NamedError(config.DataBits)
 
 }
 
@@ -34,11 +42,11 @@ class Processor(config: ISA,
                 DimY: Int,
                 equations: Seq[Seq[Int]],
                 initial_registers: String = "",
-                initial_array: String = "") extends
-  ProcessorBase(config, equations, initial_registers, initial_array) {
+                initial_array: String = "") extends Module {
   //  val EQUATIONS = Seq.fill(1 << config.FUNCT_BITS)(Seq.fill(config.DATA_BITS)(rdgen.nextInt(16)))
 
-
+  val io: ProcessorInterface = IO(new ProcessorInterface(config, DimX, DimY))
+  
   object ProcessorPhase extends ChiselEnum {
     val DynamicReceiveProgramLength, // wait for the first message that indicates the length of the program
     DynamicReceiveInstruction, // wait for a dynamic number of cycles to receive all instructions
@@ -55,6 +63,7 @@ class Processor(config: ISA,
 
 
   val state = RegInit(ProcessorPhase(), ProcessorPhase.DynamicReceiveProgramLength)
+  val soft_reset = Wire(Bool())
 
   // the timer should count at least up to 2^12, because there could be 2^12 instructions in this processor, however,
   // since other processors should initialize as well, and there are DIMX * DIMY of them, we need 256 * 2 ^ 12 for
@@ -93,9 +102,10 @@ class Processor(config: ISA,
 
   fetch_stage.io.programmer.enable := false.B
 
+  soft_reset := false.B
   switch(state) {
     is(ProcessorPhase.DynamicReceiveProgramLength) {
-
+      soft_reset := true.B
       when(io.packet_in.valid) {
         program_body_length := io.packet_in.data
         when(io.packet_in.data === 0.U) {
@@ -224,7 +234,7 @@ class Processor(config: ISA,
   }
 
   fetch_stage.io.execution_enable := (state === ProcessorPhase.StaticExecutionPhase)
-  io.active := (state === ProcessorPhase.StaticExecutionPhase) || (
+  io.periphery.active := (state === ProcessorPhase.StaticExecutionPhase) || (
     state === ProcessorPhase.StaticSleepPhase &&
       (
         decode_stage.io.instruction =/= 0.U ||
@@ -263,7 +273,32 @@ class Processor(config: ISA,
   io.packet_out := memory_stage.io.pipe_out.packet
 
   if (config.WithGlobalMemory) {
-    io.cache_interface <> memory_stage.io.global_memory_interface
+    memory_stage.io.global_memory_interface ==> io.periphery.cache
+  }
+
+
+
+  // error bit to check whether a memory response came back
+  val gmem_expect_response = RegInit(Bool(), false.B)
+  gmem_expect_response := memory_stage.io.global_memory_interface.start
+  val gmem_failure = RegInit(Bool(), false.B)
+  gmem_failure := (gmem_expect_response && !io.periphery.cache.done) | gmem_failure
+
+  val exception_occurred: Bool = RegInit(Bool(), false.B)
+  val exception_id: UInt = RegInit(UInt(config.DataBits.W), 0.U)
+
+  val exception_cond: Bool = Wire(Bool())
+  exception_cond := (execute_stage.io.pipe_out.opcode.expect && execute_stage.io.pipe_out.result === 1.U)
+  exception_occurred := exception_occurred | exception_cond
+  when(exception_cond && !exception_occurred) {
+    exception_id := execute_stage.io.pipe_out.immediate
+  }
+
+  io.periphery.exception.id := exception_id
+  io.periphery.exception.error := exception_occurred
+  when(soft_reset) {
+    gmem_failure := false.B
+    exception_occurred := false.B
   }
 
 }
