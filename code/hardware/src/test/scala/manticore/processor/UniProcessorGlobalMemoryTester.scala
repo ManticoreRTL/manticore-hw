@@ -9,6 +9,7 @@ import chiseltest.internal.{VerilatorBackendAnnotation, WriteVcdAnnotation}
 import manticore.assembly.Assembler
 import manticore.assembly.Instruction.{Add2, GlobalLoad, GlobalStore, Instruction, Nop, R}
 import manticore.core.{ClockBuffer, Processor, ProcessorInterface}
+import manticore.processor.UniProcessorTestUtils.ClockedProcessor
 import manticore.{ISA, ManticoreBaseISA, ManticoreFullISA}
 import memory.CacheCommand
 import org.scalatest.{FlatSpec, Matchers}
@@ -18,35 +19,7 @@ import java.nio.file.Paths
 import scala.annotation.tailrec
 
 
-/// wrap the processor to have a clock enable
-class ClockedProcessor(config: ISA,
-                       DimX: Int,
-                       DimY: Int,
-                       equations: Seq[Seq[Int]],
-                       initial_registers: String = "",
-                       initial_array: String = "") extends Module {
-  val io = IO(new ProcessorInterface(config, DimX, DimY) {
-    val clock_enable: Bool = Input(Bool())
-    val rwb: Bool = Output(Bool())
-    //  val clock: Clock = IO(Input(Clock()))
 
-  })
-
-  val gated_clock: Clock = Wire(Clock())
-  val clock_buffer = Module(new ClockBuffer())
-  clock_buffer.io.I := clock
-  clock_buffer.io.CE := io.clock_enable
-  gated_clock := clock_buffer.io.O
-
-  withClockAndReset(clock = gated_clock, reset = 0.B) {
-    val impl: Processor = Module(new Processor(config, DimX, DimY,
-      equations, initial_registers, initial_array))
-    io <> impl.io
-
-    io.rwb := io.periphery.cache.cmd === CacheCommand.Read
-  }
-
-}
 
 class UniProcessorGlobalMemoryTester extends FlatSpec with Matchers with ChiselScalatestTester {
 
@@ -236,7 +209,7 @@ class UniProcessorGlobalMemoryTester extends FlatSpec with Matchers with ChiselS
       ) {
         true
       }
-      simulate(1000)(TickState(None, None, Map()))
+      simulate(10000)(TickState(None, None, Map()))
 
     }
 

@@ -295,9 +295,13 @@ class Processor(config: ISA,
   val exception_id: UInt = RegInit(UInt(config.DataBits.W), 0.U)
 
   val exception_cond: Bool = Wire(Bool())
-  exception_cond := (execute_stage.io.pipe_out.opcode.expect && execute_stage.io.pipe_out.result === 1.U)
-  exception_occurred := exception_occurred | exception_cond
-  when(exception_cond && !exception_occurred) {
+
+  // Expect instruction should throw an exception if the result of SetEqual is false
+  exception_cond := (execute_stage.io.pipe_out.opcode.expect && execute_stage.io.pipe_out.result === 0.U)
+
+  exception_occurred := exception_cond
+
+  when(exception_cond) {
     exception_id := execute_stage.io.pipe_out.immediate
   }
 

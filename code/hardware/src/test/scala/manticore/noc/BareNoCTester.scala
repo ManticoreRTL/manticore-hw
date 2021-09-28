@@ -6,6 +6,7 @@ import chisel3.tester.experimental.TestOptionBuilder.ChiselScalatestOptionBuilde
 import chisel3.tester.{ChiselScalatestTester, testableClock, testableData}
 import chiseltest.internal.{VerilatorBackendAnnotation, WriteVcdAnnotation}
 import manticore.ManticoreBaseISA
+import manticore.control.RequiresVerilator
 import manticore.core.{BareNoC, NoCBundle}
 import org.scalatest.{FlatSpec, Matchers}
 

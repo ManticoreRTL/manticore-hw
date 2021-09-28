@@ -1,8 +1,12 @@
 package manticore.processor
 
-import Chisel.Clock
-import manticore.ManticoreBaseISA
-import manticore.core.{BareNoCBundle, Processor}
+import Chisel._
+import chisel3.experimental.BundleLiterals.AddBundleLiteralConstructor
+import chisel3.tester.{testableClock, testableData}
+import chisel3.withClockAndReset
+import manticore.{ISA, ManticoreBaseISA}
+import manticore.core.{BareNoCBundle, ClockBuffer, Processor, ProcessorInterface}
+import memory.CacheCommand
 
 import java.io.PrintWriter
 import java.nio.file.{Files, Path}
@@ -118,6 +122,37 @@ object UniProcessorTestUtils {
     sendPacketLoop(sleep_length)
 
     sendPacketLoop(countdown)
+
+  }
+
+
+  // wrap the processor to have a clock enable
+  class ClockedProcessor(config: ISA,
+                         DimX: Int,
+                         DimY: Int,
+                         equations: Seq[Seq[Int]],
+                         initial_registers: String = "",
+                         initial_array: String = "") extends Module {
+    val io = IO(new ProcessorInterface(config, DimX, DimY) {
+      val clock_enable: Bool = Input(Bool())
+      val rwb: Bool = Output(Bool())
+      //  val clock: Clock = IO(Input(Clock()))
+
+    })
+
+    val gated_clock: Clock = Wire(Clock())
+    val clock_buffer = Module(new ClockBuffer())
+    clock_buffer.io.I := clock
+    clock_buffer.io.CE := io.clock_enable
+    gated_clock := clock_buffer.io.O
+
+    withClockAndReset(clock = gated_clock, reset = 0.B) {
+      val impl: Processor = Module(new Processor(config, DimX, DimY,
+        equations, initial_registers, initial_array))
+      io <> impl.io
+
+      io.rwb := io.periphery.cache.cmd === CacheCommand.Read
+    }
 
   }
 }

@@ -1,6 +1,7 @@
 package manticore.noc
 
-import Chisel.{UInt, log2Ceil}
+import Chisel._
+import chisel3.experimental.BundleLiterals.AddBundleLiteralConstructor
 import manticore.ISA
 import manticore.core.NoCBundle
 
