@@ -3,11 +3,11 @@
 ThisBuild / scalaVersion     := "2.12.13"
 ThisBuild / version          := "0.1.0"
 ThisBuild / organization     := "epfl.vlsc"
-ThisBuild / name             := "simple processor for logic emulation"
+ThisBuild / name             := "Manticore hardware architecture for FPGA accelerated RTL simulation"
 
 lazy val root = (project in file("."))
   .settings(
-    name := "thyrio",
+    name := "manticore",
     libraryDependencies ++= Seq(
       "edu.berkeley.cs" %% "chisel3" % "3.4.3",
       "edu.berkeley.cs" %% "chiseltest" % "0.3.3"

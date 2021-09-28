@@ -68,7 +68,7 @@ object ConstantFirFilterGenerator extends App {
   new ChiselStage().emitVerilog(new ConstantFirFilter(Seq(187, 212, 61)))
   new ChiselStage().emitVerilog(new WrappedConstantFirFilter(Range(1, 101), Seq(187, 212, 61)), annotations = Seq(NoDCEAnnotation))
 
-  import thyrio.assembly.Instruction._
+  import manticore.assembly.Instruction._
 
   // some aliasing for readability
   val y_ptr = R(4)
