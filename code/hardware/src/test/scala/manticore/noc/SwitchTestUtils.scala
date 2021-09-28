@@ -1,11 +1,8 @@
-package manticore
+package manticore.noc
 
-import Chisel.log2Ceil
+import Chisel.{UInt, log2Ceil}
+import manticore.ISA
 import manticore.core.NoCBundle
-
-import scala.util.Random
-import Chisel._
-import chisel3.experimental.BundleLiterals.AddBundleLiteralConstructor
 
 object SwitchTestUtils {
 

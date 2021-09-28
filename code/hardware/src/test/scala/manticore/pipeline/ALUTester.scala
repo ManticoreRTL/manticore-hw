@@ -1,17 +1,16 @@
-package manticore
+package manticore.pipeline
 
 import Chisel._
 import chisel3.tester.{testableClock, testableData}
-import chisel3.util.HasBlackBoxInline
 import chiseltest.ChiselScalatestTester
-import org.scalatest.{FlatSpec, Matchers}
-import manticore.core.alu.{CustomALU, CustomFunction, StandardALU, _}
 import chiseltest.experimental.TestOptionBuilder._
-import chiseltest.internal.{VerilatorBackendAnnotation => USE_VERILATOR, WriteVcdAnnotation => DUMP_VCD}
+import chiseltest.internal.{VerilatorBackendAnnotation => USE_VERILATOR}
+import manticore.ManticoreBaseISA
+import manticore.core.alu.StandardALU
 import manticore.core.alu.StandardALU.Functs
+import org.scalatest.{FlatSpec, Matchers}
 
 import scala.language.implicitConversions
-import scala.util.{Failure, Random}
 
 object ALUSpec {
   import StandardALU.Functs._

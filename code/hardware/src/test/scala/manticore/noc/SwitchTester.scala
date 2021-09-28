@@ -21,16 +21,17 @@
 *
 */
 
-package manticore
+package manticore.noc
 
 import Chisel._
-import chisel3.tester.{testableClock, testableData}
-import chiseltest.ChiselScalatestTester
-import org.scalatest.{FlatSpec, Matchers}
-import chiseltest.internal.{VerilatorBackendAnnotation => USE_VERILATOR, WriteVcdAnnotation => DUMP_VCD}
-import manticore.core.{NoCBundle, Switch}
 import chisel3.experimental.BundleLiterals._
 import chisel3.tester.experimental.TestOptionBuilder.ChiselScalatestOptionBuilder
+import chisel3.tester.{testableClock, testableData}
+import chiseltest.ChiselScalatestTester
+import chiseltest.internal.{VerilatorBackendAnnotation => USE_VERILATOR}
+import manticore.ManticoreBaseISA
+import manticore.core.{NoCBundle, Switch}
+import org.scalatest.{FlatSpec, Matchers}
 
 import scala.util.Random
 

@@ -1,18 +1,19 @@
-package manticore
+package manticore.processor
 
 import Chisel._
 import chisel3.experimental.BundleLiterals.AddBundleLiteralConstructor
 import chisel3.tester.experimental.TestOptionBuilder.ChiselScalatestOptionBuilder
 import chisel3.tester.experimental.sanitizeFileName
-import chisel3.tester.{ChiselScalatestTester, testableClock, testableData, validToDriver}
-import org.scalatest.{FlatSpec, Matchers}
+import chisel3.tester.{ChiselScalatestTester, testableClock, testableData}
+import chiseltest.internal.{VerilatorBackendAnnotation => USE_VERILATOR}
 import manticore.assembly.Instruction.{Instruction, Register}
-import manticore.core.{BareNoCBundle, Processor}
 import manticore.assembly.{Assembler, Interpreter}
-import chiseltest.internal.{VerilatorBackendAnnotation => USE_VERILATOR, WriteVcdAnnotation => DUMP_VCD}
+import manticore.core.{BareNoCBundle, Processor}
+import manticore.ManticoreBaseISA
+import org.scalatest.{FlatSpec, Matchers}
 
 import java.io.{File, PrintWriter}
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Files, Paths}
 import scala.annotation.tailrec
 import scala.language.postfixOps
 

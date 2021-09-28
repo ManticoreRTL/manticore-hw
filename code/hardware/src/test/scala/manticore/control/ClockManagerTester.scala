@@ -1,15 +1,12 @@
-package manticore
-
+package manticore.control
 
 import Chisel._
-import chisel3.VecInit
-import chisel3.internal.sourceinfo.VecTransform
 import chisel3.tester.experimental.TestOptionBuilder.ChiselScalatestOptionBuilder
 import chisel3.tester.{ChiselScalatestTester, testableClock}
 import chiseltest.internal.{VerilatorBackendAnnotation, WriteVcdAnnotation}
 import chiseltest.testableData
+import manticore.core.ClockManager
 import org.scalatest.{FlatSpec, Matchers, Tag}
-import manticore.core.{ClockManager, NoCBundle}
 
 object RequiresVerilator extends Tag("RequiresVerilator")
 

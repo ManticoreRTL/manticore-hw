@@ -1,19 +1,17 @@
-package manticore
-
+package manticore.processor
 
 import Chisel._
-import chisel3.tester.{ChiselScalatestTester, testableClock, testableData, timescope}
 import chisel3.tester.experimental.TestOptionBuilder.ChiselScalatestOptionBuilder
 import chisel3.tester.experimental.sanitizeFileName
-import chisel3.testers.TesterDriver.VerilatorBackend
+import chisel3.tester.{ChiselScalatestTester, testableClock, testableData}
 import chisel3.withClockAndReset
 import chiseltest.internal.{VerilatorBackendAnnotation, WriteVcdAnnotation}
-import memory.CacheCommand
-import org.scalatest.Matchers.fail
-import org.scalatest.{FlatSpec, Matchers}
 import manticore.assembly.Assembler
 import manticore.assembly.Instruction.{Add2, GlobalLoad, GlobalStore, Instruction, Nop, R}
 import manticore.core.{ClockBuffer, Processor, ProcessorInterface}
+import manticore.{ISA, ManticoreBaseISA, ManticoreFullISA}
+import memory.CacheCommand
+import org.scalatest.{FlatSpec, Matchers}
 
 import java.io.File
 import java.nio.file.Paths

@@ -1,18 +1,18 @@
-package manticore
+package manticore.processor
 
 import Chisel._
-import chisel3.experimental.BundleLiterals.AddBundleLiteralConstructor
 import chisel3.tester.experimental.TestOptionBuilder.ChiselScalatestOptionBuilder
 import chisel3.tester.experimental.sanitizeFileName
-import chisel3.tester.{ChiselScalatestTester, fork, testableClock, testableData}
-import org.scalatest.{FlatSpec, Matchers, ScalaTestVersion}
+import chisel3.tester.{ChiselScalatestTester, testableClock, testableData}
+import chiseltest.internal.{VerilatorBackendAnnotation => USE_VERILATOR}
 import manticore.assembly.Instruction.{Instruction, Nop, R, Register, Send}
-import manticore.core.{BareNoCBundle, NoCBundle, Processor}
 import manticore.assembly.{Assembler, Interpreter}
-import chiseltest.internal.{VerilatorBackendAnnotation => USE_VERILATOR, WriteVcdAnnotation => DUMP_VCD}
+import manticore.core.Processor
+import manticore.ManticoreBaseISA
+import org.scalatest.{FlatSpec, Matchers}
 
-import java.io.{File, PrintWriter}
-import java.nio.file.{Files, Path, Paths}
+import java.io.File
+import java.nio.file.Paths
 import scala.annotation.tailrec
 class UniProcessorCoupledCountersTester extends FlatSpec with Matchers with ChiselScalatestTester{
 

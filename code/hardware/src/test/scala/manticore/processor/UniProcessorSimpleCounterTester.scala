@@ -1,21 +1,21 @@
-package manticore
+package manticore.processor
 
 import Chisel._
-import chisel3.experimental.BundleLiterals.AddBundleLiteralConstructor
 import chisel3.tester.experimental.TestOptionBuilder.ChiselScalatestOptionBuilder
 import chisel3.tester.experimental.sanitizeFileName
 import chisel3.tester.{ChiselScalatestTester, testableClock, testableData}
-import org.scalatest.{FlatSpec, Matchers, ScalaTestVersion, durations}
-import manticore.assembly.Instruction.{Add2, Custom0, CustomFunction, Nop, R, Send, SetValue}
-import manticore.core.{BareNoCBundle, Processor}
-import manticore.assembly.Assembler
 import chiseltest.internal.{VerilatorBackendAnnotation => USE_VERILATOR, WriteVcdAnnotation => DUMP_VCD}
+import manticore.assembly.Assembler
+import manticore.assembly.Instruction.{Add2, R, Send}
+import manticore.core.Processor
+import manticore.ManticoreBaseISA
+import org.scalatest.{FlatSpec, Matchers}
 
 import java.io.File
 import java.nio.file.Paths
 import scala.annotation.tailrec
 
-class UniProcessorTester extends FlatSpec with Matchers with ChiselScalatestTester{
+class UniProcessorSimpleCounterTester extends FlatSpec with Matchers with ChiselScalatestTester{
 
 
 

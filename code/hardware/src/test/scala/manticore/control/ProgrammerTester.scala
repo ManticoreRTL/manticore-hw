@@ -1,13 +1,12 @@
-package manticore
+package manticore.control
 
-import chisel3.tester.{ChiselScalatestTester, testableClock, testableData}
-import chiseltest.internal.VerilatorBackendAnnotation
-import org.scalatest.{FlatSpec, Matchers}
-import manticore.core.{NoCBundle, Programmer}
 import Chisel._
-import chisel3.experimental.BundleLiterals.AddBundleLiteralConstructor
 import chisel3.tester.experimental.TestOptionBuilder.ChiselScalatestOptionBuilder
-import chiseltest.internal.WriteVcdAnnotation
+import chisel3.tester.{ChiselScalatestTester, testableClock, testableData}
+import chiseltest.internal.{VerilatorBackendAnnotation, WriteVcdAnnotation}
+import manticore.ManticoreBaseISA
+import manticore.core.Programmer
+import org.scalatest.{FlatSpec, Matchers}
 
 import scala.annotation.tailrec
 

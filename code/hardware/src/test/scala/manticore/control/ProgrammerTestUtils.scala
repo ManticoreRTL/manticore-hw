@@ -1,6 +1,6 @@
-package manticore
+package manticore.control
 
-
+import manticore.ISA
 
 object ProgrammerTestUtils {
 
@@ -19,15 +19,15 @@ object ProgrammerTestUtils {
         epilogue_length :+ sleep_length)
     }
 
-    val content: Seq[Int] = streams.zip(xy).flatMap{ case(s, (x, y)) =>
+    val content: Seq[Int] = streams.zip(xy).flatMap { case (s, (x, y)) =>
       val dest = (y << (isa.DataBits / 2)) | x
       dest +: s
     }.toArray
 
     val expected_stream: Seq[(Int, Int, Int)] = streams.zip(xy).flatMap { case (s, (x, y)) =>
-      s.map{value  => (value, x, y) }
-    } ++ xy.map{case(x, y) => (y, x)}.sorted.map { case (y, x) =>
-      (DimX * DimY + 2 - (x + y * DimX), DimX - 1 - x, DimY - 1 -y)
+      s.map { value => (value, x, y) }
+    } ++ xy.map { case (x, y) => (y, x) }.sorted.map { case (y, x) =>
+      (DimX * DimY + 2 - (x + y * DimX), DimX - 1 - x, DimY - 1 - y)
     }
 
     val base_address: Int = rdgen.nextInt(100)
@@ -39,6 +39,7 @@ object ProgrammerTestUtils {
         content(address - base_address)
       }
     }
+
     def checkAddress(address: Int): Boolean = (base_address < address || address < base_address + content.length)
 
   }

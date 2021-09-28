@@ -1,14 +1,11 @@
-package manticore
+package manticore.pipeline
 
 import Chisel._
 import chisel3.tester.{testableClock, testableData}
-import chisel3.util.HasBlackBoxInline
 import chiseltest.ChiselScalatestTester
-import org.scalatest.{FlatSpec, Matchers}
-import manticore.core.alu._
 import chiseltest.experimental.TestOptionBuilder._
-import chiseltest.internal.{VerilatorBackendAnnotation => USE_VERILATOR, WriteVcdAnnotation => DUMP_VCD}
 import manticore.core.alu.{CustomALU, CustomFunction}
+import org.scalatest.{FlatSpec, Matchers}
 
 import scala.util.Random
 

@@ -1,16 +1,16 @@
-package manticore
+package manticore.noc
 
-import chisel3.tester.{ChiselScalatestTester, testableClock, testableData}
-import org.scalatest.{FlatSpec, Matchers}
-import manticore.core.{BareNoC, NoCBundle}
-
-import scala.util.Random
 import Chisel._
 import chisel3.experimental.BundleLiterals.AddBundleLiteralConstructor
 import chisel3.tester.experimental.TestOptionBuilder.ChiselScalatestOptionBuilder
+import chisel3.tester.{ChiselScalatestTester, testableClock, testableData}
 import chiseltest.internal.{VerilatorBackendAnnotation, WriteVcdAnnotation}
+import manticore.ManticoreBaseISA
+import manticore.core.{BareNoC, NoCBundle}
+import org.scalatest.{FlatSpec, Matchers}
 
 import scala.annotation.tailrec
+import scala.util.Random
 
 class BareNoCTester extends FlatSpec with ChiselScalatestTester with Matchers {
 

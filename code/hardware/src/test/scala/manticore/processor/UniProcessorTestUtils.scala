@@ -1,15 +1,11 @@
-package manticore
+package manticore.processor
 
-import chisel3.experimental.BundleLiterals.AddBundleLiteralConstructor
-import chisel3.tester.experimental.sanitizeFileName
-import manticore.core.{BareNoCBundle, NoCBundle, Processor}
+import Chisel.Clock
+import manticore.ManticoreBaseISA
+import manticore.core.{BareNoCBundle, Processor}
 
-import java.io.{File, PrintWriter}
-import java.nio.file.{Files, Path, Paths}
-import scala.util.Random
-import Chisel._
-import chisel3.tester.{parallel, testableClock, testableData}
-
+import java.io.PrintWriter
+import java.nio.file.{Files, Path}
 import scala.annotation.tailrec
 
 object UniProcessorTestUtils {
@@ -89,7 +85,7 @@ object UniProcessorTestUtils {
   }
 
   def programProcessor(instructions: Seq[Long], epilogue_length: Int, sleep_length: Int,
-                         countdown: Int, packet_stream: BareNoCBundle, clock: Clock)(stream_cond: => Boolean): Unit = {
+                       countdown: Int, packet_stream: BareNoCBundle, clock: Clock)(stream_cond: => Boolean): Unit = {
     val empty_packet = new BareNoCBundle(ManticoreBaseISA).Lit(
       _.data -> 0.U,
       _.address -> 0.U,

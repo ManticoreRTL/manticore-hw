@@ -1,21 +1,18 @@
-package manticore
+package manticore.pipeline
 
 import Chisel._
 import chisel3.experimental.BundleLiterals.AddBundleLiteralConstructor
 import chisel3.tester._
 import chiseltest.ChiselScalatestTester
-import org.scalatest.{FlatSpec, Matchers}
-import manticore.core.alu.StandardALU.Functs
-import manticore.core.{ExecuteBase, ExecuteComb, ExecutePiped}
-import manticore.core.alu.StandardALU.Functs.Functs
 import chiseltest.experimental.TestOptionBuilder._
-import chiseltest.internal.{VerilatorBackendAnnotation => USE_VERILATOR, WriteVcdAnnotation => DUMP_VCD}
-
+import chiseltest.internal.{VerilatorBackendAnnotation => USE_VERILATOR}
+import manticore.ManticoreBaseISA
 import manticore.assembly.Instruction.Opcode
 import manticore.core.ExecuteInterface.OpcodePipe
-import manticore.core.alu.CustomALUGen.EQUATIONS
-
-import scala.util.Random
+import manticore.core.alu.StandardALU.Functs
+import manticore.core.alu.StandardALU.Functs.Functs
+import manticore.core.{ExecuteBase, ExecuteComb, ExecutePiped}
+import org.scalatest.{FlatSpec, Matchers}
 
 class ExecuteTester extends FlatSpec with ChiselScalatestTester with Matchers {
 
@@ -29,11 +26,8 @@ class ExecuteTester extends FlatSpec with ChiselScalatestTester with Matchers {
   behavior of "Execute stage"
 
   def computeCustom(x: Int, y: Int, u: Int, v: Int)(equ: Seq[Int]): Int = {
+    import manticore.assembly.Instruction.{Custom0, CustomFunction, R, SetValue}
     import manticore.assembly._
-    import manticore.assembly.Instruction.SetValue
-    import manticore.assembly.Instruction.Custom0
-    import manticore.assembly.Instruction.CustomFunction
-    import manticore.assembly.Instruction.R
     val interpreter = new Interpreter
     interpreter.run(
       Array(
