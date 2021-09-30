@@ -134,7 +134,7 @@ object UniProcessorTestUtils {
                          initial_registers: String = "",
                          initial_array: String = "") extends Module {
     val io = IO(new ProcessorInterface(config, DimX, DimY) {
-      val clock_enable: Bool = Input(Bool())
+      val clock_enable_n: Bool = Input(Bool())
       val rwb: Bool = Output(Bool())
       //  val clock: Clock = IO(Input(Clock()))
 
@@ -143,15 +143,15 @@ object UniProcessorTestUtils {
     val gated_clock: Clock = Wire(Clock())
     val clock_buffer = Module(new ClockBuffer())
     clock_buffer.io.I := clock
-    clock_buffer.io.CE := io.clock_enable
+    clock_buffer.io.CE := io.clock_enable_n
     gated_clock := clock_buffer.io.O
 
     withClockAndReset(clock = gated_clock, reset = 0.B) {
       val impl: Processor = Module(new Processor(config, DimX, DimY,
         equations, initial_registers, initial_array))
       io <> impl.io
-
       io.rwb := io.periphery.cache.cmd === CacheCommand.Read
+
     }
 
   }

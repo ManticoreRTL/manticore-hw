@@ -31,15 +31,16 @@ class BareNoC(DimX: Int, DimY: Int, config: ISA) extends Module {
 
   // connect the row ports in the switches
 
+
   switch_array.transpose.foreach { row =>
-    when (io.configEnable) {
-      row.head.io.xInput := io.configPacket
-    } otherwise {
-      row.head.io.xInput := row.last.io.xOutput
-    }
+    row.head.io.xInput := row.last.io.xOutput
     row.sliding(2, 1).foreach { case Seq(left: Switch, right: Switch) =>
       right.io.xInput := left.io.xOutput
     }
+  }
+
+  when(io.configEnable) {
+    switch_array.head.head.io.xInput := io.configPacket
   }
 
   // connect column ports of the switches

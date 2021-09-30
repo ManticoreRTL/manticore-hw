@@ -6,7 +6,7 @@ import chisel3.tester.experimental.TestOptionBuilder.ChiselScalatestOptionBuilde
 import chisel3.tester.{ChiselScalatestTester, testableClock, testableData}
 import chiseltest.internal.{VerilatorBackendAnnotation, WriteVcdAnnotation}
 import manticore.ManticoreBaseISA
-import manticore.control.RequiresVerilator
+import manticore.TestsCommon.RequiresVerilator
 import manticore.core.{BareNoC, NoCBundle}
 import org.scalatest.{FlatSpec, Matchers}
 
@@ -35,6 +35,15 @@ class BareNoCTester extends FlatSpec with ChiselScalatestTester with Matchers {
     @tailrec
     def waitResponse(expected: ExpectedPacket, cycles: Int = 0): Unit = {
       if (cycles < DimX * DimY) {
+
+        Range(0, DimX).foreach { x =>
+          Range(0, DimY).foreach { y =>
+            if (x != expected.target.x || y != expected.target.y) {
+              dut.io.corePacketOutput(x)(y).valid.expect(false.B)
+            }
+          }
+        }
+
         val x = expected.target.x
         val y = expected.target.y
         if (dut.io.corePacketOutput(x)(y).valid.peek().litToBoolean) {
@@ -45,6 +54,7 @@ class BareNoCTester extends FlatSpec with ChiselScalatestTester with Matchers {
             fail(s"Packet did not meet timing requirements, " +
               s"expected latency is ${expected.latency} but packet received after ${cycles}")
           }
+
         } else {
           dut.clock.step()
           waitResponse(expected, cycles + 1)

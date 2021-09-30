@@ -136,7 +136,7 @@ class UniProcessorGlobalMemoryTester extends FlatSpec with Matchers with ChiselS
                 println(s"GlobalStore will take ${new_req.latency} cycles")
                 val new_mem = mem + (new_req.address -> new_req.value)
                 // disable the clock
-                dut.io.clock_enable.poke(false.B)
+                dut.io.clock_enable_n.poke(true.B)
                 dut.io.periphery.cache.done.poke(true.B)
                 dut.clock.step()
                 TickState(Some(new_req), None, new_mem)
@@ -151,7 +151,7 @@ class UniProcessorGlobalMemoryTester extends FlatSpec with Matchers with ChiselS
                   10 max rdgen.nextInt(20)
                 )
                 println(s"GlobalLoad will take ${new_req.latency} cycles")
-                dut.io.clock_enable.poke(false.B)
+                dut.io.clock_enable_n.poke(true.B)
                 dut.io.periphery.cache.done.poke(false.B)
                 dut.clock.step()
                 TickState(None, Some(new_req), mem)
@@ -160,13 +160,13 @@ class UniProcessorGlobalMemoryTester extends FlatSpec with Matchers with ChiselS
             } else {
               dut.clock.step()
               dut.io.periphery.cache.done.poke(false.B)
-              dut.io.clock_enable.poke(true.B)
+              dut.io.clock_enable_n.poke(false.B)
               TickState(None, None, mem)
             }
           case (Some(s), None) =>
             if (s.finished()) {
               dut.io.periphery.cache.done.poke(true.B)
-              dut.io.clock_enable.poke(true.B)
+              dut.io.clock_enable_n.poke(false.B)
               dut.clock.step()
               TickState(None, None, mem)
             } else {
@@ -178,12 +178,12 @@ class UniProcessorGlobalMemoryTester extends FlatSpec with Matchers with ChiselS
             if (l.finished()) {
               dut.io.periphery.cache.done.poke(true.B)
               dut.io.periphery.cache.rdata.poke(l.value.U)
-              dut.io.clock_enable.poke(true.B)
+              dut.io.clock_enable_n.poke(false.B)
               dut.clock.step()
               TickState(None, None, mem)
             } else {
               dut.io.periphery.cache.done.poke(false.B)
-              dut.io.clock_enable.poke(false.B)
+              dut.io.clock_enable_n.poke(true.B)
               dut.clock.step()
               TickState(None, Some(l.tick()), mem)
             }
@@ -201,7 +201,7 @@ class UniProcessorGlobalMemoryTester extends FlatSpec with Matchers with ChiselS
         }
       }
 
-      dut.io.clock_enable.poke(true.B)
+      dut.io.clock_enable_n.poke(false.B)
       dut.clock.step()
       UniProcessorTestUtils.programProcessor(
         program.map(inst => Assembler.assemble(inst)(equations)),

@@ -156,7 +156,7 @@ class SimpleDualPortMemory(val ADDRESS_WIDTH: Int,
       "filename" -> INIT
     )
   ) with HasBlackBoxResource {
-    require(INIT.nonEmpty, "empty filename in BRAM verilog memory!")
+//    require(INIT.nonEmpty, "empty filename in BRAM verilog memory!")
     addResource("/verilog/BRAMLike.v")
   }
   class URAMLike extends VerilogMemory(

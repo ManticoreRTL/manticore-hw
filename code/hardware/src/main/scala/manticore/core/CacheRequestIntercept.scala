@@ -41,8 +41,7 @@ class CacheRequestIntercept extends Module {
   io.clock_manager.gate_request_start := false.B
   io.clock_manager.gate_request_end := false.B
 
-//  io.front_side.cache <> io.front_side.core
-//  io.front_side.cache.addr := io.front_side.core.addr
+
   io.front_side.core <> io.front_side.cache
 
   io.front_side.cache.start := false.B

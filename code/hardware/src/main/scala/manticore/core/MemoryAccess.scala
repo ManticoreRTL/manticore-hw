@@ -72,7 +72,7 @@ class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
   //  packet_reg.yHops := io.pipe_in.immediate(log2Ceil(DimY) + log2Ceil(DimX) - 1, log2Ceil(DimX))
   packet_reg.data := io.pipe_in.data
   packet_reg.address := io.pipe_in.rd
-  packet_reg.valid := (io.pipe_in.opcode.send || io.pipe_in.opcode.expect)
+  packet_reg.valid := (io.pipe_in.opcode.send)
 
   io.pipe_out.packet := packet_reg
 

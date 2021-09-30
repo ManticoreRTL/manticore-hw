@@ -32,6 +32,7 @@ trait ISA {
   /**
    * Opcode unique objects, can serve as types
    */
+  object Nop extends Opcode(Instruction.Opcode.NOP.id)
   object SetValue extends Opcode(Instruction.Opcode.SET.id)
   object Custom0 extends Opcode(Instruction.Opcode.CUST0.id)
   object Arithmetic extends Opcode (Instruction.Opcode.ARITH.id)
@@ -41,7 +42,7 @@ trait ISA {
   object GlobalLoad extends Opcode (Instruction.Opcode.GLOAD.id)
   object GlobalStore extends Opcode (Instruction.Opcode.GSTORE.id)
   object Send extends Opcode(Instruction.Opcode.SEND.id)
-//  object Nop extends Opcode(Instruction.Opcode.NOP.id)
+
 
   object DestReg extends  InstructionField(OpcodeBits, IdBits)
   object Funct extends InstructionField(DestReg.toIndex + 1, FunctBits)

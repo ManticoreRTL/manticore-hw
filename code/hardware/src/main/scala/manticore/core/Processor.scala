@@ -202,9 +202,9 @@ class Processor(config: ISA,
         fetch_stage.io.programmer.enable := true.B
         fetch_stage.io.programmer.instruction :=
           Cat(Seq(
-            0.U((config.Immediate.length - config.DataBits).W),
             io.packet_in.data,
-            0.U((config.IdBits + config.FunctBits).W),
+            0.U((config.IdBits * 4 - config.DataBits).W),
+            0.U(config.FunctBits.W),
             io.packet_in.address,
             config.SetValue.value.U(config.OpcodeBits.W)))
       } otherwise {

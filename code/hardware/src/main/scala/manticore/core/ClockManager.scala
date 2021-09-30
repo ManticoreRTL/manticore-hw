@@ -6,6 +6,23 @@ import chisel3.experimental.ChiselEnum
 import chisel3.util.HasBlackBoxResource
 
 
+/**
+ * The clock manager handle multiple requests for disabling the clock.
+ * The parameter `NumUsers` determines how many requests can be handled.
+ * Note that a user who issues a clock gating request should NOT itself
+ * use the `clock_enable_n` signal to disable its clock, rather it can just
+ * relay it to other modules that it controls.
+ *
+ * A user sends a pulse on the `start_request` line indicating that it wants
+ * the clock to be gated. The `ClockManager` guarantees that once it has received
+ * the request, the clock will be gated after the next rising edge of the clock,
+ * in other words, the request to gate the clock should arrive a cycle earlier.
+ * A user should not look at the `clock_enable_n` signal to send a pulse on
+ * `start_request` as this can create a deadlock or a combinational loop.
+ * Note that it is possible another `start_request` pulse has already caused
+ * the clock to be gated.
+ * @param NumUsers
+ */
 class ClockManagerInterface(NumUsers: Int = 4)
   extends Bundle {
 
@@ -32,7 +49,7 @@ class ClockManagerInterface(NumUsers: Int = 4)
    * Clock enable signal to be given to a glitchless clock buffer, e.g.,
    * BUFGCE in Vivado (see page 28 in ug572).
    */
-  val clock_enable: Bool = Output(Bool())
+  val clock_enable_n: Bool = Output(Bool())
 
   /**
    * Sticky error checking indicator (only clears on reset).
@@ -76,7 +93,7 @@ class ClockManager(NumUsers: Int = 4) extends Module {
 
 
   val state = RegInit(GatedState.Type(), GatedState.ClockActive)
-  io.clock_enable := state === GatedState.ClockActive
+  io.clock_enable_n := !(state === GatedState.ClockActive)
 
   def setOnceError(error_bit: Bool, cond: Bool): Unit = {
     when(cond === true.B) {

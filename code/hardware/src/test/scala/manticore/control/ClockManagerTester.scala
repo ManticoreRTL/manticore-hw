@@ -5,11 +5,36 @@ import chisel3.tester.experimental.TestOptionBuilder.ChiselScalatestOptionBuilde
 import chisel3.tester.{ChiselScalatestTester, testableClock}
 import chiseltest.internal.{VerilatorBackendAnnotation, WriteVcdAnnotation}
 import chiseltest.testableData
-import manticore.core.ClockManager
+import manticore.TestsCommon.RequiresVerilator
+import manticore.core.{CacheRequestIntercept, ClockManager, ExceptionHandler}
 import org.scalatest.{FlatSpec, Matchers, Tag}
 
-object RequiresVerilator extends Tag("RequiresVerilator")
 
+object ClockManagerTester {
+
+
+  class ClockControlModules(NameBits: Int) extends Module {
+
+    val io = IO(
+      new Bundle {
+
+      }
+    )
+
+
+    val intercept = Seq.fill(4) {
+      Module(new CacheRequestIntercept)
+    }
+
+    val handler = Seq.fill(4) {
+      Module(new ExceptionHandler(NameBits))
+    }
+
+
+  }
+
+
+}
 class ClockManagerTester extends FlatSpec with Matchers with ChiselScalatestTester {
 
   val rdgen = new scala.util.Random(0)
@@ -33,19 +58,19 @@ class ClockManagerTester extends FlatSpec with Matchers with ChiselScalatestTest
       dut.clock.step()
       dut.io.start_request.pokeWithSeq(Seq.fill(NumUsers)(false.B))
       dut.io.done_request.pokeWithSeq(Seq.fill(NumUsers)(false.B))
-      dut.io.clock_enable.expect(true.B)
+      dut.io.clock_enable_n.expect(false.B)
       dut.clock.step()
       // request clock gating by a single entity
       dut.io.start_request.pokeWithSeq{
         true.B +: Seq.fill(NumUsers - 1)(false.B)
       }
       dut.clock.step()
-      dut.io.clock_enable.expect(false.B)
+      dut.io.clock_enable_n.expect(true.B)
       dut.io.start_request.pokeWithSeq(Seq.fill(NumUsers)(false.B))
       dut.clock.step(rdgen.nextInt(20) + 1)
       dut.io.done_request.pokeWithSeq(true.B +: Seq.fill(NumUsers - 1)(false.B))
       dut.clock.step(2)
-      dut.io.clock_enable.expect(true.B)
+      dut.io.clock_enable_n.expect(false.B)
       dut.clock.step()
 
     }

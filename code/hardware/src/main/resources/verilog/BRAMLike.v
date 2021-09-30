@@ -1,7 +1,7 @@
 module BRAMLike #(
   parameter DATA_WIDTH = 16,
   parameter ADDRESS_WIDTH = 11,
-  parameter filename = "memory.data"
+  parameter filename = ""
 )(
    input         clock,
 
@@ -32,6 +32,8 @@ module BRAMLike #(
    //assign dout = memory[addr_reg];
 
   initial begin
-    $readmemb(filename, memory);
+    if (filename != "") begin
+      $readmemb(filename, memory);
+    end
   end
 endmodule

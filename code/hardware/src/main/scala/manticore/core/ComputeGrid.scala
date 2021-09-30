@@ -112,7 +112,7 @@ class ComputeGrid(DimX: Int, DimY: Int,
 
 object GenerateComputeGrid extends App {
 
-  val dimX, dimY = 2
+  val dimX, dimY = 4
   val rdgen = new scala.util.Random(0)
 
   def makeGrid[T](gen: (Int, Int) => T): Seq[Seq[T]] = Range(0, dimX).map { x =>

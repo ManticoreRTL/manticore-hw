@@ -2,7 +2,7 @@
 * Wrapper for Xilinx BUFCE (glitchless clock gating cell)
 */
 module ClockBuffer(
-    input wire CE, // clock enable
+    input wire CE, // clock enable (active low)
     input wire I, // input (source) clock
     output wire O // output clock
 );
@@ -13,7 +13,7 @@ module ClockBuffer(
     reg output_clk;
     assign input_clk = I;
     always @(input_clk) begin
-        if (input_clk == 1'b1 && CE) begin
+        if (input_clk == 1'b1 && CE == 1'b0) begin
             output_clk = 1'b1;
         end 
         else if (input_clk == 1'b0) begin
@@ -25,7 +25,7 @@ module ClockBuffer(
     // the actual deal
     BUFGCE #(
         .CE_TYPE("SYNC"), // SYNC, ASYNC
-        .IS_CE_INVERTED(1’b0), // Programmable inversion on CE
+        .IS_CE_INVERTED(1’b1), // Programmable inversion on CE
         .IS_I_INVERTED(1’b0) // Programmable inversion on I
     )
     impl (

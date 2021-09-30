@@ -24,7 +24,7 @@ object Instruction {
 
   object Opcode extends Enumeration {
     type Type = Value
-    val SET, CUST0, ARITH, LLOAD, LSTORE, EXPECT, GLOAD, GSTORE, SEND, NOP= Value
+    val NOP, SET, CUST0, ARITH, LLOAD, LSTORE, EXPECT, GLOAD, GSTORE, SEND = Value
   }
 
 

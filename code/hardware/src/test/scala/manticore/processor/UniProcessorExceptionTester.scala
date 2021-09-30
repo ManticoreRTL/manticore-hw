@@ -7,7 +7,7 @@ import chiseltest.internal.{VerilatorBackendAnnotation, WriteVcdAnnotation}
 import manticore.assembly.Assembler
 import manticore.{ManticoreBaseISA, ManticoreFullISA}
 import manticore.assembly.Instruction.{Expect, Instruction, LocalLoad, LocalStore, Nop, R, SetEqual}
-import manticore.control.RequiresVerilator
+
 import manticore.processor.UniProcessorTestUtils.ClockedProcessor
 import org.scalatest.{FlatSpec, Matchers}
 
@@ -15,6 +15,7 @@ import java.io.File
 import java.nio.file.Paths
 import scala.util.Random
 import Chisel._
+import manticore.TestsCommon.RequiresVerilator
 
 import scala.annotation.tailrec
 
@@ -82,7 +83,7 @@ class UniProcessorExceptionTester extends FlatSpec with Matchers
       Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)
     ) { dut =>
 
-      dut.io.clock_enable.poke(true.B)
+      dut.io.clock_enable_n.poke(false.B)
 
       UniProcessorTestUtils.programProcessor(
         program.map(inst => Assembler.assemble(inst)(equations)),
@@ -98,9 +99,9 @@ class UniProcessorExceptionTester extends FlatSpec with Matchers
           if (dut.io.periphery.exception.error.peek().litToBoolean) {
             dut.io.periphery.exception.id.expect(to_catch.head.U)
             println(s"Successfully caught exception ${to_catch.head}, killing the clock to handle the exception!")
-            dut.io.clock_enable.poke(false.B)
+            dut.io.clock_enable_n.poke(true.B)
             dut.clock.step(rdgen.nextInt(20) + 2)
-            dut.io.clock_enable.poke(true.B)
+            dut.io.clock_enable_n.poke(false.B)
             dut.clock.step()
             catchIfAny(to_catch.tail)
           } else {

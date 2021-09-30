@@ -111,7 +111,7 @@ object Assembler {
         inst.build
       case Nop() =>
         val inst: BinaryInstructionBuilder = BinaryInstructionBuilder() ++
-          (ManticoreBaseISA.SetValue.value, ManticoreBaseISA.OpcodeBits) ++
+          (ManticoreBaseISA.Nop.value, ManticoreBaseISA.OpcodeBits) ++
           (0, ManticoreBaseISA.IdBits) ++
           (StandardALU.Functs.ADD2.id, ManticoreBaseISA.FunctBits) ++
           (0, ManticoreBaseISA.IdBits) ++

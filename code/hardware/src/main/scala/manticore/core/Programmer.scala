@@ -48,6 +48,8 @@ class Programmer(config: ISA, DimX: Int, DimY: Int) extends Module {
     StreamEpilogueLength,
     StreamSleepLength,
     StreamCountDown,
+    WaitForCountDownEnd1,
+    WaitForCountDownEnd2,
     Running,
     Paused = Value
   }
@@ -131,7 +133,7 @@ class Programmer(config: ISA, DimX: Int, DimY: Int) extends Module {
       when(io.start) {
         phase := Phase.StartCacheRead
         phase_next := Phase.StreamDest
-        delay_value := (DimX * DimY + 2).U
+        delay_value := (DimX * DimY - (DimX + DimY - 1)).U
         instruction_stream_addr_reg := io.instruction_stream_base
       }
     }
@@ -210,13 +212,24 @@ class Programmer(config: ISA, DimX: Int, DimY: Int) extends Module {
       io.packet_out.yHops := (DimY - 1).U - y_counter.io.value
       io.packet_out.valid := true.B
       io.packet_out.data := delay_value
-      delay_value := delay_value - 1.U
+//      delay_value := delay_value - 1.U
+
+      when(x_counter.io.wrap) {
+        delay_value := delay_value - (DimX - 1).U
+      }
       when(x_counter.io.wrap && y_counter.io.wrap) {
         // streaming the last one
-        phase := Phase.Running
+        phase := Phase.WaitForCountDownEnd1
       } otherwise {
         phase := Phase.StreamCountDown
       }
+    }
+
+    is (Phase.WaitForCountDownEnd1) {
+      phase := Phase.WaitForCountDownEnd2
+    }
+    is (Phase.WaitForCountDownEnd2) {
+      phase := Phase.Running
     }
 
     is(Phase.Running) {
