@@ -116,19 +116,19 @@ class ClockManager(NumUsers: Int = 4) extends Module {
   }
 
   def exists[T <: Data](elems: Vec[T])(cond: T => Bool): Bool = {
-    val quantification = Wire(Bool())
-    quantification := elems.map{ e =>
+    val existential = Wire(Bool())
+    existential := elems.map{ e =>
       val wire_cond = Wire(Bool())
       wire_cond := cond(e)
       wire_cond
     }.reduce(_ | _)
-    quantification
+    existential
   }
 
   def forall[T <: Data](elems: Vec[T])(cond: T => Bool): Bool = {
-    val quantification = Wire(Bool())
-    quantification := !exists(elems)(cond)
-    quantification
+    val universal = Wire(Bool())
+    universal := !exists(elems)(!cond(_))
+    universal
   }
 
   switch(state) {
@@ -154,11 +154,11 @@ class ClockManager(NumUsers: Int = 4) extends Module {
       captureNewRequests()
       // we are done when there are no new requests and all the old ones are served
       when(
-        forall(request_served) {
-          _ === true.B
+        !exists(request_served) {
+          _ === false.B
         } &&
-          forall(new_request) {
-            _ === false.B
+          !exists(new_request) {
+            _ === true.B
           }) {
         request_captured := VecInit(Seq.fill(NumUsers)(false.B))
         state := GatedState.ClockActive

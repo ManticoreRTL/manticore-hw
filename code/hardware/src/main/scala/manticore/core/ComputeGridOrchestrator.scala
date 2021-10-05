@@ -124,6 +124,16 @@ class ComputeGridOrchestrator(DimX: Int, DimY: Int, config: ISA) extends Module 
   val schedule_counter: UInt = Reg(UInt((config.NumPcBits + 1).W))
   val virtual_cycles: UInt = Reg(UInt(48.W)) // can simulate up to 2^48 cycles,
   // which is about 3 days if the clock is 1ns
+
+  when(clock_manager.io.clock_enable_n && program_loader.io.running) {
+    schedule_counter := schedule_counter + 1.U
+    when(schedule_counter === io.registers.from_host.schedule_length - 1.U) {
+      schedule_counter := 0.U
+      virtual_cycles := virtual_cycles + 1.U
+    }
+  }
+
+
   val bootloader_counter: UInt = Reg(UInt(32.W))
 
   io.registers.to_host.bootloader_cycles := bootloader_counter
@@ -179,13 +189,7 @@ class ComputeGridOrchestrator(DimX: Int, DimY: Int, config: ISA) extends Module 
     }
 
     is(Phase.VirtualCycle) {
-      when(clock_manager.io.clock_enable_n) {
-        schedule_counter := schedule_counter + 1.U
-        when(schedule_counter === io.registers.from_host.schedule_length) {
-          schedule_counter := 0.U
-          virtual_cycles := virtual_cycles + 1.U
-        }
-      } otherwise {
+      when(!clock_manager.io.clock_enable_n) {
         val any_exceptions = Wire(Vec(4, Bool()))
         any_exceptions := exception_handler.map(_.io.caught)
         when(any_exceptions.exists(_ === true.B)) {

@@ -69,7 +69,7 @@ class ProgrammerNoCTester extends FlatSpec with ChiselScalatestTester with Match
     }
   }
 
-  class ComputeGridUnderTestWithBootloader(val initial: Seq[SimulatedMemoryWord]) extends Module {
+  class ComputeGridWithBootLoader(val initial: Seq[SimulatedMemoryWord]) extends Module {
     val io = IO(new Bundle {
       val programmer = new Bundle {
         val start = Input(Bool())
@@ -80,6 +80,8 @@ class ProgrammerNoCTester extends FlatSpec with ChiselScalatestTester with Match
       val noc = new BareNoCInterface(DimX, DimY, Config)
       val core_active: Vec[Vec[Bool]] = Output(Vec(DimX, Vec(DimY, Bool())))
       val exception: Vec[Vec[NamedError]] = Output(Vec(DimX, Vec(DimY, new NamedError(Config.DataBits))))
+      val schedule_length: UInt = Input(UInt((Config.NumPcBits + 1).W))
+      val schedule_counter: UInt = Output(UInt((Config.NumPcBits + 1).W))
     })
 
     val rf = UniProcessorTestUtils.createMemoryDataFiles {
@@ -137,6 +139,15 @@ class ProgrammerNoCTester extends FlatSpec with ChiselScalatestTester with Match
       }
     }
 
+    val schedule_counter: UInt = Reg(UInt((Config.NumPcBits + 1).W))
+    when(bootloader.io.running) {
+      schedule_counter := schedule_counter + 1.U
+      when(schedule_counter === io.schedule_length - 1.U) {
+        schedule_counter := 0.U
+      }
+    }
+    io.schedule_counter := schedule_counter
+
   }
 
 
@@ -184,7 +195,7 @@ class ProgrammerNoCTester extends FlatSpec with ChiselScalatestTester with Match
     }
   }
 
-  val schedule_length: Int = num_nops.flatten.max + makeProgram(0, 0, 0).length + 3
+  val schedule_length: Int = num_nops.flatten.max + makeProgram(0, 0, 0).length + 3 + 5
   val initial_memory_content: Seq[Seq[Seq[SimulatedMemoryWord]]] = Range(0, DimX).map { x =>
     Range(0, DimY).map { y =>
 
@@ -194,9 +205,9 @@ class ProgrammerNoCTester extends FlatSpec with ChiselScalatestTester with Match
       val epilogue_length = 3 // expected number of messages that it receives
       //      val epilogue_length = 6
       //      val sleep_length = 7
-      val sleep_length = schedule_length - (body_length + epilogue_length) + 5
+      val sleep_length = schedule_length - (body_length + epilogue_length)
       if (sleep_length < 5) {
-        fail(s"sleep length ${x}, ${y} should be greater than pipeline depth")
+        fail(s"sleep length ${x}, ${y} should be greater than pipeline depth (${sleep_length} < 5}")
       }
 
       Seq(
@@ -221,7 +232,7 @@ class ProgrammerNoCTester extends FlatSpec with ChiselScalatestTester with Match
   behavior of "Programmer on the NoC"
   it should "correctly stream instructions and transition to running mode at the right time" in {
 
-    test(new ComputeGridUnderTestWithBootloader(
+    test(new ComputeGridWithBootLoader(
       initial_memory_content.flatten.flatten
     )).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { dut =>
 
@@ -312,6 +323,7 @@ class ProgrammerNoCTester extends FlatSpec with ChiselScalatestTester with Match
         }
       }
 
+      dut.io.schedule_length.poke(schedule_length.U)
       dut.io.programmer.start.poke(true.B)
       dut.clock.step()
       dut.io.programmer.start.poke(false.B)

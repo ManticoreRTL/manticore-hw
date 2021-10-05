@@ -137,7 +137,7 @@ class UniProcessorGlobalMemoryTester extends FlatSpec with Matchers with ChiselS
                 val new_mem = mem + (new_req.address -> new_req.value)
                 // disable the clock
                 dut.io.clock_enable_n.poke(true.B)
-                dut.io.periphery.cache.done.poke(true.B)
+                dut.io.periphery.cache.done.poke(false.B)
                 dut.clock.step()
                 TickState(Some(new_req), None, new_mem)
               } else { // load

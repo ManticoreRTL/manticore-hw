@@ -10,31 +10,7 @@ import manticore.core.{CacheRequestIntercept, ClockManager, ExceptionHandler}
 import org.scalatest.{FlatSpec, Matchers, Tag}
 
 
-object ClockManagerTester {
 
-
-  class ClockControlModules(NameBits: Int) extends Module {
-
-    val io = IO(
-      new Bundle {
-
-      }
-    )
-
-
-    val intercept = Seq.fill(4) {
-      Module(new CacheRequestIntercept)
-    }
-
-    val handler = Seq.fill(4) {
-      Module(new ExceptionHandler(NameBits))
-    }
-
-
-  }
-
-
-}
 class ClockManagerTester extends FlatSpec with Matchers with ChiselScalatestTester {
 
   val rdgen = new scala.util.Random(0)
@@ -50,7 +26,7 @@ class ClockManagerTester extends FlatSpec with Matchers with ChiselScalatestTest
     }
   }
 
-  it should "correctly capture a single request" taggedAs RequiresVerilator in {
+  it should "correctly capture a single request and renable the clock in two cycles after done is asserted" taggedAs RequiresVerilator in {
     test(new ClockManager(NumUsers = NumUsers)).withAnnotations(
       Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)
     ) { dut =>
@@ -69,9 +45,13 @@ class ClockManagerTester extends FlatSpec with Matchers with ChiselScalatestTest
       dut.io.start_request.pokeWithSeq(Seq.fill(NumUsers)(false.B))
       dut.clock.step(rdgen.nextInt(20) + 1)
       dut.io.done_request.pokeWithSeq(true.B +: Seq.fill(NumUsers - 1)(false.B))
-      dut.clock.step(2)
+      dut.io.clock_enable_n.expect(true.B)
+      dut.clock.step()
+      dut.io.clock_enable_n.expect(true.B)
+      dut.clock.step()
       dut.io.clock_enable_n.expect(false.B)
       dut.clock.step()
+
 
     }
   }
