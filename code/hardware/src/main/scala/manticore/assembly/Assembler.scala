@@ -149,6 +149,16 @@ object Assembler {
           (addrmid, ManticoreBaseISA.IdBits) ++
           (addrlo.index, ManticoreBaseISA.IdBits)
         inst.build
+      case Predicate(rs) =>
+        val inst: BinaryInstructionBuilder = BinaryInstructionBuilder() ++
+          (ManticoreBaseISA.Predicate.value, ManticoreBaseISA.OpcodeBits) ++
+          (0, ManticoreBaseISA.IdBits) ++
+          (StandardALU.Functs.ADD2.id, ManticoreBaseISA.FunctBits) ++
+          (rs, ManticoreBaseISA.IdBits) ++
+          (0, ManticoreBaseISA.IdBits) ++
+          (0, ManticoreBaseISA.IdBits) ++
+          (0, ManticoreBaseISA.IdBits)
+        inst.build
       case _ => throw new Exception(s"${instruction} not implemented!")
     }
   }

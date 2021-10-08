@@ -40,6 +40,7 @@ object Decode {
     val expect: Bool = Bool()
     val gload: Bool = Bool()
     val gstore: Bool = Bool()
+    val predicate: Bool = Bool()
     val nop: Bool = Bool()
   }
 
@@ -101,6 +102,7 @@ class Decode(config: ISA) extends Module {
   setEqual(opcode_regs.gload, config.GlobalLoad.value)
   setEqual(opcode_regs.gstore, config.GlobalStore.value)
   setEqual(opcode_regs.send, config.Send.value)
+  setEqual(opcode_regs.predicate, config.Predicate.value)
   opcode_regs.nop := io.instruction === 0.U
 
   io.pipe_out.opcode := opcode_regs

@@ -44,7 +44,7 @@ class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
   io.local_memory_interface.raddr := io.pipe_in.result
   io.local_memory_interface.waddr := io.pipe_in.result
   io.local_memory_interface.din := io.pipe_in.data
-  io.local_memory_interface.wen := io.pipe_in.opcode.lstore
+  io.local_memory_interface.wen := io.pipe_in.opcode.lstore && io.pipe_in.pred
 
 
   // connect to the global memory (i.e., cache)
@@ -56,7 +56,7 @@ class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
   }
 
 
-  val packet_reg = Reg(new NoCBundle(16, 16, config))
+  val packet_reg = Reg(new NoCBundle(DimX, DimY, config))
 
   require(log2Ceil(DimX) + log2Ceil(DimY) <= io.pipe_in.immediate.getWidth)
   require(log2Ceil(DimX) <= io.pipe_in.immediate.getWidth / 2)
@@ -78,9 +78,10 @@ class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
 
   if (config.WithGlobalMemory) {
     io.pipe_out.gmem_data := io.global_memory_interface.rdata
-  } else {
-    io.pipe_out.lmem_data := io.local_memory_interface.dout
   }
+  
+  io.pipe_out.lmem_data := io.local_memory_interface.dout
+  
 
 
 

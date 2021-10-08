@@ -243,7 +243,7 @@ class StandardALU(DATA_BITS: Int) extends Module {
 
 object StandardALUGenerator extends App{
 
-  new ChiselStage().emitVerilog(new StandardALUComb(16))
-  new ChiselStage().emitVerilog(new StandardALU(16))
+  new ChiselStage().emitVerilog(new StandardALUComb(4), Array("--target-dir", "gen-dir"))
+  // new ChiselStage().emitVerilog(new StandardALU(4))
 
 }

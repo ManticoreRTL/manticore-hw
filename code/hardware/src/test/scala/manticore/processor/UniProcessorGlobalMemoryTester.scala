@@ -7,7 +7,7 @@ import chisel3.tester.{ChiselScalatestTester, testableClock, testableData}
 import chisel3.withClockAndReset
 import chiseltest.internal.{VerilatorBackendAnnotation, WriteVcdAnnotation}
 import manticore.assembly.Assembler
-import manticore.assembly.Instruction.{Add2, GlobalLoad, GlobalStore, Instruction, Nop, R}
+import manticore.assembly.Instruction.{Add2, GlobalLoad, GlobalStore, Instruction, Nop, R, Predicate}
 import manticore.core.{ClockBuffer, Processor, ProcessorInterface}
 import manticore.processor.UniProcessorTestUtils.ClockedProcessor
 import manticore.{ISA, ManticoreBaseISA, ManticoreFullISA}
@@ -17,6 +17,7 @@ import org.scalatest.{FlatSpec, Matchers}
 import java.io.File
 import java.nio.file.Paths
 import scala.annotation.tailrec
+import manticore.assembly
 
 
 
@@ -41,7 +42,7 @@ class UniProcessorGlobalMemoryTester extends FlatSpec with Matchers with ChiselS
     Nop(),
     Add2(val_reg, val_reg, const_1),
     Nop(),
-    Nop(),
+    Predicate(const_1),
     GlobalStore(val_reg, addr_hi, addr_mi, addr_lo),
     Add2(val_reg, const_0, const_0),
     Nop(),

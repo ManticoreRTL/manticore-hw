@@ -151,8 +151,9 @@ class BareNoCTester extends FlatSpec with ChiselScalatestTester with Matchers {
 
   it should "always deliver packets in absence of congestion" taggedAs RequiresVerilator in {
 
+    
     test(new BareNoC(6, 7, ManticoreBaseISA))
-      .withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { implicit dut =>
+      .withAnnotations(Seq(VerilatorBackendAnnotation)) { implicit dut =>
         checkRoutable
       }
 

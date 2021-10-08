@@ -146,7 +146,7 @@ object UniProcessorTestUtils {
     clock_buffer.io.CE := io.clock_enable_n
     gated_clock := clock_buffer.io.O
 
-    withClockAndReset(clock = gated_clock, reset = 0.B) {
+    withClockAndReset(clock = gated_clock, reset = reset) {
       val impl: Processor = Module(new Processor(config, DimX, DimY,
         equations, initial_registers, initial_array))
       io <> impl.io

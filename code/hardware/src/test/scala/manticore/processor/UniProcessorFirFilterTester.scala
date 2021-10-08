@@ -5,7 +5,7 @@ import chisel3.experimental.BundleLiterals.AddBundleLiteralConstructor
 import chisel3.tester.experimental.TestOptionBuilder.ChiselScalatestOptionBuilder
 import chisel3.tester.experimental.sanitizeFileName
 import chisel3.tester.{ChiselScalatestTester, testableClock, testableData}
-import chiseltest.internal.{VerilatorBackendAnnotation => USE_VERILATOR}
+import chiseltest.internal.{VerilatorBackendAnnotation => USE_VERILATOR, WriteVcdAnnotation => DUMP_VCD}
 import manticore.assembly.Instruction.{Instruction, Register}
 import manticore.assembly.{Assembler, Interpreter}
 import manticore.core.{BareNoCBundle, Processor}
@@ -118,6 +118,7 @@ class UniProcessorFirFilterTester extends FlatSpec with Matchers with ChiselScal
       Add2(sum, sum01, tap2b2),
       Add2(reset_ptr, reset_ptr, const_1),
       SetEqual(reset_cond, reset_value, const_1),
+      Predicate(const_1),
       LocalStore(sum, y_ptr, 0),
       Add2(tap0, tap1, const_0),
       Add2(tap1, tap2, const_0),
@@ -221,7 +222,7 @@ class UniProcessorFirFilterTester extends FlatSpec with Matchers with ChiselScal
             sanitizeFileName(scalaTestContext.value.get.name) + File.separator + "ra.data").toAbsolutePath
         }
       )
-    }.withAnnotations(Seq(USE_VERILATOR)) { implicit dut =>
+    }.withAnnotations(Seq(USE_VERILATOR, DUMP_VCD)) { implicit dut =>
 
 
       val num_vcycles = x_vals.size

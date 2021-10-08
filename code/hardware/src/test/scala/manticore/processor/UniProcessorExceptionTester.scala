@@ -6,7 +6,7 @@ import chisel3.tester.experimental.sanitizeFileName
 import chiseltest.internal.{VerilatorBackendAnnotation, WriteVcdAnnotation}
 import manticore.assembly.Assembler
 import manticore.{ManticoreBaseISA, ManticoreFullISA}
-import manticore.assembly.Instruction.{Expect, Instruction, LocalLoad, LocalStore, Nop, R, SetEqual}
+import manticore.assembly.Instruction.{Expect, Instruction, LocalLoad, LocalStore, Nop, R, SetEqual, Predicate}
 
 import manticore.processor.UniProcessorTestUtils.ClockedProcessor
 import org.scalatest.{FlatSpec, Matchers}
@@ -18,6 +18,8 @@ import Chisel._
 import manticore.TestsCommon.RequiresVerilator
 
 import scala.annotation.tailrec
+import manticore.assembly
+import firrtl.transforms.NoDCEAnnotation
 
 class UniProcessorExceptionTester extends FlatSpec with Matchers
   with ChiselScalatestTester {
@@ -50,12 +52,16 @@ class UniProcessorExceptionTester extends FlatSpec with Matchers
     val exceptions_to_catch = initial_reg_values.slice(200, 300)
     val program = exceptions_to_catch.flatMap { reg_id =>
       Array[Instruction](
+        Predicate(R(1)),
         LocalStore(R(reg_id), R(0), 0),
         SetEqual(R(reg_id), R(reg_id), R(0)), // should set R(reg_id) to 0
         Nop(),
         Nop(),
         Expect(R(reg_id), R(1), reg_id), // this should fail
-        LocalLoad(R(reg_id), R(0), 0)
+        LocalLoad(R(reg_id), R(0), 0),
+        Nop(),
+        Nop(),
+        Nop()
       )
     }
 
@@ -92,10 +98,17 @@ class UniProcessorExceptionTester extends FlatSpec with Matchers
         true
       }
 
+      @tailrec
+      def waitForStart(): Unit = {
+        if (dut.io.periphery.active.peek().litToBoolean == false){
+          dut.clock.step()
+          waitForStart()
+        }
+      }
 
       @tailrec
-      def catchIfAny(to_catch: Seq[Int]): Unit = {
-        if (to_catch.nonEmpty) {
+      def catchIfAny(to_catch: Seq[Int]): Seq[Int] = {
+        if (dut.io.periphery.active.peek().litToBoolean == true) {
           if (dut.io.periphery.exception.error.peek().litToBoolean) {
             dut.io.periphery.exception.id.expect(to_catch.head.U)
             println(s"Successfully caught exception ${to_catch.head}, killing the clock to handle the exception!")
@@ -108,10 +121,22 @@ class UniProcessorExceptionTester extends FlatSpec with Matchers
             dut.clock.step()
             catchIfAny(to_catch)
           }
+        } else {
+          to_catch
         }
       }
 
-      catchIfAny(exceptions_to_catch)
+      waitForStart()
+      catchIfAny(exceptions_to_catch).isEmpty should be(true)
+      waitForStart()
+      catchIfAny(exceptions_to_catch).isEmpty should be(true)
+      waitForStart()
+      catchIfAny(exceptions_to_catch).isEmpty should be(true)
+      waitForStart()
+      catchIfAny(exceptions_to_catch).isEmpty should be(true)
+      waitForStart()
+      catchIfAny(exceptions_to_catch).isEmpty should be(true)
+      
     }
 
   }

@@ -24,7 +24,7 @@ object Instruction {
 
   object Opcode extends Enumeration {
     type Type = Value
-    val NOP, SET, CUST0, ARITH, LLOAD, LSTORE, EXPECT, GLOAD, GSTORE, SEND = Value
+    val NOP, SET, CUST0, ARITH, LLOAD, LSTORE, EXPECT, GLOAD, GSTORE, SEND, PREDICATE = Value
   }
 
 
@@ -57,7 +57,7 @@ object Instruction {
   case class And2(rd: Register, rs1: Register, rs2: Register) extends ArithmeticInstruction
   case class Xor2(rd: Register, rs1: Register, rs2: Register) extends ArithmeticInstruction
   case class Mult2(rd: Register, rs1: Register, rs2: Register) extends ArithmeticInstruction
-  case class Not(rd: Register, rs1: Register) extends ArithmeticInstruction
+  
   case class SetEqual(rd: Register, rs1: Register, rs2: Register) extends ArithmeticInstruction
   case class SetLessThanUnsigned(rd: Register, rs1: Register, rs2: Register) extends ArithmeticInstruction
   case class SetLessThanSigned(rd: Register, rs1: Register, rs2: Register) extends ArithmeticInstruction
@@ -79,6 +79,8 @@ object Instruction {
 
   case class Send(target: Register, rs: Register, addressX: Long, addressY: Long) extends Instruction(Opcode.SEND)
 
+  case class Predicate(rs: Register) extends Instruction(Opcode.PREDICATE)
+  
   case class Nop() extends Instruction(Opcode.NOP)
 
 }

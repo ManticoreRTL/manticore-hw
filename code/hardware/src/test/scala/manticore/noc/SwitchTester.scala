@@ -28,7 +28,7 @@ import chisel3.experimental.BundleLiterals._
 import chisel3.tester.experimental.TestOptionBuilder.ChiselScalatestOptionBuilder
 import chisel3.tester.{testableClock, testableData}
 import chiseltest.ChiselScalatestTester
-import chiseltest.internal.{VerilatorBackendAnnotation => USE_VERILATOR}
+
 import manticore.ManticoreBaseISA
 import manticore.core.{NoCBundle, Switch}
 import org.scalatest.{FlatSpec, Matchers}
@@ -99,7 +99,7 @@ class SwitchTester extends FlatSpec  with ChiselScalatestTester with Matchers {
   behavior of "Switch"
   it should "route L to X and Y based on the xHops and yHops in the packet " +
     "and drop \"self\" packets" in  {
-    test(new Switch(config = config, DimX = DIMX, DimY = DIMY)).withAnnotations(Seq(USE_VERILATOR)) { dut =>
+    test(new Switch(config = config, DimX = DIMX, DimY = DIMY)).withAnnotations(Seq()) { dut =>
       for (i <- Range(0, NUM_TESTS)) {
         // simple test, route through X
         val packet: NoCBundle = randomPacketXY
@@ -168,7 +168,7 @@ class SwitchTester extends FlatSpec  with ChiselScalatestTester with Matchers {
   }
 
   it should "drop Y if X turning" in  {
-    test(new Switch(DIMX, DIMY, config)).withAnnotations(Seq(USE_VERILATOR)) { dut =>
+    test(new Switch(DIMX, DIMY, config)).withAnnotations(Seq()) { dut =>
 
       for (i <- Range(0, NUM_TESTS)) {
         val packetX = randomPacketXY
@@ -217,7 +217,7 @@ class SwitchTester extends FlatSpec  with ChiselScalatestTester with Matchers {
   }
 
   it should "drop L if X is present" in {
-    test(new Switch(DIMX, DIMY, config)).withAnnotations(Seq(USE_VERILATOR)) { dut =>
+    test(new Switch(DIMX, DIMY, config)).withAnnotations(Seq()) { dut =>
 
       for (i <- Range(0, NUM_TESTS)) {
         val packetX = randomPacketXY

@@ -42,7 +42,7 @@ trait ISA {
   object GlobalLoad extends Opcode (Instruction.Opcode.GLOAD.id)
   object GlobalStore extends Opcode (Instruction.Opcode.GSTORE.id)
   object Send extends Opcode(Instruction.Opcode.SEND.id)
-
+  object Predicate extends Opcode(Instruction.Opcode.PREDICATE.id)
 
   object DestReg extends  InstructionField(OpcodeBits, IdBits)
   object Funct extends InstructionField(DestReg.toIndex + 1, FunctBits)
