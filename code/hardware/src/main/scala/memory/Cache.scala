@@ -227,7 +227,7 @@ object CacheConfig {
 
   def frontInterface() = new CacheFrontInterface(DataBits, UsedAddressBits)
 
-  def backInterface() = new CacheBackInterface(DataBits, UsedAddressBits)
+  def backInterface() = new CacheBackInterface(CacheLineBits, UsedAddressBits)
 
   def interface() = new CacheInterface(DataBits, CacheLineBits, UsedAddressBits)
 
