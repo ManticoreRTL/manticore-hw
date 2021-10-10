@@ -5,22 +5,23 @@ import chisel3.{RawModule, withClockAndReset}
 import chisel3.stage.ChiselStage
 import manticore.{ISA, ManticoreBaseISA, ManticoreFullISA}
 
-
 object ComputeGrid {
   type Equations = Seq[Seq[Int]]
 
-  def createEquations(config: ISA)(generator: => Int): Equations = Seq.fill(1 << config.FunctBits) {
-    Seq.fill(config.DataBits) {
-      (generator.abs) % (1 << 16)
+  def createEquations(config: ISA)(generator: => Int): Equations =
+    Seq.fill(1 << config.FunctBits) {
+      Seq.fill(config.DataBits) {
+        (generator.abs) % (1 << 16)
+      }
     }
-  }
-
 
   type EquationConfig = Seq[Seq[Equations]]
 
-  class InitialState(val lut_configs: EquationConfig,
-                     val regfile_files: Seq[Seq[String]],
-                     val regarray_files: Seq[Seq[String]]) {
+  class InitialState(
+      val lut_configs: EquationConfig,
+      val regfile_files: Seq[Seq[String]],
+      val regarray_files: Seq[Seq[String]]
+  ) {
     val DimX = lut_configs.length
     val DimY = lut_configs.head.length
     require(lut_configs.forall(_.length == DimY))
@@ -39,18 +40,23 @@ object ComputeGrid {
 }
 
 class ComputeGridInterface(DimX: Int, DimY: Int, config: ISA) extends Bundle {
-  val cores: Vec[PeripheryProcessorInterface] = Vec(4, new PeripheryProcessorInterface(config))
-  val external_packet: NoCBundle = Input(new NoCBundle(DimX, DimY, config))
+  val cores: Vec[PeripheryProcessorInterface] =
+    Vec(4, new PeripheryProcessorInterface(config))
+  val external_packet: NoCBundle   = Input(new NoCBundle(DimX, DimY, config))
   val external_packet_enable: Bool = Input(Bool())
+  val clock_enable_n: Bool         = Input(Bool())
+
 }
 
-class ComputeGrid(DimX: Int, DimY: Int,
-                  power_on_state: ComputeGrid.InitialState) extends RawModule {
+class ComputeGrid(
+    DimX: Int,
+    DimY: Int,
+    power_on_state: ComputeGrid.InitialState
+) extends Module {
 
-
-  val io: ComputeGridInterface = IO(new ComputeGridInterface(DimX, DimY, ManticoreBaseISA))
-  val clock: Clock = IO(Input(Clock()))
-  val reset: Bool = IO(Input(Bool()))
+  val io: ComputeGridInterface = IO(
+    new ComputeGridInterface(DimX, DimY, ManticoreBaseISA)
+  )
 
   private def generateModules[T <: Module](gen: (Int, Int) => T): Seq[Seq[T]] =
     Range(0, DimX).map { x =>
@@ -59,7 +65,13 @@ class ComputeGrid(DimX: Int, DimY: Int,
       }
     }
 
-  withClockAndReset(clock, reset) {
+  val gated_clock: Clock = Wire(Clock())
+  val clock_buffer       = Module(new ClockBuffer())
+  clock_buffer.io.I  := clock
+  clock_buffer.io.CE := io.clock_enable_n
+  gated_clock        := clock_buffer.io.O
+
+  withClockAndReset(clock = gated_clock, reset = reset) {
     val cores: Seq[Seq[Processor]] = generateModules { (x: Int, y: Int) =>
       val has_memory =
         (x == 0 && y == 0) ||
@@ -69,23 +81,24 @@ class ComputeGrid(DimX: Int, DimY: Int,
       val core_config = if (has_memory) ManticoreFullISA else ManticoreBaseISA
       new Processor(
         core_config,
-        DimX, DimY,
+        DimX,
+        DimY,
         power_on_state.lut(x, y),
         power_on_state.registerFile(x, y),
-        power_on_state.registerArray(x, y))
+        power_on_state.registerArray(x, y)
+      )
     }
 
     val noc = Module(new BareNoC(DimX, DimY, ManticoreBaseISA))
     // connect the processors to the NoC
 
-    noc.io.corePacketInput
-      .flatten.zip(noc.io.corePacketOutput.flatten)
+    noc.io.corePacketInput.flatten
+      .zip(noc.io.corePacketOutput.flatten)
       .zip(cores.flatten)
       .foreach { case ((_inp, _out), core) =>
-        _inp := core.io.packet_out
+        _inp              := core.io.packet_out
         core.io.packet_in := _out
       }
-
 
     val periphery_if: Seq[PeripheryProcessorInterface] = Seq(
       cores.head.head.io.periphery,
@@ -95,8 +108,8 @@ class ComputeGrid(DimX: Int, DimY: Int,
     )
 
     periphery_if.zip(io.cores).foreach { case (inner, outer) =>
-      outer.exception := inner.exception
-      outer.active := inner.active
+      outer.exception                 := inner.exception
+      outer.active                    := inner.active
       outer.gmem_access_failure_error := inner.gmem_access_failure_error
       inner.cache ==> outer.cache
     }
@@ -106,14 +119,12 @@ class ComputeGrid(DimX: Int, DimY: Int,
 
   }
 
-
 }
-
 
 object GenerateComputeGrid extends App {
 
   val dimX, dimY = 4
-  val rdgen = new scala.util.Random(0)
+  val rdgen      = new scala.util.Random(0)
 
   def makeGrid[T](gen: (Int, Int) => T): Seq[Seq[T]] = Range(0, dimX).map { x =>
     Range(0, dimY).map { y =>
@@ -122,14 +133,14 @@ object GenerateComputeGrid extends App {
   }
 
   val init = new ComputeGrid.InitialState(
-    makeGrid {
-      (_, _) => ComputeGrid.createEquations(ManticoreBaseISA)(rdgen.nextInt)
+    makeGrid { (_, _) =>
+      ComputeGrid.createEquations(ManticoreBaseISA)(rdgen.nextInt)
     },
-    makeGrid {
-      (x, y) => s"rf_${x}_${y}.dat"
+    makeGrid { (x, y) =>
+      s"rf_${x}_${y}.dat"
     },
-    makeGrid {
-      (x, y) => s"ra_${x}_${y}.dat"
+    makeGrid { (x, y) =>
+      s"ra_${x}_${y}.dat"
     }
   )
 
