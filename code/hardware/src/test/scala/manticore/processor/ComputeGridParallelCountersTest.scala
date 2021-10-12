@@ -3,8 +3,9 @@ package manticore.processor
 import Chisel._
 import chisel3.VecInit
 import chisel3.experimental.ChiselEnum
-import chisel3.tester.ChiselScalatestTester
-import chisel3.tester.experimental.sanitizeFileName
+
+import chisel3.tester.experimental.TestOptionBuilder.ChiselScalatestOptionBuilder
+import chiseltest.internal.{VerilatorBackendAnnotation, WriteVcdAnnotation}
 import manticore.ManticoreFullISA
 import manticore.core.{
   ComputeGrid,
@@ -18,6 +19,15 @@ import org.scalatest.{FlatSpec, Matchers, stats}
 import java.io.File
 import java.nio.file.Paths
 import manticore.assembly.Instruction
+import manticore.assembly.Assembler
+
+import chisel3.tester.{ChiselScalatestTester, testableClock, testableData}
+import chiseltest.internal.{VerilatorBackendAnnotation, WriteVcdAnnotation}
+import chisel3.tester.experimental.sanitizeFileName
+
+import chisel3.util.HasBlackBoxResource
+import _root_.chisel3.Data
+import memory.SimpleDualPortMemory
 
 object ComputeGridParallelCountersTest {
 
@@ -27,7 +37,7 @@ object ComputeGridParallelCountersTest {
     val bad_writeback: Bool = Bool()
   }
 
-  class MemoryModel(val rom_values: Seq[Int], val memory_size: Int)
+  class MemoryModel(val rom_values: String, val memory_size: Int)
       extends Module {
 
     val io = IO(new Bundle {
@@ -39,6 +49,8 @@ object ComputeGridParallelCountersTest {
       new scala.util.Random(0) // constant seed make the results reproducible
     val NumDifferentDelays = 20
 
+    val Config = ManticoreFullISA
+
     def createDelays = VecInit(
       Seq.fill(NumDifferentDelays) {
         (5 max rdgen.nextInt(20)).U
@@ -48,20 +60,19 @@ object ComputeGridParallelCountersTest {
     val write_delays = createDelays
     val read_delays  = createDelays
 
-    val RomBitWidth   = 64
     val DataBits      = CacheConfig.DataBits
     val CacheLineBits = CacheConfig.CacheLineBits
 
-    val rom = VecInit(
-      rom_values.map(_.U(RomBitWidth.W))
-    )
+    val storage = Range(0, CacheLineBits / DataBits).map { _ =>
+      Module(
+        new SimpleDualPortMemory(
+          ADDRESS_WIDTH = log2Ceil(memory_size),
+          DATA_WIDTH = DataBits,
+          INIT = rom_values
+        )
+      )
+    }
 
-    val RomAddressEnd = scala.math
-      .ceil((RomBitWidth * rom.size) / CacheLineBits)
-      .toInt
-      .U(CacheConfig.UsedAddressBits.W)
-
-    val mem           = Mem(memory_size, UInt(DataBits.W))
     val raddr_reg     = Reg(UInt(CacheConfig.UsedAddressBits.W))
     val waddr_reg     = Reg(UInt(CacheConfig.UsedAddressBits.W))
     val aligned_raddr = Wire(Bool())
@@ -87,9 +98,17 @@ object ComputeGridParallelCountersTest {
 
     io.memory.done := false.B
 
+    storage.zipWithIndex.foreach { case (bank, i) =>
+      bank.io.wen   := false.B
+      bank.io.raddr := raddr_reg + i.U
+      bank.io.waddr := waddr_reg + i.U
+      bank.io.din   := wline_reg((i + 1) * DataBits - 1, i * DataBits)
+    }
+
     io.errors.segfault      := false.B
     io.errors.none_aligned  := false.B
     io.errors.bad_writeback := false.B
+
     switch(state) {
       is(State.Idle) {
         when(io.memory.start) {
@@ -127,21 +146,9 @@ object ComputeGridParallelCountersTest {
 
         delay_counter := delay_counter - 1.U
         when(delay_counter === 1.U) {
-
-          when(raddr_reg > RomAddressEnd) {
-            io.memory.rline := Cat(
-              Range(0, CacheLineBits / DataBits).reverse.map { offset =>
-                mem(raddr_reg + offset.U)
-              }
-            )
-          } otherwise {
-            io.memory.rline := Cat(
-              Range(0, CacheLineBits / RomBitWidth).reverse.map { offset =>
-                mem(raddr_reg + offset.U)
-              }
-            )
-          }
-
+          io.memory.rline := Cat(
+            storage.map(_.io.dout).reverse
+          ) // little-endian
           state := State.Done
 
         }
@@ -150,17 +157,9 @@ object ComputeGridParallelCountersTest {
       is(State.ServingWrite) {
         delay_counter := delay_counter - 1.U
         when(delay_counter === 1.U) {
-          when(waddr_reg > RomAddressEnd) {
-            Range(0, CacheLineBits / DataBits).foreach { offset =>
-              mem(waddr_reg + offset.U) := wline_reg(
-                (offset + 1) * DataBits - 1,
-                offset * DataBits
-              )
-            }
-            state := State.Done
-          } otherwise {
-            state := State.SegFault
-          }
+          storage.foreach { _.io.wen := true.B }
+
+          state := State.Done
         }
       }
 
@@ -171,39 +170,18 @@ object ComputeGridParallelCountersTest {
           when(raddr_reg === waddr_reg) {
             state := State.BadWriteBack
           } otherwise {
-
-            // handle write
-            when(waddr_reg > RomAddressEnd) {
-              Range(0, CacheLineBits / DataBits).foreach { offset =>
-                mem(waddr_reg + offset.U) := wline_reg(
-                  (offset + 1) * DataBits - 1,
-                  offset * DataBits
-                )
-              }
-              state := State.Done
-            } otherwise {
-              state := State.SegFault
-            }
-
-            // handle read
-            when(raddr_reg > RomAddressEnd) {
-              io.memory.rline := Cat(
-                Range(0, CacheLineBits / DataBits).reverse.map { offset =>
-                  mem(raddr_reg + offset.U)
-                }
-              )
-            } otherwise {
-              io.memory.rline := Cat(
-                Range(0, CacheLineBits / RomBitWidth).reverse.map { offset =>
-                  mem(raddr_reg + offset.U)
-                }
-              )
-            }
+            storage.foreach { _.io.wen := true.B }
+            io.memory.rline := Cat(
+              storage.map(_.io.dout).reverse
+            ) // little-endian
+            state := State.Done
 
             state := State.Done
+
           }
         }
       }
+
       is(State.Done) {
         io.memory.done := true.B
         state          := State.Idle
@@ -236,10 +214,13 @@ class ComputeGridParallelTester
     }
   }
   val DimX = 2
-  val DimY = 3
+  val DimY = 2
 
-  class ComputeGridParallelCountersWithMemories(val rom_values: Seq[Seq[Int]], ra: String, rf: String)
-      extends Module {
+  class ComputeGridWithSimulatedMemory(
+      val rom_values: Seq[String],
+      rf: String,
+      ra: String
+  ) extends Module {
 
     import ComputeGridParallelCountersTest._
 
@@ -248,36 +229,37 @@ class ComputeGridParallelTester
       val mem_errors: Vec[MemoryError] = Output(Vec(4, new MemoryError))
       val host_registers   = Input(new HostRegisters(ManticoreFullISA))
       val device_registers = Output(new DeviceRegisters(ManticoreFullISA))
-
-      val start: Bool = Input(Bool())
-      val idle: Bool  = Output(Bool())
+      val core_active      = Output(Vec(4, Bool()))
+      val start: Bool      = Input(Bool())
+      val idle: Bool       = Output(Bool())
 
     })
 
-    
     import ComputeGrid.InitialState
+
+    val initial_state = new InitialState(
+      lut_configs = Seq.fill(DimX) {
+        Seq.fill(DimY) {
+          equations
+        }
+      },
+      regfile_files = Seq.fill(DimX) {
+        Seq.fill(DimY) {
+          rf
+        }
+      },
+      regarray_files = Seq.fill(DimX) {
+        Seq.fill(DimY) {
+          ra
+        }
+      }
+    )
 
     val compute_grid = Module(
       new ComputeGrid(
         DimX,
         DimY,
-        new InitialState(
-          lut_configs = Seq.fill(DimX) {
-            Seq.fill(DimY) {
-              equations
-            }
-          },
-          regfile_files = Seq.fill(DimX) {
-            Seq.fill(DimY) {
-              rf
-            }
-          },
-          regarray_files = Seq.fill(DimX) {
-            Seq.fill(DimY) {
-              ra
-            }
-          }
-        )
+        initial_state
       )
     )
 
@@ -295,14 +277,14 @@ class ComputeGridParallelTester
       Module(
         new MemoryModel(
           init,
-          1 << 12
+          1 << 15
         )
       )
     }
 
     compute_grid.io.cores.zip(controller.io.periphery_core).foreach {
       case (core, control) =>
-        core <> control
+        control <> core
     }
 
     controller.io.registers.from_host := io.host_registers
@@ -312,11 +294,16 @@ class ComputeGridParallelTester
     io.idle             := controller.io.idle
 
     dram_bank.zip(controller.io.cache_backend).foreach { case (dram, cache) =>
-      cache <> dram.io.memory
+      dram.io.memory <> cache
     }
 
     io.mem_errors := dram_bank.map(_.io.errors)
 
+    io.core_active := compute_grid.io.cores.map(_.active)
+
+    compute_grid.io.external_packet        := controller.io.packet_out
+    compute_grid.io.external_packet_enable := controller.io.packet_out.valid
+    compute_grid.io.clock_enable_n         := controller.io.clock_enable_n
   }
 
   def shiftRegisterProcedure(
@@ -334,6 +321,7 @@ class ComputeGridParallelTester
     require(temps.size >= size)
 
     Seq(
+      Predicate(const_1),
       SetEqual(shift_en, shift_en, const_1)
     ) ++ // configure the mux, has side-effects
       temps.slice(0, size).zipWithIndex.reverse.map { case (out, i) =>
@@ -344,7 +332,7 @@ class ComputeGridParallelTester
       ) ++
       (shift_in +: temps.slice(0, size - 1)).zip(temps.slice(0, size)).map {
         case (new_val, old_val) =>
-          Mux2(old_val, new_val, old_val) // shift in the new values
+          Mux2(old_val, old_val, new_val) // shift in the new values
       } ++ temps.slice(0, size).zipWithIndex.map { case (v, i) =>
         LocalStore(v, base, i) // store them back to the array memory
       }
@@ -374,9 +362,7 @@ class ComputeGridParallelTester
     // shift in value: (count >= i * cols && count < (i + 1) * cols) ? from_mem : 0
     // val counter  = freshReg() // read-only
     // val from_mem = freshReg() // read-only
-  
 
-    val shift_in = freshReg() // read-write
     val shift_en = freshReg() // boolean read-write
 
     // shift_en condition
@@ -389,7 +375,7 @@ class ComputeGridParallelTester
 
     import Instruction._
     Seq(
-      SetLessThanUnsigned(c0, counter, consts(i * cols)),
+      SetLessThanUnsigned(c0, counter, consts((i + 1) * cols + 1)),
       SetLessThanUnsigned(c1, counter, consts(2 * rows * cols)),
       SetLessThanUnsigned(c2, consts(rows * cols - 1), counter),
       LocalLoad(tail, bram_base, (cols - 1)),
@@ -400,19 +386,19 @@ class ComputeGridParallelTester
       Or2(shift_en, c0, c2),
       Nop(),
       Nop()
-    ) ++ Seq.fill(num_nops){
+    ) ++ Seq.fill(num_nops) {
       Nop()
     } ++ Seq(
       Send(dest_reg, tail, dest_proc._1, dest_proc._2)
     ) ++ shiftRegisterProcedure(
       size = cols,
-      shift_in = shift_in,
+      shift_in = from_mem,
       shift_en = shift_en,
       base = bram_base,
       temps = Seq.fill(rows + cols - 1)(freshReg()),
       const_1 = consts(1),
       const_0 = consts(0)
-    )
+    ) ++ Seq.fill(20)(Nop()) // to receive the from_mem and counter value
 
   }
 
@@ -435,58 +421,73 @@ class ComputeGridParallelTester
       free_regs(next_id - 1)
     }
 
-    val counter = freshReg()
+    val counter      = freshReg()
     val counter_next = freshReg()
-    val state = freshReg()
-   
-    val addr_next = freshReg()
-    val data = freshReg()
-    val c0 = freshReg()
-    val c1 = freshReg()
-    val c2 = freshReg()
-    val c3 = freshReg()
-    val idle = freshReg()
-    val t0 = freshReg()
-    val t1 = freshReg()
-    val t2 = freshReg()
-    val t3 = freshReg()
+    val state        = freshReg()
 
-    val word = freshReg()
+    val addr_next = freshReg()
+    val data      = freshReg()
+    val c0        = freshReg()
+    val c1        = freshReg()
+    val c2        = freshReg()
+    val c3        = freshReg()
+    val t0        = freshReg()
+    val t1        = freshReg()
+    val t2        = freshReg()
+    val t3        = freshReg()
+    val count_en  = freshReg()
+    val word      = freshReg()
 
     Seq(
-
       Add2(addr_next, addr, consts(1)),
       Add2(counter_next, counter, consts(1)),
       SetEqual(c0, state, consts(0)),
-      Mux2(t0, consts(1), state),
+      Mux2(t0, state, consts(1)),
       SetEqual(c0, state, consts(1)),
-      Mux2(addr_next, addr_next, consts(0)),
-      SetEqual(c1, counter, consts(rows * cols - 1)),
+      Mux2(addr_next, addr, addr_next),
       SetEqual(c2, state, consts(2)),
+      SetEqual(c1, counter, consts(rows * cols - 1)),
       SetEqual(c3, counter, consts(2 * rows * cols - 1)),
-      SetEqual(idle, state, consts(4)),
+      Or2(count_en, c0, c2),
+      Nop(),
+      Nop(),
+      SetEqual(count_en, count_en, consts(1)),
       Mux2(counter_next, consts(0), counter_next),
       And2(c0, c1, c0),
       GlobalLoad(word, addr, consts(0), consts(0)),
-      And2(c2, c2, c3),
+      // And2(c2, c2, c3),
+      // Nop(),
       SetEqual(c0, c0, consts(1)),
-      Mux2(t1, consts(2), t0),
+      Mux2(t1, t0, consts(2)),
       SetEqual(c2, c2, consts(1)),
-      Mux2(t2, consts(3), t1), // t2 is the next state
-      Add2(counter, counter_next, consts(0)), 
-      Add2(state, t2, consts(0))
-    ) ++ counter_receivers.map { case (rd, x, y) => 
-      Send(rd, counter_next, x, y)  
+      Nop(),
+      Mux2(t2, t1, consts(3)),
+      Nop(),
+      SetEqual(c0, state, consts(3)),
+      Mux2(t3, t2, consts(4)),
+      SetEqual(c0, state, consts(4)),
+      Nop(),
+      Nop(),
+      And2(c0, c0, c3),
+      Nop(),
+      Nop(),
+      SetEqual(c0, c0, consts(1)),
+      Mux2(t3, t3, consts(5)), // t3 is the next state
+      Add2(counter, counter_next, consts(0)),
+      Add2(addr, addr_next, consts(0)),
+      Add2(state, t3, consts(0))
+    ) ++ counter_receivers.map { case (rd, x, y) =>
+      Send(rd, counter, x, y)
     } ++ word_receivers.map { case (rd, x, y) =>
       Send(rd, word, x, y)
     } :+ Send(
-      state_receiver._1, state, state_receiver._2, state_receiver._2
+      state_receiver._1,
+      state,
+      state_receiver._2,
+      state_receiver._2
     )
 
-
-
   }
-
 
   def matrixWriterAndCheckerProcess(
       rows: Int,
@@ -506,68 +507,108 @@ class ComputeGridParallelTester
     }
 
     require(inbound_word.size == rows)
-    
+
     import manticore.assembly.Instruction._
 
     val expected_words = inbound_word.map(_ => freshReg())
-    val enable_expect = freshReg()
+    val enable_expect  = freshReg()
     val next_gold_addr = freshReg()
 
-    expected_words.zipWithIndex.map { case (lw, i) => 
-      LocalLoad(lw, gold_addr, i)  
-    } ++ Seq(
-      Add2(next_gold_addr, gold_addr, consts(rows)),
-      SetEqual(enable_expect, inbound_state, consts(2)),
-    ) ++ expected_words.zip(inbound_word).map { case (expected, got) =>
-      Mux2(expected, expected, got)  
-    } ++ expected_words.zip(inbound_word.zipWithIndex).map { case (expected, (got, i)) =>
-      Expect(got, expected, i)  
-    } ++ Seq(
-      Mux2(gold_addr, next_gold_addr, gold_addr),
-      Predicate(enable_expect)
-    ) ++ inbound_word.zipWithIndex.map { case (w, i) =>
-      GlobalStore(w, write_addr, consts(0), consts(0))  
-    }
-
-
+    Seq(
+      Add2(next_gold_addr, consts(0), gold_addr),
+      Nop(),
+      Nop()
+    ) ++
+      expected_words.zipWithIndex.flatMap { case (lw, i) =>
+        Seq(
+          GlobalLoad(lw, next_gold_addr, consts(0), consts(0)),
+          Add2(next_gold_addr, next_gold_addr, consts(1)),
+          Nop(),
+          Nop()
+        )
+      } ++ Seq(
+        SetEqual(enable_expect, inbound_state, consts(5))
+      ) ++ expected_words.zip(inbound_word).map { case (expected, got) =>
+        Mux2(expected, got, expected)
+      } ++ Seq(
+        Nop(),
+        Nop()
+      ) ++ expected_words
+        .zip(inbound_word.zipWithIndex)
+        .map { case (expected, (got, i)) =>
+          Expect(got, expected, i)
+        } ++ Seq(
+        Mux2(gold_addr, gold_addr, next_gold_addr),
+        Predicate(enable_expect)
+      ) ++ inbound_word.zipWithIndex.flatMap { case (w, i) =>
+        Seq(
+          GlobalStore(w, write_addr, consts(0), consts(0)),
+          Add2(write_addr, write_addr, consts(1)),
+          Nop(),
+          Nop()
+        )
+      } ++ Seq.fill(20)(Nop())
 
   }
 
-  def makeProgram() = {
+  case class TheProgram(
+      binary: Seq[Int],
+      schedule_length: Int,
+      sleep_length: Map[(Int, Int), Int],
+      epilogue_length: Map[(Int, Int), Int],
+      process: Map[(Int, Int), Seq[Instruction.Instruction]],
+      shared_regs: Map[String, Instruction.Register],
+      rf_path: String,
+      ra_path: String,
+      rows: Int,
+      cols: Int
+  )
+  def makeProgram(
+      memory_base_addr: Int = 4096,
+      max_matrix_size: Int = 4096
+  ) = {
     import manticore.assembly.Instruction.R
-
+    import manticore.assembly.Instruction.Instruction
     val rows = 2 // only 2 is valid
     val cols = 4
 
     val const_range = 1024
-    val consts = Seq.tabulate(const_range)(i => R(i)).zipWithIndex.map { case (r, i) =>
-      (i, r)
-    }.toMap
+    val consts = Seq
+      .tabulate(const_range)(i => R(i))
+      .zipWithIndex
+      .map { case (r, i) =>
+        (i, r)
+      }
+      .toMap
 
     val shared_regs = Map(
-      "load_addr_base" -> R(const_range + 1),
-      "counter" -> R(const_range + 2),
-      "from_mem" -> R(const_range + 3),
-      "state" -> R(const_range + 4),
+      "load_addr_base"  -> R(const_range + 1),
+      "counter"         -> R(const_range + 2),
+      "from_mem"        -> R(const_range + 3),
+      "state"           -> R(const_range + 4),
       "store_addr_base" -> R(const_range + 5),
-      "gold_addr_base" -> R(const_range + 6)
-    ) ++ Seq.tabulate(rows){ i => 
-      ("word_" + i, R(const_range + 7 + i))
-    }.toMap
-    
+      "gold_addr_base"  -> R(const_range + 6)
+    ) ++ Seq
+      .tabulate(rows) { i =>
+        ("word_" + i, R(const_range + 7 + i))
+      }
+      .toMap
 
-    val free_regs = Seq.tabulate(2048 - 512){ i => R(i) }
+    val free_regs = Seq.tabulate(512) { i => R(2047 - i) }
 
+    shared_regs.map { case (k, v) =>
+      println(s"${k} -> R(${v.index})")
+    }
     val rf = UniProcessorTestUtils.createMemoryDataFiles {
       Seq.tabulate(2048) { i =>
         if (i < const_range) {
           i
         } else if (i == shared_regs("load_addr_base").index) {
-          0 // base address of the input matrix
+          memory_base_addr // base address of the input matrix
         } else if (i == shared_regs("store_addr_base").index) {
-          0 // base address of the output
+          max_matrix_size // base address of the output
         } else if (i == shared_regs("gold_addr_base").index) {
-          4000
+          0
         } else {
           0
         }
@@ -595,26 +636,192 @@ class ComputeGridParallelTester
         .toAbsolutePath
     }
 
-   
-    
     val row_0 = shifRegisterFillerProcess(
-      0, rows, cols, shared_regs("counter"), shared_regs("from_mem"),
-      consts, free_regs, (1, 1), shared_regs("word_0"), 0
-    ) 
+      0,
+      rows,
+      cols,
+      shared_regs("counter"),
+      shared_regs("from_mem"),
+      consts,
+      free_regs,
+      (0, 1),
+      shared_regs("word_0"),
+      0
+    ) // placed at (1, 0)
+
     val row_1 = shifRegisterFillerProcess(
-      1, rows, cols, shared_regs("counter"), shared_regs("from_mem"),
-      consts, free_regs, (1, 1), shared_regs("word_1"), 1
+      1,
+      rows,
+      cols,
+      shared_regs("counter"),
+      shared_regs("from_mem"),
+      consts,
+      free_regs,
+      (1, 0),
+      shared_regs("word_1"),
+      1
+    ) // placed at (0, 1)
+
+    val matrix_loader = matrixLoaderProcess(
+      rows,
+      cols,
+      shared_regs("load_addr_base"),
+      consts,
+      free_regs,
+      Seq(
+        (shared_regs("counter"), 1, 0),
+        (shared_regs("counter"), 0, 1)
+      ),
+      Seq(
+        (shared_regs("from_mem"), 1, 0),
+        (shared_regs("from_mem"), 0, 1)
+      ),
+      (shared_regs("state"), 1, 1)
+    ) // placed at  (0, 0)
+
+    val checker = matrixWriterAndCheckerProcess(
+      rows,
+      cols,
+      shared_regs("gold_addr_base"),
+      shared_regs("store_addr_base"),
+      consts,
+      free_regs,
+      Seq(
+        shared_regs("word_0"),
+        shared_regs("word_1")
+      ),
+      shared_regs("state")
     )
 
+    val process = Map(
+      (0, 0) -> matrix_loader,
+      (1, 0) -> row_0,
+      (0, 1) -> row_1,
+      (1, 1) -> checker
+    )
+    val epilogue_length = Map( // number of expected receives
+      (0, 0) -> 0, // does not receive anything
+      (1, 0) -> 2, // recieves the from_mem and the counter
+      (0, 1) -> 2, // recieves from_mem and the counter
+      (1, 1) -> 3 // recieves word_0, word_1, and state
+    )
+
+    val body_length = process.mapValues(_.length)
+    val schedule_length = process.map { case ((x, y), p) =>
+      epilogue_length((x, y)) + p.length
+    }.max + 4 // 4 is the pipeline depth
+
+    val sleep_length = process.map { case ((x, y), p) =>
+      (x, y) -> (schedule_length - (p.length + epilogue_length((x, y))))
+    }.toMap
+
+    require((sleep_length.forall { case ((_, _), v) => v >= 4 }))
+
+    def assemble(
+        instructions: Seq[Instruction],
+        x: Int,
+        y: Int
+    ): Seq[Long] = {
+      ((y.toLong << 8) | x.toLong) +:
+        instructions.map(inst => Assembler.assemble(inst)(equations))
+    }
+
+    val binary: Seq[Int] = process.keys.toSeq.sorted.flatMap { case (x, y) =>
+      Seq(
+        ((y << 8) | x),
+        body_length((x, y))
+      ) ++ process((x, y)).flatMap { inst =>
+        val bin = Assembler.assemble(inst)(equations)
+        Seq(
+          bin & 0x0000ffff,
+          (bin >> 16) & 0x0000ffff,
+          (bin >> 32) & 0x0000ffff,
+          (bin >> 48) & 0x0000ffff
+        ).map(_.toInt)
+      } ++ Seq(
+        epilogue_length((x, y)),
+        sleep_length((x, y))
+      )
+    }
+
+    require(binary.size < memory_base_addr)
+
+    TheProgram(
+      binary,
+      schedule_length,
+      sleep_length,
+      epilogue_length,
+      process,
+      shared_regs,
+      rf,
+      ra,
+      rows,
+      cols
+    )
 
   }
-  def mainProgram = {
-    import manticore.assembly.Instruction._
 
-   
-
-  }
   behavior of "Parallel Counters "
-  it should "correctly increment counters" in {}
+  it should "transform a row-majro matrix to a col-major one" in {
+
+    val the_program = makeProgram(4096, 4096)
+
+    println(s"Schedule length: ${the_program.schedule_length}")
+    println(s"Binary length: ${the_program.binary.length}")
+
+    val input_matrix =
+      Seq.tabulate(the_program.rows * the_program.cols)(i => i + 100)
+    println(input_matrix)
+    val output_matrix =
+      input_matrix.grouped(the_program.cols).toSeq.transpose.flatten
+    println(output_matrix.map(_.toString()).reduce { (x: String, y: String) =>
+      x + ", " + y
+    })
+    val main_memory_initial_values =
+      the_program.binary ++
+        Seq.fill(4096 - the_program.binary.length)(0) ++ // zero fill
+        input_matrix
+
+    val rom_values = Seq(
+      main_memory_initial_values, // program binary and the input matrix
+      Seq.fill(4096)(0),
+      Seq.fill(4096)(0),
+      output_matrix // gold values
+    ).zipWithIndex.map { case (data, i) =>
+      UniProcessorTestUtils.createMemoryDataFiles(data) {
+        Paths
+          .get(
+            "test_data_dir" + File.separator +
+              sanitizeFileName(
+                scalaTestContext.value.get.name
+              ) + File.separator + "dram_" + i + ".data"
+          )
+          .toAbsolutePath
+      }
+    }
+
+    test(
+      new ComputeGridWithSimulatedMemory(
+        rom_values,
+        the_program.rf_path,
+        the_program.ra_path
+      )
+    ).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) {
+      dut =>
+        dut.io.host_registers.global_memory_instruction_base.poke(0.U)
+        dut.io.host_registers.schedule_length
+          .poke(the_program.schedule_length.U)
+        dut.clock.step()
+        dut.io.start.poke(true.B)
+
+        dut.clock.step()
+
+        dut.io.start.poke(false.B)
+
+        dut.clock.setTimeout(20000)
+        dut.clock.step(10000)
+    }
+
+  }
 
 }

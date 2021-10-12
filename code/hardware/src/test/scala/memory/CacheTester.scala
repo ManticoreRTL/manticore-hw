@@ -9,7 +9,8 @@ import chiseltest.internal.{VerilatorBackendAnnotation => USE_VERILATOR, WriteVc
 
 import scala.annotation.tailrec
 import scala.collection.mutable
-import memory.CacheBackendCommand
+
+
 class CacheTester extends FlatSpec with ChiselScalatestTester with Matchers {
 
 
