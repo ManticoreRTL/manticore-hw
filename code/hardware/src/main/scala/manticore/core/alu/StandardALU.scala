@@ -1,13 +1,10 @@
 package manticore.core.alu
 
-
 import Chisel._
 import chisel3.stage.ChiselStage
 import manticore.ISA
 
 import scala.language.implicitConversions
-
-
 
 class ALUInterface(DATA_BITS: Int) extends Bundle {
 
@@ -15,28 +12,17 @@ class ALUInterface(DATA_BITS: Int) extends Bundle {
     val x = UInt(DATA_BITS.W)
     val y = UInt(DATA_BITS.W)
   })
-  val out = Output(UInt(DATA_BITS.W))
-  val funct = Input(UInt(4.W))
-
+  val out           = Output(UInt(DATA_BITS.W))
+  val funct         = Input(UInt(4.W))
+  val select_enable = Input(Bool())
 }
 
 object StandardALU {
   object Functs extends Enumeration {
     type Functs = Value
-    val ADD2,
-        SUB2,
-        MUL2,
-        AND2,
-        OR2,
-        XOR2,
-        SLL, // logical left shift
-        SRL, // logical right shift (zeros padded to the right)
-        SEQ,
-        SLTS,
-        SLTU,
-        SGTS,
-        SGTU,
-        MUX = Value
+    val ADD2, SUB2, MUL2, AND2, OR2, XOR2, SLL, // logical left shift
+    SRL, // logical right shift (zeros padded to the right)
+    SEQ, SLTS, SLTU, SGTS, SGTU, MUX = Value
 
   }
 
@@ -77,26 +63,36 @@ class StandardALUComb(DATA_BITS: Int) extends Module {
     }
     is(Functs.SEQ.id.U) {
       io.out := (io.in.x === io.in.y).asUInt
-      select_reg := (io.in.x === io.in.y)
+      when(io.select_enable) {
+        select_reg := (io.in.x === io.in.y)
+      }
     }
     is(Functs.SLTS.id.U) {
       io.out := (io.in.x.asSInt < io.in.y.asSInt).asUInt
-      select_reg := (io.in.x.asSInt < io.in.y.asSInt)
+      when(io.select_enable) {
+        select_reg := (io.in.x.asSInt < io.in.y.asSInt)
+      }
     }
     is(Functs.SLTU.id.U) {
       io.out := (io.in.x < io.in.y).asUInt
-      select_reg := (io.in.x < io.in.y)
+      when(io.select_enable) {
+        select_reg := (io.in.x < io.in.y)
+      }
     }
     is(Functs.SGTS.id.U) {
       io.out := (io.in.x.asSInt > io.in.y.asSInt).asUInt
-      select_reg := (io.in.x.asSInt > io.in.y.asSInt)
+      when(io.select_enable) {
+        select_reg := (io.in.x.asSInt > io.in.y.asSInt)
+      }
     }
     is(Functs.SGTU.id.U) {
       io.out := (io.in.x > io.in.y).asUInt
-      select_reg := (io.in.x > io.in.y)
+      when(io.select_enable) {
+        select_reg := (io.in.x > io.in.y)
+      }
     }
     is(Functs.MUX.id.U) {
-      when (select_reg) {
+      when(select_reg) {
         io.out := io.in.y
       } otherwise {
         io.out := io.in.x
@@ -109,7 +105,7 @@ class StandardALU(DATA_BITS: Int) extends Module {
 
   val io = IO(new ALUInterface(DATA_BITS = DATA_BITS))
 
-  val select = Wire(Bool())
+  val select     = Wire(Bool())
   val select_reg = Reg(Bool())
 
   val Functs = StandardALU.Functs
@@ -131,7 +127,6 @@ class StandardALU(DATA_BITS: Int) extends Module {
   val and_reg = Reg(UInt(DATA_BITS.W))
   and_reg := io.in.x & io.in.y
 
-
   val or_reg = Reg(UInt(DATA_BITS.W))
   or_reg := io.in.x | io.in.y
 
@@ -139,44 +134,43 @@ class StandardALU(DATA_BITS: Int) extends Module {
   xor_reg := io.in.x ^ io.in.y
 
   val seq_reg = Reg(UInt(DATA_BITS.W))
-  when (io.in.x === io.in.y) {
+  when(io.in.x === io.in.y) {
     seq_reg := 1.U
   } otherwise {
     seq_reg := 0.U
   }
 
   val slts_reg = Reg(UInt(DATA_BITS.W))
-  when (io.in.x.asSInt < io.in.y.asSInt) {
+  when(io.in.x.asSInt < io.in.y.asSInt) {
     slts_reg := 1.U
   } otherwise {
     slts_reg := 0.U
   }
 
   val sltu_reg = Reg(UInt(DATA_BITS.W))
-  when (io.in.x < io.in.y ) {
+  when(io.in.x < io.in.y) {
     sltu_reg := 1.U
   } otherwise {
     sltu_reg := 0.U
   }
 
   val sgts_reg = Reg(UInt(DATA_BITS.W))
-  when (io.in.x.asSInt > io.in.y.asSInt) {
+  when(io.in.x.asSInt > io.in.y.asSInt) {
     sgts_reg := 1.U
   } otherwise {
     sgts_reg := 0.U
   }
 
   val sgtu_reg = Reg(UInt(DATA_BITS.W))
-  when (io.in.x > io.in.y ) {
+  when(io.in.x > io.in.y) {
     sgtu_reg := 1.U
   } otherwise {
     sgtu_reg := 0.U
   }
 
-
   val mux_reg = Reg(UInt(DATA_BITS.W))
 
-  when (select_reg) {
+  when(select_reg) {
     mux_reg := io.in.y
   } otherwise {
     mux_reg := io.in.x
@@ -215,23 +209,23 @@ class StandardALU(DATA_BITS: Int) extends Module {
       res_reg := srl_reg
     }
     is(Functs.SEQ.id.U) {
-      res_reg := seq_reg
+      res_reg    := seq_reg
       select_reg := seq_reg
     }
     is(Functs.SLTS.id.U) {
-      res_reg := slts_reg
+      res_reg    := slts_reg
       select_reg := slts_reg
     }
     is(Functs.SLTU.id.U) {
-      res_reg := sltu_reg
+      res_reg    := sltu_reg
       select_reg := sltu_reg
     }
     is(Functs.SGTS.id.U) {
-      res_reg := sgts_reg
+      res_reg    := sgts_reg
       select_reg := sgts_reg
     }
     is(Functs.SGTU.id.U) {
-      res_reg := sgtu_reg
+      res_reg    := sgtu_reg
       select_reg := sgtu_reg
     }
     is(Functs.MUX.id.U) {
@@ -241,9 +235,10 @@ class StandardALU(DATA_BITS: Int) extends Module {
   io.out := res_reg
 }
 
-object StandardALUGenerator extends App{
+object StandardALUGenerator extends App {
 
-  new ChiselStage().emitVerilog(new StandardALUComb(4), Array("--target-dir", "gen-dir"))
+  new ChiselStage()
+    .emitVerilog(new StandardALUComb(4), Array("--target-dir", "gen-dir"))
   // new ChiselStage().emitVerilog(new StandardALU(4))
 
 }

@@ -96,25 +96,21 @@ class ExecutePiped(config: ISA, equations: Seq[Seq[Int]])
 
   when(io.pipe_in.opcode.arith | io.pipe_in.opcode.expect) {
     standard_alu.io.in.y := io.regs_in.y
+    standard_alu.io.select_enable := true.B // enable if arithmetic
     when(io.pipe_in.opcode.expect) {
       standard_alu.io.funct := StandardALU.Functs.SEQ.id.U
-    }.elsewhen(io.pipe_in.opcode.arith) {
-      standard_alu.io.funct := io.pipe_in.funct
-    } otherwise {
-      // with non-arith instructions, funct can be any value, including the
-      // funct for Mux (which is stateful) so we should set it to zero to
-      // ensure no stateful ALU operations are performed.
-      standard_alu.io.funct := 0.U
+      // standard_alu.io.select_enable := false.B // expect instruction should not change the select bit
+    } otherwise { //.elsewhen(io.pipe_in.opcode.arith)
+      standard_alu.io.funct         := io.pipe_in.funct
+      standard_alu.io.select_enable := true.B // enable if arithmetic
     }
   } otherwise {
     standard_alu.io.funct := StandardALU.Functs.ADD2.id.U
-//    require(config.Immediate.length >= config.DATA_BITS)
-//    when(io.pipe_in.opcode.set || io.pipe_in.opcode.send) {
-    standard_alu.io.in.y := io.pipe_in.immediate
-//    } otherwise {
-//      standard_alu.io.in.y := io.pipe_in.immediate(config.ID_BITS - 1, 0)
-//    }
-
+    // with non-arith instructions, funct can be any value, including the
+    // funct for Mux (which is stateful) so we should set it to zero to
+    // ensure no stateful ALU operations are performed.
+    standard_alu.io.select_enable := false.B
+    standard_alu.io.in.y          := io.pipe_in.immediate
   }
 
   when(io.pipe_in.opcode.set || io.pipe_in.opcode.send) {
@@ -193,18 +189,20 @@ class ExecuteComb(config: ISA, equation: Seq[Seq[Int]])
     standard_alu.io.in.y := io.regs_in.y
     when(io.pipe_in.opcode.expect) {
       standard_alu.io.funct := StandardALU.Functs.SEQ.id.U
+      standard_alu.io.select_enable := false.B
     } otherwise {
       standard_alu.io.funct := io.pipe_in.funct
+      standard_alu.io.select_enable := true.B
     }
   } otherwise {
     standard_alu.io.funct := StandardALU.Functs.ADD2.id.U
-    //    require(config.Immediate.length >= config.DATA_BITS)
-    //    when(io.pipe_in.opcode.set || io.pipe_in.opcode.send) {
+    // with non-arith instructions, funct can be any value, including the
+    // funct for Mux (which is stateful) so we should set it to zero to
+    // ensure no stateful ALU operations are performed.
+    standard_alu.io.select_enable := false.B
+   
     standard_alu.io.in.y := io.pipe_in.immediate
-    //    } otherwise {
-    //      standard_alu.io.in.y := io.pipe_in.immediate(config.ID_BITS - 1, 0)
-    //    }
-
+   
   }
 
   when(io.pipe_in.opcode.set || io.pipe_in.opcode.send) {
