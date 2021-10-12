@@ -111,11 +111,11 @@ class ComputeGridOrchestrator(DimX: Int, DimY: Int, config: ISA)
   }
   io.periphery_core.head.cache <> master_cache_intercept.io.front_side.core
 
-  
+
   (storage_cache_intercept)
     .zip(
       storage_cache
-        .zip(io.periphery_core)
+        .zip(io.periphery_core.tail)
     )
     .foreach { case (_intercept, (_cache, _core)) =>
       _intercept.io.front_side.cache <> _cache.io.front
