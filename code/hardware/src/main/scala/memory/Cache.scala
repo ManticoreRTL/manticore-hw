@@ -299,40 +299,6 @@ class Cache extends Module {
 
   }
 
-  case class BankCollection2(module: URAM4kx72, id: Int) {
-    val loaded_hwords = Wire(Vec(BankLineHalfWords, UInt(DataBits.W)))
-    val cached_hwords = Wire(Vec(BankLineHalfWords, UInt(DataBits.W)))
-    val cached_tag    = Wire(UInt(TagBits.W))
-
-    val write_hwords = Wire(Vec(BankLineHalfWords, UInt(DataBits.W)))
-    val write_tag    = Wire(UInt(TagBits.W))
-    val write_addr   = Wire(UInt(IndexBits.W))
-
-    cached_tag := module.io.douta.head(TagBits)
-    cached_hwords.zipWithIndex.foreach { case (chw, i) =>
-      chw := module.io.douta((i + 1) * DataBits - 1, i * DataBits)
-    }
-
-    loaded_hwords.zipWithIndex.foreach { case (lhw, i) =>
-      val flat_ix = id * BankLineHalfWords + i
-      lhw := io.back.rline((flat_ix + 1) * DataBits - 1, flat_ix * DataBits)
-    }
-
-    //    cached_tag := module.io.douta.head(TagBits)
-
-    // disable writing by default
-    module.io.bweb := UInt("b" + "1" * (BankLineTaggedBits / 8))
-    module.io.web  := false.B
-
-    //    module.io.addra := io.front.addr(IndexBits + OffsetBits - 1, OffsetBits)
-
-    module.io.dinb := Cat(
-      write_tag,
-      Cat(write_hwords.reverse)
-    )
-    //    module.io.addrb := write_addr
-
-  }
 
   val banks = Range(0, NumBanks).map { i =>
     BankCollection(
