@@ -309,7 +309,7 @@ class CacheTester extends FlatSpec with ChiselScalatestTester with Matchers {
 
   it should "be able to flush dirty lines" in {
 
-    test(new Cache).withAnnotations(Seq(USE_VERILATOR, DUMP_VCD)) { implicit dut =>
+    test(new Cache).withAnnotations(Seq(USE_VERILATOR)) { implicit dut =>
 
       val mem_spec = new MemorySpec
       dut.clock.step()
