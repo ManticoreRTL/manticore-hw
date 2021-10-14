@@ -136,6 +136,7 @@ class CacheFrontInterface(DataBits: Int, AddressBits: Int) extends Bundle {
   val cmd = Input(CacheCommand.Type())
   val rdata = Output(UInt(DataBits.W))
   val done = Output(Bool())
+  val idle = Output(Bool())
 
   def ==>(that: CacheFrontInterface): Unit = {
     this.addr.dir match {
@@ -372,10 +373,13 @@ class Cache extends Module {
   io.back.disabled() // default values, disable the backend
   io.front.rdata := rdata
 
+  io.front.idle := false.B
+  
   switch(pstate) {
 
 
     is(StateValue.Idle) {
+      io.front.idle := true.B
       when(io.front.start) {
         addr_reg := io.front.addr
         wdata_reg := io.front.wdata

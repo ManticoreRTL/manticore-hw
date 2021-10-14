@@ -5,6 +5,7 @@ import chisel3.experimental.ChiselEnum
 import chisel3.stage.ChiselStage
 import memory.{Cache, CacheBackInterface, CacheConfig, CacheFrontInterface}
 import manticore.{ISA, ManticoreFullISA}
+import memory.CacheCommand
 
 /// registers written by the host
 class HostRegisters(config: ISA) extends Bundle {
@@ -157,7 +158,7 @@ class ComputeGridOrchestrator(
   object Phase extends ChiselEnum {
     val WaitForStart, // initial state, requires boot-loading
     WaitForResume,    // state after went back to the host to handle exceptions
-    BootLoading, VirtualCycle = Value
+    BootLoading, VirtualCycle, StartFlush, WaitFlush = Value
   }
 
   exception_handler.foreach { h =>
@@ -203,15 +204,33 @@ class ComputeGridOrchestrator(
         val any_exceptions = Wire(Vec(4, Bool()))
         any_exceptions := exception_handler.map(_.io.caught)
         when(any_exceptions.exists(_ === true.B)) {
-          phase   := Phase.WaitForResume
+          phase   := Phase.StartFlush
           io.done := true.B
-          io.registers.to_host.exception_id := io.periphery_core.map(
-            _.exception.id
-          )
         } // otherwise {
         //  handling cache requests, will resume automatically, no host interference
         // }
       }
+    }
+
+    is(Phase.StartFlush) {
+
+      (master_cache +: storage_cache).foreach { cache =>
+        cache.io.front.cmd   := CacheCommand.Flush
+        cache.io.front.start := true.B
+      }
+      phase := Phase.WaitFlush
+    }
+
+    is(Phase.WaitFlush) {
+      val all_idle = Wire(Bool())
+      val cache_idle = Wire(Vec(4, Bool()))
+      cache_idle := (master_cache +: storage_cache).map(c => c.io.front.idle)
+
+      when(cache_idle.forall(_ === true.B)) {
+        phase := Phase.WaitForResume
+        io.done := true.B
+      }
+      
     }
   }
 
