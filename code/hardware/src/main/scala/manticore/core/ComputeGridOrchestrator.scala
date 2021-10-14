@@ -46,8 +46,12 @@ class ComputeGridOrchestratorInterface(DimX: Int, DimY: Int, config: ISA)
 
 }
 
-class ComputeGridOrchestrator(DimX: Int, DimY: Int, config: ISA)
-    extends Module {
+class ComputeGridOrchestrator(
+    DimX: Int,
+    DimY: Int,
+    config: ISA,
+    debug_enable: Boolean = false
+) extends Module {
 
   val io: ComputeGridOrchestratorInterface = IO(
     new ComputeGridOrchestratorInterface(DimX, DimY, config)
@@ -75,7 +79,9 @@ class ComputeGridOrchestrator(DimX: Int, DimY: Int, config: ISA)
   val storage_cache_intercept: Seq[CacheRequestIntercept] = storage_cache
     .map(_ => Module(new CacheRequestIntercept))
 
-  val clock_manager: ClockManager = Module(new ClockManager(NumUsers = 4 * 2))
+  val clock_manager: ClockManager = Module(
+    new ClockManager(NumUsers = 4 * 2, debug_enable = debug_enable)
+  )
   io.clock_enable_n := clock_manager.io.clock_enable_n
 
   clock_manager.io.start_request
@@ -111,7 +117,6 @@ class ComputeGridOrchestrator(DimX: Int, DimY: Int, config: ISA)
   }
   io.periphery_core.head.cache <> master_cache_intercept.io.front_side.core
 
-
   (storage_cache_intercept)
     .zip(
       storage_cache
@@ -121,7 +126,6 @@ class ComputeGridOrchestrator(DimX: Int, DimY: Int, config: ISA)
       _intercept.io.front_side.cache <> _cache.io.front
       _core.cache <> _intercept.io.front_side.core
     }
-
 
   (master_cache +: storage_cache)
     .zip(io.cache_backend)
@@ -209,6 +213,13 @@ class ComputeGridOrchestrator(DimX: Int, DimY: Int, config: ISA)
         // }
       }
     }
+  }
+
+  val debug_time = RegInit(UInt(64.W), 0.U)
+
+  if (debug_enable) {
+    debug_time                  := debug_time + 1.U
+    clock_manager.io.debug_time := debug_time
   }
 
 }

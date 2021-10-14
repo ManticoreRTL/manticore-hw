@@ -74,10 +74,15 @@ class ExecuteInterface(config: ISA) extends Bundle {
   val pipe_in: PipeIn = Input(new PipeIn(config))
   val regs_in         = Input(new ALUInput(config.DataBits))
   val pipe_out        = Output(new PipeOut(config))
-
+  val debug_time      = Input(UInt(64.W))
 }
 
-class ExecuteBase(config: ISA, equations: Seq[Seq[Int]]) extends Module {
+class ExecuteBase(
+    config: ISA,
+    equations: Seq[Seq[Int]],
+    debug_tag: String = "UNTAGGED",
+    debug_enable: Boolean = false
+) extends Module {
   val io = IO(new ExecuteInterface(config))
 }
 class ExecutePiped(config: ISA, equations: Seq[Seq[Int]])
@@ -95,7 +100,7 @@ class ExecutePiped(config: ISA, equations: Seq[Seq[Int]])
   custom_alu.io.funct := io.pipe_in.funct
 
   when(io.pipe_in.opcode.arith | io.pipe_in.opcode.expect) {
-    standard_alu.io.in.y := io.regs_in.y
+    standard_alu.io.in.y          := io.regs_in.y
     standard_alu.io.select_enable := true.B // enable if arithmetic
     when(io.pipe_in.opcode.expect) {
       standard_alu.io.funct := StandardALU.Functs.SEQ.id.U
@@ -171,8 +176,12 @@ class ExecutePiped(config: ISA, equations: Seq[Seq[Int]])
 
 }
 
-class ExecuteComb(config: ISA, equation: Seq[Seq[Int]])
-    extends ExecuteBase(config, equation) {
+class ExecuteComb(
+    config: ISA,
+    equation: Seq[Seq[Int]],
+    debug_tag: String = "UNTAGGED",
+    debug_enable: Boolean = false
+) extends ExecuteBase(config, equation, debug_tag, debug_enable) {
 
   val custom_alu = Module(new CustomALUComb(config.DataBits, equation))
 
@@ -188,10 +197,10 @@ class ExecuteComb(config: ISA, equation: Seq[Seq[Int]])
   when(io.pipe_in.opcode.arith | io.pipe_in.opcode.expect) {
     standard_alu.io.in.y := io.regs_in.y
     when(io.pipe_in.opcode.expect) {
-      standard_alu.io.funct := StandardALU.Functs.SEQ.id.U
+      standard_alu.io.funct         := StandardALU.Functs.SEQ.id.U
       standard_alu.io.select_enable := false.B
     } otherwise {
-      standard_alu.io.funct := io.pipe_in.funct
+      standard_alu.io.funct         := io.pipe_in.funct
       standard_alu.io.select_enable := true.B
     }
   } otherwise {
@@ -200,9 +209,9 @@ class ExecuteComb(config: ISA, equation: Seq[Seq[Int]])
     // funct for Mux (which is stateful) so we should set it to zero to
     // ensure no stateful ALU operations are performed.
     standard_alu.io.select_enable := false.B
-   
+
     standard_alu.io.in.y := io.pipe_in.immediate
-   
+
   }
 
   when(io.pipe_in.opcode.set || io.pipe_in.opcode.send) {
@@ -246,6 +255,146 @@ class ExecuteComb(config: ISA, equation: Seq[Seq[Int]])
     gmem_if_reg.start := (io.pipe_in.opcode.gstore && pred_reg) | io.pipe_in.opcode.gload
     gmem_if_reg.wdata := io.regs_in.x
     io.pipe_out.gmem  := gmem_if_reg
+  }
+
+  // print what's happenning
+  if (debug_enable) {
+    def dprintf(fmt: String, data: Bits*) =
+      if (debug_enable)
+        printf(s"[%d : ${debug_tag}] " + fmt, (io.debug_time +: data): _*)
+
+    // if there are multiple operations, emit and error message
+    val num_decoded = Wire(UInt(32.W))
+    num_decoded :=
+      io.pipe_in.opcode.arith.toUInt +
+        io.pipe_in.opcode.cust0.toUInt +
+        io.pipe_in.opcode.expect.toUInt +
+        io.pipe_in.opcode.gload.toUInt +
+        io.pipe_in.opcode.gstore.toUInt +
+        io.pipe_in.opcode.lstore.toUInt +
+        io.pipe_in.opcode.lload.toUInt +
+        io.pipe_in.opcode.nop.toUInt +
+        io.pipe_in.opcode.predicate.toUInt +
+        io.pipe_in.opcode.send.toUInt +
+        io.pipe_in.opcode.set.toUInt
+
+    when(num_decoded =/= 1.U) {
+      dprintf("\tERROR multiple decoded operations (%d)!\n", num_decoded)
+    }
+
+    // otherwise show whats happening
+
+    when(io.pipe_in.opcode.arith) {
+
+      dprintf(
+        "\tR(%d) <= Arith(R(%d) = %d, OP(%d), R(%d) = %d) = %d\n",
+        io.pipe_in.rd,
+        io.pipe_in.rs1,
+        io.regs_in.x,
+        io.pipe_in.funct,
+        io.pipe_in.rs2,
+        io.regs_in.x,
+        standard_alu.io.out
+      )
+
+    }
+
+    when(io.pipe_in.opcode.cust0) {
+      dprintf(
+        "\tR(%d) <= Cust0(R(%d) = %d, OP(%d), R(%d) = %d) = %d\n",
+        io.pipe_in.rd,
+        io.pipe_in.rs1,
+        io.regs_in.x,
+        io.pipe_in.funct,
+        io.pipe_in.rs2,
+        io.regs_in.x,
+        custom_alu.io.out
+      )
+    }
+
+    when(io.pipe_in.opcode.expect) {
+
+      dprintf(
+        "\t%d <= Expect(R(%d) = %d, R(%d) = %d)\n",
+        standard_alu.io.out,
+        io.pipe_in.rs1,
+        io.regs_in.x,
+        io.pipe_in.rs2,
+        io.regs_in.y
+      )
+
+    }
+
+    when(io.pipe_in.opcode.gload) {
+
+      dprintf(
+        "\tR(%d) <= GlobalLoad(addr = R(%d) # R(%d) # R(%d) = 0x%x # 0x%x # 0x%x = 0x%x)\n",
+        io.pipe_in.rd,
+        io.pipe_in.rs2,
+        io.pipe_in.rs3,
+        io.pipe_in.rs4,
+        io.regs_in.y,
+        io.regs_in.u,
+        io.regs_in.v,
+        io.regs_in.y ## io.regs_in.u ## io.regs_in.v
+      )
+    }
+
+    when(io.pipe_in.opcode.gstore) {
+
+      dprintf(
+        "\tGlobalStore(value = R(%d) = %d, addr = R(%d) # R(%d) # R(%d) = 0x%x # 0x%x # 0x%x = 0x%x)\n",
+        io.pipe_in.rs1,
+        io.regs_in.x,
+        io.pipe_in.rs2,
+        io.pipe_in.rs3,
+        io.pipe_in.rs4,
+        io.regs_in.y,
+        io.regs_in.u,
+        io.regs_in.v,
+        io.regs_in.y ## io.regs_in.u ## io.regs_in.v
+      )
+    }
+
+    when(io.pipe_in.opcode.lload) {
+      dprintf(
+        "\tR(%d) <= LocalLoad(addr = R(%d) + %d = %d + %d = %d)\n",
+        io.pipe_in.rd,
+        io.pipe_in.rs1,
+        io.pipe_in.immediate,
+        io.regs_in.x,
+        io.pipe_in.immediate,
+        standard_alu.io.out
+      )
+    }
+
+
+    when(io.pipe_in.opcode.lstore) {
+      dprintf(
+        "\tLocalStore(value = R(%d) = %d, addr = R(%d) + %d = %d + %d = %d)\n",
+        io.pipe_in.rs2,
+        io.regs_in.y,
+        io.pipe_in.rs1,
+        io.pipe_in.immediate,
+        io.regs_in.x,
+        io.pipe_in.immediate,
+        standard_alu.io.out
+      )
+    }
+
+    when(io.pipe_in.opcode.nop) {
+      // dprintf("\tNOP\n")
+    }
+
+    when(io.pipe_in.opcode.predicate) {
+      dprintf("\tPredicate(value = R(%d) = %d)\n", io.pipe_in.rs1, io.regs_in.x)
+
+    }
+
+    when(io.pipe_in.opcode.set) {
+      dprintf("\t R(%d) <= Set(%d)\n", io.pipe_in.rd, io.pipe_in.immediate)
+    }
+
   }
 
 }

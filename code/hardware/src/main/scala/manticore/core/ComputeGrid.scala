@@ -45,13 +45,14 @@ class ComputeGridInterface(DimX: Int, DimY: Int, config: ISA) extends Bundle {
   val external_packet: NoCBundle   = Input(new NoCBundle(DimX, DimY, config))
   val external_packet_enable: Bool = Input(Bool())
   val clock_enable_n: Bool         = Input(Bool())
-
+  
 }
 
 class ComputeGrid(
     DimX: Int,
     DimY: Int,
-    power_on_state: ComputeGrid.InitialState
+    power_on_state: ComputeGrid.InitialState,
+    debug_enable: Boolean = false
 ) extends Module {
 
   val io: ComputeGridInterface = IO(
@@ -71,6 +72,10 @@ class ComputeGrid(
   clock_buffer.io.CE := io.clock_enable_n
   gated_clock        := clock_buffer.io.O
 
+  val debug_time = RegInit(UInt(64.W), 0.U)
+  if (debug_enable) { // count the number of elapsed cycles
+    debug_time := debug_time + 1.U
+  }
   withClockAndReset(clock = gated_clock, reset = reset) {
     val cores: Seq[Seq[Processor]] = generateModules { (x: Int, y: Int) =>
       val has_memory =
@@ -85,7 +90,9 @@ class ComputeGrid(
         DimY,
         power_on_state.lut(x, y),
         power_on_state.registerFile(x, y),
-        power_on_state.registerArray(x, y)
+        power_on_state.registerArray(x, y),
+        s"CoreX${x}Y${y}",
+        debug_enable
       )
     }
 
@@ -117,6 +124,9 @@ class ComputeGrid(
     noc.io.configEnable := io.external_packet_enable
     noc.io.configPacket := io.external_packet
 
+    if (debug_enable) {
+      cores.flatten.foreach { c => c.io.periphery.debug_time := debug_time }
+    }
   }
 
 }
