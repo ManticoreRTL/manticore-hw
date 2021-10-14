@@ -8,9 +8,16 @@ import manticore.{ISA, ManticoreBaseISA}
 import manticore.core.{BareNoCBundle, ClockBuffer, Processor, ProcessorInterface}
 import memory.CacheCommand
 
+import chisel3.experimental.ChiselEnum
 import java.io.PrintWriter
 import java.nio.file.{Files, Path}
 import scala.annotation.tailrec
+import memory.CacheBackInterface
+import memory.CacheConfig
+import manticore.ManticoreFullISA
+import chisel3.VecInit
+import memory.SimpleDualPortMemory
+import memory.CacheBackendCommand
 
 object UniProcessorTestUtils {
 
@@ -154,5 +161,175 @@ object UniProcessorTestUtils {
 
     }
 
+  }
+
+  class MemoryError extends Bundle {
+    val segfault: Bool      = Bool()
+    val none_aligned: Bool  = Bool()
+    val bad_writeback: Bool = Bool()
+  }
+
+  class MemoryModel(val rom_values: String, val memory_size: Int)
+      extends Module {
+
+    
+    val io = IO(new Bundle {
+      val memory: CacheBackInterface = Flipped(CacheConfig.backInterface())
+      val errors: MemoryError        = Output(new MemoryError)
+    })
+
+    private val rdgen =
+      new scala.util.Random(0) // constant seed make the results reproducible
+    val NumDifferentDelays = 20
+
+    val Config = ManticoreFullISA
+
+    def createDelays = VecInit(
+      Seq.fill(NumDifferentDelays) {
+        (5 max rdgen.nextInt(20)).U
+      }
+    )
+
+    val write_delays = createDelays
+    val read_delays  = createDelays
+
+    val DataBits      = CacheConfig.DataBits
+    val CacheLineBits = CacheConfig.CacheLineBits
+
+    val storage = Range(0, CacheLineBits / DataBits).map { _ =>
+      Module(
+        new SimpleDualPortMemory(
+          ADDRESS_WIDTH = log2Ceil(memory_size),
+          DATA_WIDTH = DataBits,
+          INIT = rom_values
+        )
+      )
+    }
+
+    val raddr_reg     = Reg(UInt(CacheConfig.UsedAddressBits.W))
+    val waddr_reg     = Reg(UInt(CacheConfig.UsedAddressBits.W))
+    val aligned_raddr = Wire(Bool())
+    aligned_raddr := io.memory.raddr(
+      log2Ceil(CacheLineBits / DataBits) - 1,
+      0
+    ) === 0.U
+    val aligned_waddr = Wire(Bool())
+    aligned_waddr := io.memory.waddr(
+      log2Ceil(CacheLineBits / DataBits) - 1,
+      0
+    ) === 0.U
+
+    val wline_reg = Reg(UInt(CacheLineBits.W))
+
+    object State extends ChiselEnum {
+      val Idle, ServingRead, ServingWrite, ServingWriteBack, Done, SegFault,
+          BadAlign, BadWriteBack = Value
+    }
+
+    val state         = RegInit(State.Type(), State.Idle)
+    val delay_counter = Reg(UInt())
+
+    io.memory.done := false.B
+
+    storage.zipWithIndex.foreach { case (bank, i) =>
+      bank.io.wen   := false.B
+      bank.io.raddr := raddr_reg + i.U
+      bank.io.waddr := waddr_reg + i.U
+      bank.io.din   := wline_reg((i + 1) * DataBits - 1, i * DataBits)
+    }
+
+    io.errors.segfault      := false.B
+    io.errors.none_aligned  := false.B
+    io.errors.bad_writeback := false.B
+
+    switch(state) {
+      is(State.Idle) {
+        when(io.memory.start) {
+          raddr_reg := io.memory.raddr
+          waddr_reg := io.memory.waddr
+          when(io.memory.cmd === CacheBackendCommand.Read.id.U) {
+            when(aligned_raddr) {
+              state := State.ServingRead
+            } otherwise {
+              state := State.BadAlign
+            }
+            delay_counter := read_delays(io.memory.raddr)
+          }.elsewhen(io.memory.cmd === CacheBackendCommand.Write.id.U) {
+            when(aligned_waddr) {
+              state     := State.ServingWrite
+              wline_reg := io.memory.wline
+            } otherwise {
+              state := State.BadAlign
+            }
+            delay_counter := write_delays(io.memory.waddr)
+          } otherwise {
+            when(aligned_raddr && aligned_waddr) {
+              state     := State.ServingWriteBack
+              wline_reg := io.memory.wline
+            } otherwise {
+              state := State.BadAlign
+            }
+            delay_counter := write_delays(io.memory.waddr) + read_delays(
+              io.memory.raddr
+            )
+          }
+        }
+      }
+      is(State.ServingRead) {
+
+        delay_counter := delay_counter - 1.U
+        when(delay_counter === 1.U) {
+          io.memory.rline := Cat(
+            storage.map(_.io.dout).reverse
+          ) // little-endian
+          state := State.Done
+
+        }
+
+      }
+      is(State.ServingWrite) {
+        delay_counter := delay_counter - 1.U
+        when(delay_counter === 1.U) {
+          storage.foreach { _.io.wen := true.B }
+
+          state := State.Done
+        }
+      }
+
+      is(State.ServingWriteBack) {
+        delay_counter := delay_counter - 1.U
+
+        when(delay_counter === 1.U) {
+          when(raddr_reg === waddr_reg) {
+            state := State.BadWriteBack
+          } otherwise {
+            storage.foreach { _.io.wen := true.B }
+            io.memory.rline := Cat(
+              storage.map(_.io.dout).reverse
+            ) // little-endian
+            state := State.Done
+
+            state := State.Done
+
+          }
+        }
+      }
+
+      is(State.Done) {
+        io.memory.done := true.B
+        state          := State.Idle
+      }
+
+      is(State.BadAlign) {
+        io.errors.none_aligned := true.B
+      }
+      is(State.SegFault) {
+        io.errors.segfault := true.B
+      }
+      is(State.BadWriteBack) {
+        io.errors.bad_writeback := true.B
+      }
+
+    }
   }
 }

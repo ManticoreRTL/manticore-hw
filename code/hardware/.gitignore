@@ -7,3 +7,7 @@ target
 .idea
 .bsp
 test_data_dir
+.bloop
+.vscode
+.metals
+project

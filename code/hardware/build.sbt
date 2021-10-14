@@ -3,7 +3,6 @@
 ThisBuild / scalaVersion     := "2.12.13"
 ThisBuild / version          := "0.1.0"
 ThisBuild / organization     := "epfl.vlsc"
-ThisBuild / name             := "Manticore hardware architecture for FPGA accelerated RTL simulation"
 
 lazy val root = (project in file("."))
   .settings(
@@ -22,6 +21,6 @@ lazy val root = (project in file("."))
       "-P:chiselplugin:useBundlePlugin",
     ),
     addCompilerPlugin("edu.berkeley.cs" % "chisel3-plugin" % "3.4.3" cross CrossVersion.full),
-    addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.1" cross CrossVersion.full)
+    addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.1" cross CrossVersion.full)      
   )
 
