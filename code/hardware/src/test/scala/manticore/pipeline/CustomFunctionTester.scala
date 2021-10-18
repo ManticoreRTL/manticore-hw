@@ -8,10 +8,12 @@ import manticore.core.alu.{CustomALU, CustomFunction}
 import org.scalatest.{FlatSpec, Matchers}
 
 import scala.util.Random
+import chiseltest.internal.VerilatorBackendAnnotation
 
-
-class CustomFunctionTester extends FlatSpec with ChiselScalatestTester
-    with Matchers{
+class CustomFunctionTester
+    extends FlatSpec
+    with ChiselScalatestTester
+    with Matchers {
   class MuxInterface extends Bundle {
     val a = Input(UInt(16.W))
     val b = Input(UInt(16.W))
@@ -29,17 +31,19 @@ class CustomFunctionTester extends FlatSpec with ChiselScalatestTester
   }
   class Miter extends Module {
     val io = IO(new Bundle {
-      val a = Input(UInt(16.W))
-      val b = Input(UInt(16.W))
-      val s = Input(Bool())
+      val a     = Input(UInt(16.W))
+      val b     = Input(UInt(16.W))
+      val s     = Input(Bool())
       val equal = Output(Bool())
     })
 
     val ref_module = Module(new Mux2to1)
-    val custom_module = Module(new CustomFunction(
-      DATA_BITS = 16,
-      EQUATIONS = Seq.fill(16){0xca}
-    ))
+    val custom_module = Module(
+      new CustomFunction(
+        DATA_BITS = 16,
+        EQUATIONS = Seq.fill(16) { 0xca }
+      )
+    )
 
     custom_module.io.in.x := 0.U(16.W)
     custom_module.io.in.y := Cat(Seq.fill(16)(io.s)).asUInt
@@ -56,7 +60,7 @@ class CustomFunctionTester extends FlatSpec with ChiselScalatestTester
   behavior of "CustomFunction as Mux2to1"
   it should "Implement a 16-bit 2-to-1 multiplexer" in {
 
-    test(new Miter).withAnnotations(Seq()) { dut =>
+    test(new Miter).withAnnotations(Seq(VerilatorBackendAnnotation)) { dut =>
       val rgen = Random
 
       for (i <- Range(0, 1000)) {
@@ -77,22 +81,25 @@ class CustomFunctionTester extends FlatSpec with ChiselScalatestTester
         DATA_BITS = 16,
         EQUATIONS = Seq.fill(16) {
           0xca
-        })) { dut =>
+        }
+      )
+    ).withAnnotations(Seq(VerilatorBackendAnnotation)) { dut =>
       val rgen = Random
 
       for (i <- Range(0, 1000)) {
-        val u = rgen.nextInt(1 << 16).U
-        val v = rgen.nextInt(1 << 16).U
-        val y = if (rgen.nextInt(2) == 1) 0xFFFF else 0x0000
-        val expected = if (y == 0xFFFF) u else v
-        val x = 0.U
+        val u        = rgen.nextInt(1 << 16).U
+        val v        = rgen.nextInt(1 << 16).U
+        val y        = if (rgen.nextInt(2) == 1) 0xffff else 0x0000
+        val expected = if (y == 0xffff) u else v
+        val x        = 0.U
 
         dut.io.in.x.poke(x)
         dut.io.in.y.poke(y.U)
         dut.io.in.u.poke(u)
         dut.io.in.v.poke(v)
         dut.clock.step()
-        dut.io.out.expect(expected, s"Expected Mux(%s, %s) = %s".format(u, v, expected))
+        dut.io.out
+          .expect(expected, s"Expected Mux(%s, %s) = %s".format(u, v, expected))
 
       }
     }
@@ -104,19 +111,19 @@ class CustomFunctionTester extends FlatSpec with ChiselScalatestTester
       new CustomALU(
         DATA_BITS = 16,
         EQUATIONS = Seq(
-          Seq.fill(16){0xca},
-          Seq.fill(16){0xac}
+          Seq.fill(16) { 0xca },
+          Seq.fill(16) { 0xac }
         )
       )
-    ) { dut =>
+    ).withAnnotations(Seq(VerilatorBackendAnnotation)) { dut =>
       val rgen = Random
       for (i <- Range(0, 1000)) {
-        val u = rgen.nextInt(1 << 16).U
-        val v = rgen.nextInt(1 << 16).U
-        val y = if (rgen.nextInt(2) == 1) 0xFFFF else 0x0000
-        val expected = if (y == 0xFFFF) u else v
-        val x = 0.U
-        val funct = (i % 2)
+        val u        = rgen.nextInt(1 << 16).U
+        val v        = rgen.nextInt(1 << 16).U
+        val y        = if (rgen.nextInt(2) == 1) 0xffff else 0x0000
+        val expected = if (y == 0xffff) u else v
+        val x        = 0.U
+        val funct    = (i % 2)
         dut.io.in.x.poke(x)
         dut.io.in.y.poke(y.U)
         dut.io.in.u.poke(u)
@@ -127,10 +134,16 @@ class CustomFunctionTester extends FlatSpec with ChiselScalatestTester
         dut.clock.step(1)
         if (funct == 1) {
           val expected = if (y == 0x0000) u else v
-          dut.io.out.expect(expected, s"Expected Mux(%s, %s) = %s".format(u, v, expected))
+          dut.io.out.expect(
+            expected,
+            s"Expected Mux(%s, %s) = %s".format(u, v, expected)
+          )
         } else {
-          val expected = if (y == 0xFFFF) u else v
-          dut.io.out.expect(expected, s"Expected Mux(%s, %s) = %s".format(u, v, expected))
+          val expected = if (y == 0xffff) u else v
+          dut.io.out.expect(
+            expected,
+            s"Expected Mux(%s, %s) = %s".format(u, v, expected)
+          )
         }
 
       }
@@ -138,4 +151,3 @@ class CustomFunctionTester extends FlatSpec with ChiselScalatestTester
   }
 
 }
-
