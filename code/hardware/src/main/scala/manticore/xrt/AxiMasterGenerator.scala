@@ -1,4 +1,4 @@
-package memory
+package manticore.xrt
 
 import java.nio.file.{Files, StandardCopyOption}
 import java.io.PrintWriter
@@ -108,7 +108,8 @@ object AxiMasterGenerator {
     )
     val p2 = Files.copy(
       project_dir.resolve(s"${name}/solution/syn/report/${name}_csynth.rpt"),
-      output_dir.resolve(s"${name}_csynth.rpt")
+      output_dir.resolve(s"${name}_csynth.rpt"),
+      StandardCopyOption.REPLACE_EXISTING
     )
     println(
       s"Verilog files saved to\n\t${p0.toAbsolutePath().toString()}\n\t${p1.toAbsolutePath.toString()}"

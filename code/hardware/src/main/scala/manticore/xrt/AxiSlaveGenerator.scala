@@ -1,4 +1,4 @@
-package memory
+package manticore.xrt
 
 import manticore.core.HostRegisters
 import manticore.ManticoreFullISA
@@ -10,6 +10,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.io.File
+import scala.annotation.tailrec
 
 object AxiSlaveGenerator {
 
@@ -17,13 +18,13 @@ object AxiSlaveGenerator {
 
   def translateType(elem: UInt): String = {
     if (elem.getWidth <= 8) {
-      "uint8_t"
+      "unsigned char"
     } else if (elem.getWidth <= 16) {
-      "uint16_t"
+      "unsigned short"
     } else if (elem.getWidth <= 32) {
-      "uint32_t"
+      "unsigned int"
     } else if (elem.getWidth <= 64) {
-      "uint64_t"
+      "unsigned long"
     } else {
       throw new Exception(
         "Can not have axi registers with more than 64 bits!"
@@ -37,11 +38,17 @@ object AxiSlaveGenerator {
   }
 
   case class AxiRegister(name: String, cppType: String, prefix: String)
+  case class AxiRegisterMapEntry(
+      name: String,
+      hw_name: String,
+      offset: Int,
+      range: Int
+  )
   def apply(
       registers: Seq[AxiRegister],
       outdir: String,
       part_num: String = "xcu250-figd2104-2l-e"
-  ) = {
+  ): Map[AxiRegister, Seq[AxiRegisterMapEntry]] = {
 
     def writeCppSource() = {
       val cpp_arg =
@@ -123,56 +130,70 @@ ${no_dce}
     println(
       s"Verilog files saved to\n\t${cp.toAbsolutePath().toString()}"
     )
+    val cp0 = Files.copy(
+      project_dir.resolve(
+        "slave_registers/solution/syn/report/csynth.rpt"
+      ),
+      output_dir.resolve("slave_registers_csynth.rpt"),
+      StandardCopyOption.REPLACE_EXISTING
+    )
+
+    def extractAddressMap(report: Seq[String]) = {
+
+      @tailrec
+      def findTableStart(lines: Seq[String]): Seq[String] = {
+        if (lines.nonEmpty) {
+          if (lines.head != "* SW-to-HW Mapping")
+            findTableStart(lines.tail)
+          else
+            lines.tail
+        } else {
+          throw new Exception("Could not find the SW-to-HW mappings")
+        }
+
+      }
+
+      val lines_to_search = findTableStart(report)
+
+      val entries = lines_to_search
+        .map { line =>
+          val expr =
+            raw"\|\s*(\w*)\s*\|\s*s_axi_control\s*(\w*)\s*\|\s*register\s*\|\soffset\s*=\s*0[xX]([0-9a-fA-F]+)\s*,\s*range\s*=\s*(\d*)\s*\|".r
+          line match {
+            case expr(arg, hw_name, offset, range) =>
+              println(line)
+              Some(
+                AxiRegisterMapEntry(
+                  arg,
+                  hw_name,
+                  Integer.parseInt(offset, 16),
+                  range.toInt
+                )
+              )
+            case _ =>
+              None
+          }
+        }
+        .filter(_.isDefined)
+        .map(_.get)
+
+      registers.map { case r @ AxiRegister(name, _, prefix) =>
+        r -> entries.filter(e => e.name == prefix + "_" + name)
+      }.toMap
+    }
+
+    val mapping = extractAddressMap(
+      scala.io.Source.fromFile(cp0.toFile()).getLines().toSeq
+    )
+
+    mapping.foreach { case (r, xs) =>
+      println(s"${r.name} ->")
+      xs.foreach { x =>
+        println(f"\t0x${x.offset}%x (as ${x.hw_name}%s)")
+      }
+    }
+    mapping
   }
 
 }
 
-object AxiSlaveGeneratorApplication extends App {
-
-  def lowerType(data: Data): Seq[String] = {
-
-    data match {
-      case vec: Vec[_] =>
-        vec.map(x => AxiSlaveGenerator.translateType(x.asInstanceOf[UInt]))
-      case elem: UInt =>
-        Seq(AxiSlaveGenerator.translateType(elem))
-      case _ =>
-        throw new Exception(
-          "Can not lower anything other than UInt and Vec[UInt]"
-        )
-    }
-
-  }
-
-  def makeRegs(
-      name: String,
-      t: Data,
-      prefix: String
-  ): Seq[AxiSlaveGenerator.AxiRegister] = {
-
-    val cpp_type = lowerType(t)
-    val cpp_name = cpp_type match {
-      case x +: Nil  => Seq(name)
-      case x +: tail => cpp_type.indices.map(i => name + s"_${i}")
-    }
-
-    cpp_name.zip(cpp_type).map { case (_n, _t) =>
-      AxiSlaveGenerator.AxiRegister(_n, _t, prefix)
-    }
-  }
-
-  val hregs =
-    new HostRegisters(ManticoreFullISA).elements.flatMap { case (name, t) =>
-      makeRegs(name, t, "h")
-    }.toSeq
-  val dregs = new DeviceRegisters(ManticoreFullISA).elements.flatMap {
-    case (name, t) =>
-      makeRegs(name, t, "d")
-  }.toSeq
-
-  AxiSlaveGenerator(
-    hregs ++ dregs,
-    "gen-dir/slave"
-  )
-
-}
