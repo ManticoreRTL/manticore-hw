@@ -36,9 +36,10 @@ object KernelInfo {
 
   }
 }
+
 object KernelGenerator extends App {
 
-  val out_dir = "gen-dir"
+  val out_dir = "gen-dir/01"
   val part_num = "xcu250-figd2104-2l-e"
   def lowerType(data: Data): Seq[String] = {
 
@@ -87,7 +88,7 @@ object KernelGenerator extends App {
 
   // generate the axi slave module
 
-  val port_map = AxiSlaveGenerator(
+  val (port_map, _) = AxiSlaveGenerator(
     pointer_regs ++ host_regs ++ dev_regs,
     out_dir, part_num
   )
@@ -122,14 +123,13 @@ object KernelGenerator extends App {
 
   println("Creating kernel xml")
 
-  // // generate the axi master modules
-  // mem_if.foreach { m =>  
-  //   AxiMasterGenerator(m.name, m.bundle, out_dir, part_num)
-  // }
+  // generate the axi master modules
+  println("Generating memory interfaces")
+  mem_if.foreach { m =>  
+    AxiMasterGenerator(m.name, out_dir, part_num)
+  }
 
   
-
-
   KernelXmlGenrator(
     "manticore",
     mem_if,
@@ -138,5 +138,8 @@ object KernelGenerator extends App {
   )
 
   
-
 }
+
+
+
+

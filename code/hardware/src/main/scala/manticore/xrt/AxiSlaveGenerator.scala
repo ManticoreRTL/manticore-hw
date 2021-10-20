@@ -2,7 +2,7 @@ package manticore.xrt
 
 import manticore.core.HostRegisters
 import manticore.ManticoreFullISA
-import chisel3.{Data, UInt, Vec}
+
 import manticore.core.DeviceRegisters
 import chisel3.Aggregate
 import java.io.PrintWriter
@@ -11,6 +11,10 @@ import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.io.File
 import scala.annotation.tailrec
+import chisel3.util.HasBlackBoxPath
+import chisel3._
+import chisel3.stage.ChiselStage
+import chisel3.internal.noPrefix
 
 object AxiSlaveGenerator {
 
@@ -46,9 +50,9 @@ object AxiSlaveGenerator {
   )
   def apply(
       registers: Seq[AxiRegister],
-      outdir: String,
+      outdir: String = "",
       part_num: String = "xcu250-figd2104-2l-e"
-  ): Map[AxiRegister, Seq[AxiRegisterMapEntry]] = {
+  ): (Map[AxiRegister, Seq[AxiRegisterMapEntry]], Path) = {
 
     def writeCppSource() = {
       val cpp_arg =
@@ -119,24 +123,27 @@ ${no_dce}
       throw new Exception("Synthesis failed!")
     }
 
-    val output_dir = Files.createDirectories(new File(outdir).toPath())
-    val cp = Files.copy(
-      project_dir.resolve(
-        "slave_registers/solution/syn/verilog/slave_registers_control_s_axi.v"
-      ),
-      output_dir.resolve("slave_registers_control_s_axi.v"),
-      StandardCopyOption.REPLACE_EXISTING
-    )
-    println(
-      s"Verilog files saved to\n\t${cp.toAbsolutePath().toString()}"
-    )
-    val cp0 = Files.copy(
-      project_dir.resolve(
-        "slave_registers/solution/syn/report/csynth.rpt"
-      ),
-      output_dir.resolve("slave_registers_csynth.rpt"),
-      StandardCopyOption.REPLACE_EXISTING
-    )
+    if (outdir.nonEmpty) {
+      val output_dir = Files.createDirectories(new File(outdir).toPath())
+      val cp = Files.copy(
+        project_dir.resolve(
+          "slave_registers/solution/syn/verilog/slave_registers_control_s_axi.v"
+        ),
+        output_dir.resolve("slave_registers_control_s_axi.v"),
+        StandardCopyOption.REPLACE_EXISTING
+      )
+      println(
+        s"Verilog files saved to\n\t${cp.toAbsolutePath().toString()}"
+      )
+      val cp0 = Files.copy(
+        project_dir.resolve(
+          "slave_registers/solution/syn/report/csynth.rpt"
+        ),
+        output_dir.resolve("slave_registers_csynth.rpt"),
+        StandardCopyOption.REPLACE_EXISTING
+      )
+
+    }
 
     def extractAddressMap(report: Seq[String]) = {
 
@@ -183,7 +190,16 @@ ${no_dce}
     }
 
     val mapping = extractAddressMap(
-      scala.io.Source.fromFile(cp0.toFile()).getLines().toSeq
+      scala.io.Source
+        .fromFile(
+          project_dir
+            .resolve(
+              "slave_registers/solution/syn/report/csynth.rpt"
+            )
+            .toFile()
+        )
+        .getLines()
+        .toSeq
     )
 
     mapping.foreach { case (r, xs) =>
@@ -192,8 +208,185 @@ ${no_dce}
         println(f"\t0x${x.offset}%x (as ${x.hw_name}%s)")
       }
     }
-    mapping
+    (
+      mapping,
+      project_dir.resolve(
+        "slave_registers/solution/syn/verilog/slave_registers_control_s_axi.v"
+      )
+    )
   }
 
 }
 
+class AxiSlaveInterface(AxiSlaveAddrWidth: Int = 8, AxiSlaveDataWidth: Int = 32)
+    extends Bundle {
+
+  val hregs = Output(new HostRegisters(ManticoreFullISA))
+  val dregs = Output(new DeviceRegisters(ManticoreFullISA))
+
+  val pregs = Output(new MemoryPointers)
+
+  val ACCLK    = Input(Clock())
+  val ARESET   = Input(Bool())
+  val ACLK_EN  = Input(Bool())
+  val AWADDR   = Input(UInt(AxiSlaveAddrWidth.W))
+  val AWVALID  = Input(Bool())
+  val AWREADY  = Input(Bool())
+  val WDATA    = Input(UInt(AxiSlaveDataWidth.W))
+  val WSTRB    = Input(UInt((AxiSlaveDataWidth / 8).W))
+  val WVALID   = Input(Bool())
+  val WREADY   = Output(Bool())
+  val BRESP    = Output(UInt(2.W))
+  val BVALID   = Output(Bool())
+  val BREADY   = Input(Bool())
+  val ARADDR   = Input(UInt(AxiSlaveAddrWidth.W))
+  val ARVALID  = Input(Bool())
+  val ARREADY  = Output(Bool())
+  val RDATA    = Output(UInt(AxiSlaveDataWidth.W))
+  val RRESP    = Output(UInt(2.W))
+  val RVALID   = Output(Bool())
+  val RREADY   = Input(Bool())
+  val interrup = Output(Bool())
+
+  val ap_start    = Output(Bool())
+  val ap_done     = Input(Bool())
+  val ap_ready    = Input(Bool())
+  val ap_continue = Output(Bool())
+  val ap_idle     = Input(Bool())
+
+}
+class AxiSlave extends Module {
+
+  val io = IO(new AxiSlaveInterface)
+
+  class slave_registers_control_s_axi extends BlackBox with HasBlackBoxPath {
+
+    val io = IO(new AxiSlaveInterface {
+      val ACLK = Input(Clock())
+    })
+
+    private def lowerType(data: Data): Seq[String] = {
+
+      data match {
+        case vec: Vec[_] =>
+          vec.map(x => AxiSlaveGenerator.translateType(x.asInstanceOf[UInt]))
+        case elem: UInt =>
+          Seq(AxiSlaveGenerator.translateType(elem))
+        case _ =>
+          throw new Exception(
+            "Can not lower anything other than UInt and Vec[UInt]"
+          )
+      }
+
+    }
+    private def makeRegs(
+        name: String,
+        t: Data,
+        prefix: String
+    ): Seq[AxiSlaveGenerator.AxiRegister] = {
+
+      val cpp_type = lowerType(t)
+      val cpp_name = cpp_type match {
+        case x +: Nil  => Seq(name)
+        case x +: tail => cpp_type.indices.map(i => name + s"_${i}")
+      }
+
+      cpp_name.zip(cpp_type).map { case (_n, _t) =>
+        AxiSlaveGenerator.AxiRegister(_n, _t, prefix)
+      }
+    }
+
+    val io_inst = new AxiSlaveInterface
+    val host_regs =
+      new HostRegisters(ManticoreFullISA).elements.flatMap { case (name, t) =>
+        makeRegs(
+          name,
+          t,
+          io_inst.elements
+            .filter { case (_, ht) => ht.isInstanceOf[HostRegisters] }
+            .map { case (n, _) => n }
+            .head
+        )
+      }.toSeq
+    val dev_regs = new DeviceRegisters(ManticoreFullISA).elements.flatMap {
+      case (name, t) =>
+        makeRegs(
+          name,
+          t,
+          io_inst.elements
+            .filter { case (_, ht) => ht.isInstanceOf[DeviceRegisters] }
+            .map { case (n, _) => n }
+            .head
+        )
+    }.toSeq
+
+    val pointer_regs = (new MemoryPointers).elements.flatMap { case (name, t) =>
+      makeRegs(
+        name,
+        t,
+        io_inst.elements
+          .filter { case (_, ht) => ht.isInstanceOf[MemoryPointers] }
+          .map { case (n, _) => n }
+          .head
+      )
+    }.toSeq
+
+    // generate the slave implemenation by calling Vitis HLS and keep the
+    // register address map
+    val (
+      port_map: Map[AxiSlaveGenerator.AxiRegister, Seq[
+        AxiSlaveGenerator.AxiRegisterMapEntry
+      ]],
+      path: Path
+    ) =
+      AxiSlaveGenerator(
+        pointer_regs ++ host_regs ++ dev_regs
+      )
+    addPath(
+      path.toAbsolutePath().toString()
+    )
+
+  }
+
+  val impl = Module(new slave_registers_control_s_axi)
+
+  impl.io.ACLK   := clock
+  impl.io.ARESET := reset
+
+  io.hregs := impl.io.hregs
+  io.dregs := impl.io.dregs
+
+  io.pregs := impl.io.pregs
+
+  impl.io.ACLK_EN := io.ACLK_EN
+  impl.io.AWADDR  := io.AWADDR
+  impl.io.AWVALID := io.AWVALID
+  impl.io.AWREADY := io.AWREADY
+  impl.io.WDATA   := io.WDATA
+  impl.io.WSTRB   := io.WSTRB
+  impl.io.WVALID  := io.WVALID
+  io.WREADY       := impl.io.WREADY
+  io.BRESP        := impl.io.BRESP
+  io.BVALID       := impl.io.BVALID
+  impl.io.BREADY  := io.BREADY
+  impl.io.ARADDR  := io.ARADDR
+  impl.io.ARVALID := io.ARVALID
+  io.ARREADY      := impl.io.ARREADY
+  io.RDATA        := impl.io.RDATA
+  io.RRESP        := impl.io.RRESP
+  io.RVALID       := impl.io.RVALID
+  impl.io.RREADY  := io.RREADY
+  io.interrup     := impl.io.interrup
+
+  io.ap_start      := impl.io.ap_start
+  impl.io.ap_done  := io.ap_done
+  impl.io.ap_ready := io.ap_ready
+  io.ap_continue   := impl.io.ap_continue
+  impl.io.ap_idle  := io.ap_idle
+
+}
+
+object Tmp extends App {
+
+  new ChiselStage().emitVerilog(new AxiSlave(), Array("-td", "gen-dir/02"))
+}
