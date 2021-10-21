@@ -205,7 +205,6 @@ class ComputeGridOrchestrator(
         any_exceptions := exception_handler.map(_.io.caught)
         when(any_exceptions.exists(_ === true.B)) {
           phase   := Phase.StartFlush
-          io.done := true.B
         } // otherwise {
         //  handling cache requests, will resume automatically, no host interference
         // }

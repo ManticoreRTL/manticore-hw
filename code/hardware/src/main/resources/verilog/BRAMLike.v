@@ -30,10 +30,11 @@ module BRAMLike #(
    end
    assign dout = dout_reg;
    //assign dout = memory[addr_reg];
-
+`ifndef SYNTHESIS
   initial begin
     if (filename != "") begin
       $readmemb(filename, memory);
     end
   end
+`endif
 endmodule

@@ -221,48 +221,62 @@ ${no_dce}
 class AxiSlaveInterface(AxiSlaveAddrWidth: Int = 8, AxiSlaveDataWidth: Int = 32)
     extends Bundle {
 
-  val hregs = Output(new HostRegisters(ManticoreFullISA))
-  val dregs = Output(new DeviceRegisters(ManticoreFullISA))
+  // val ACCLK    = Input(Clock())
+  // val ARESET   = Input(Bool())
+  // val ACLK_EN = Input(Bool())
+  val AWADDR  = Input(UInt(AxiSlaveAddrWidth.W))
+  val AWVALID = Input(Bool())
+  val AWREADY = Output(Bool())
+  val WDATA   = Input(UInt(AxiSlaveDataWidth.W))
+  val WSTRB   = Input(UInt((AxiSlaveDataWidth / 8).W))
+  val WVALID  = Input(Bool())
+  val WREADY  = Output(Bool())
+  val BRESP   = Output(UInt(2.W))
+  val BVALID  = Output(Bool())
+  val BREADY  = Input(Bool())
+  val ARADDR  = Input(UInt(AxiSlaveAddrWidth.W))
+  val ARVALID = Input(Bool())
+  val ARREADY = Output(Bool())
+  val RDATA   = Output(UInt(AxiSlaveDataWidth.W))
+  val RRESP   = Output(UInt(2.W))
+  val RVALID  = Output(Bool())
+  val RREADY  = Input(Bool())
 
-  val pregs = Output(new MemoryPointers)
+}
 
-  val ACCLK    = Input(Clock())
-  val ARESET   = Input(Bool())
-  val ACLK_EN  = Input(Bool())
-  val AWADDR   = Input(UInt(AxiSlaveAddrWidth.W))
-  val AWVALID  = Input(Bool())
-  val AWREADY  = Input(Bool())
-  val WDATA    = Input(UInt(AxiSlaveDataWidth.W))
-  val WSTRB    = Input(UInt((AxiSlaveDataWidth / 8).W))
-  val WVALID   = Input(Bool())
-  val WREADY   = Output(Bool())
-  val BRESP    = Output(UInt(2.W))
-  val BVALID   = Output(Bool())
-  val BREADY   = Input(Bool())
-  val ARADDR   = Input(UInt(AxiSlaveAddrWidth.W))
-  val ARVALID  = Input(Bool())
-  val ARREADY  = Output(Bool())
-  val RDATA    = Output(UInt(AxiSlaveDataWidth.W))
-  val RRESP    = Output(UInt(2.W))
-  val RVALID   = Output(Bool())
-  val RREADY   = Input(Bool())
-  val interrup = Output(Bool())
-
+class AxiHlsSlaveInterface(
+    AxiSlaveAddrWidth: Int = 8,
+    AxiSlaveDataWidth: Int = 32
+) extends AxiSlaveInterface(AxiSlaveAddrWidth, AxiSlaveDataWidth) {
+  val hregs       = Output(new HostRegisters(ManticoreFullISA))
+  val dregs       = Output(new DeviceRegisters(ManticoreFullISA))
+  val pregs       = Output(new MemoryPointers)
   val ap_start    = Output(Bool())
   val ap_done     = Input(Bool())
   val ap_ready    = Input(Bool())
   val ap_continue = Output(Bool())
   val ap_idle     = Input(Bool())
-
+  val interrupt   = Output(Bool())
 }
-class AxiSlave extends Module {
+class AxiHlsSlave(
+    cached_map: Option[
+      (
+          Map[AxiSlaveGenerator.AxiRegister, Seq[
+            AxiSlaveGenerator.AxiRegisterMapEntry
+          ]],
+          String
+      )
+    ] = None
+) extends Module {
 
-  val io = IO(new AxiSlaveInterface)
+  val io = IO(new AxiHlsSlaveInterface)
 
   class slave_registers_control_s_axi extends BlackBox with HasBlackBoxPath {
 
-    val io = IO(new AxiSlaveInterface {
-      val ACLK = Input(Clock())
+    val io = IO(new AxiHlsSlaveInterface {
+      val ACLK    = Input(Clock())
+      val ARESET  = Input(Reset())
+      val ACLK_EN = Input(Bool())
     })
 
     private def lowerType(data: Data): Seq[String] = {
@@ -296,7 +310,7 @@ class AxiSlave extends Module {
       }
     }
 
-    val io_inst = new AxiSlaveInterface
+    val io_inst = new AxiHlsSlaveInterface
     val host_regs =
       new HostRegisters(ManticoreFullISA).elements.flatMap { case (name, t) =>
         makeRegs(
@@ -337,13 +351,17 @@ class AxiSlave extends Module {
       port_map: Map[AxiSlaveGenerator.AxiRegister, Seq[
         AxiSlaveGenerator.AxiRegisterMapEntry
       ]],
-      path: Path
-    ) =
+      path: String
+    ) = if (cached_map.isEmpty) {
       AxiSlaveGenerator(
         pointer_regs ++ host_regs ++ dev_regs
       )
+    } else {
+      cached_map.get
+    }
+
     addPath(
-      path.toAbsolutePath().toString()
+      path
     )
 
   }
@@ -358,10 +376,10 @@ class AxiSlave extends Module {
 
   io.pregs := impl.io.pregs
 
-  impl.io.ACLK_EN := io.ACLK_EN
+  impl.io.ACLK_EN := true.B
   impl.io.AWADDR  := io.AWADDR
   impl.io.AWVALID := io.AWVALID
-  impl.io.AWREADY := io.AWREADY
+  io.AWREADY      := impl.io.AWREADY
   impl.io.WDATA   := io.WDATA
   impl.io.WSTRB   := io.WSTRB
   impl.io.WVALID  := io.WVALID
@@ -376,7 +394,7 @@ class AxiSlave extends Module {
   io.RRESP        := impl.io.RRESP
   io.RVALID       := impl.io.RVALID
   impl.io.RREADY  := io.RREADY
-  io.interrup     := impl.io.interrup
+  io.interrupt    := impl.io.interrupt
 
   io.ap_start      := impl.io.ap_start
   impl.io.ap_done  := io.ap_done
@@ -388,5 +406,5 @@ class AxiSlave extends Module {
 
 object Tmp extends App {
 
-  new ChiselStage().emitVerilog(new AxiSlave(), Array("-td", "gen-dir/02"))
+  new ChiselStage().emitVerilog(new AxiHlsSlave(), Array("-td", "gen-dir/02"))
 }

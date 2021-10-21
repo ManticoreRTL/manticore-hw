@@ -8,6 +8,7 @@ import java.io.PrintWriter
 import java.io.File
 import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
+import java.nio.file.Path
 
 object KernelXmlGenrator {
 
@@ -16,11 +17,11 @@ object KernelXmlGenrator {
       kernel_name: String,
       master: Seq[KernelMemoryInterface],
       args: Seq[KernelSlaveRegister],
-      outdir: String
+      target_path: Option[Path] = None
   ) = {
 
     def getMasterPort(m: KernelMemoryInterface) = {
-      <port name={m.name} portType="addressable" mode="master" base="0x0" range="0xFFFFFFFFFFFFFFFF" dataWidth={m.width.toString}/>
+      <port name={m.portName} portType="addressable" mode="master" base="0x0" range="0xFFFFFFFFFFFFFFFF" dataWidth={m.width.toString}/>
     }
     
     def getSize(r: KernelSlaveRegister) = {
@@ -58,21 +59,20 @@ object KernelXmlGenrator {
         </root>
     
     
-    val fp = Files.createTempFile(kernel_name, "_kernel.xml")
-    
-    val pw = new PrintWriter(fp.toFile())
-    
-    
-    pw.print(new scala.xml.PrettyPrinter(300, 4).format(xml))
-    pw.close()
 
-    val out_dir = Files.createDirectories(Paths.get(outdir))
-    
-    Files.copy(
-        fp, out_dir.resolve(kernel_name + "_kernel.xml"),
-         StandardCopyOption.REPLACE_EXISTING
-    )
 
+    target_path match {
+        case Some(target_file) => 
+            if (target_file.toFile.exists())
+                target_file.toFile().delete()
+            val fp = Files.createFile(target_file)
+            val pw = new PrintWriter(fp.toFile())
+            pw.print(new scala.xml.PrettyPrinter(300, 4).format(xml))
+            pw.close()
+        case None =>
+            ()
+    }
+    xml
   }
 
 }

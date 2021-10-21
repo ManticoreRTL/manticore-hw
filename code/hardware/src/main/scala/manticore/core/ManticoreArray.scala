@@ -94,6 +94,6 @@ class ManticoreArray(DimX: Int, DimY: Int, debug_enable: Boolean = false)
 object ManticoreArrayGenerator extends App {
 
 
-    new ChiselStage().emitVerilog(new ManticoreArray(2, 2), Array("-td", "gen-dir"))
+    new ChiselStage().emitVerilog(new ManticoreArray(16, 16), Array("-td", "gen-dir"))
 
 }
