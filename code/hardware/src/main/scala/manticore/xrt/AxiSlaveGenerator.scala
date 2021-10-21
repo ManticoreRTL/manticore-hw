@@ -81,6 +81,7 @@ ${no_dce}
 }    
     """
 
+      println(code)
       val source_path   = Files.createTempFile("slave_registers__", ".cpp")
       val source_writer = new PrintWriter(source_path.toFile())
       source_writer.write(code)

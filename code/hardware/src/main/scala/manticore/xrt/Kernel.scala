@@ -262,12 +262,12 @@ object BuildXclbin {
 
     Files.createDirectories(bin_dir)
 
-    val mem_bank_config = mem_if.zipWithIndex
-      .map { case (m, ix) =>
-        s"--connectivity.sp ${top_name}.${m.portName}:DDR[${ix}]"
-      }
-      .mkString(" ")
-
+    // val mem_bank_config = mem_if.zipWithIndex
+    //   .map { case (m, ix) =>
+    //     s"--connectivity.sp ${top_name}.${m.portName}:DDR[${ix}]"
+    //   }
+    //   .mkString(" ")
+    val mem_bank_config = ""
     val xclbin_path =
       bin_dir.resolve(s"${top_name}.${target}.${platform}.xclbin")
     val command =
@@ -425,17 +425,39 @@ object ManticoreKernelGenerator {
       }
     }
 
+    val io_inst = new AxiHlsSlaveInterface
     val host_regs =
       new HostRegisters(ManticoreFullISA).elements.flatMap { case (name, t) =>
-        makeRegs(name, t, "h")
+        makeRegs(
+          name,
+          t,
+          io_inst.elements
+            .filter { case (_, ht) => ht.isInstanceOf[HostRegisters] }
+            .map { case (n, _) => n }
+            .head
+        )
       }.toSeq
     val dev_regs = new DeviceRegisters(ManticoreFullISA).elements.flatMap {
       case (name, t) =>
-        makeRegs(name, t, "d")
+        makeRegs(
+          name,
+          t,
+          io_inst.elements
+            .filter { case (_, ht) => ht.isInstanceOf[DeviceRegisters] }
+            .map { case (n, _) => n }
+            .head
+        )
     }.toSeq
 
     val pointer_regs = (new MemoryPointers).elements.flatMap { case (name, t) =>
-      makeRegs(name, t, "p")
+      makeRegs(
+        name,
+        t,
+        io_inst.elements
+          .filter { case (_, ht) => ht.isInstanceOf[MemoryPointers] }
+          .map { case (n, _) => n }
+          .head
+      )
     }.toSeq
 
     (host_regs, dev_regs, pointer_regs)
@@ -450,6 +472,7 @@ object KernelTest extends App {
     out_dir.toAbsolutePath().toString()
   )
   // val out_dir = Paths.get("gen-dir/kernel/01")
+
   // val xo_file = PackageKernel(
   //   verilog_path = out_dir.resolve("hdl"),
   //   packaged_path = out_dir.resolve("packaged"),

@@ -48,7 +48,7 @@ object KernelXmlGenrator {
                     
                     {
                         args.zipWithIndex.map { case (p, i) => 
-                            <arg id={p.id.toString()} addressQualifier={if (p.is_pointer) "1" else "0"} port={p.port_interface} hostOffset="0x0" offset={f"0x${p.offset}%x"} size={f"0x${getSize(p)}%x"} type={p.cpp_type}/>    
+                            <arg id={p.id.toString()} name={p.name} addressQualifier={if (p.is_pointer) "1" else "0"} port={p.port_interface} hostOffset="0x0" hostSize={f"0x${getSize(p)}%x"} offset={f"0x${p.offset}%x"} size={f"0x${getSize(p)}%x"} type={p.cpp_type + (if (p.is_pointer) "*" else "")}/>    
                         }
                     }
 
