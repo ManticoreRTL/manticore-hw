@@ -8,8 +8,8 @@ set_top @NAME@
 ## -- Add file
 add_files @FILE@ -cflags "-std=c++11 -Wno-narrowing"
 
-## -- Create solution
-open_solution -reset solution -flow_target vitis
+## -- Create solution (Vivado flow)
+open_solution -reset solution 
 
 ## -- Define Xilinx FPGA
 set_part @PART@

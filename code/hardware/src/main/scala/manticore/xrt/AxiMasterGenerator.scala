@@ -19,7 +19,7 @@ object AxiMasterGenerator {
 
   def apply(
       name: String,
-      outdir: String = "",
+      out_dir: Option[Path] = None,
       part_num: String = "xcu250-figd2104-2l-e"
   ) = {
 
@@ -100,22 +100,23 @@ object AxiMasterGenerator {
       .resolve(
         s"${name}/solution/syn/verilog/${name}_gmem_m_axi.v"
       )
-    val inner_module = scala.io.Source.fromFile(inner_path.toFile())
 
     val outer_path =
       project_dir.resolve(s"${name}/solution/syn/verilog/${name}.v")
-    val outer_module = scala.io.Source.fromFile(outer_path.toFile())
 
-    if (outdir.nonEmpty) {
-      val output_dir = Files.createDirectories(new File(outdir).toPath())
-      val f0 = Files.copy(
+    if (out_dir.nonEmpty) {
+
+      Files.createDirectories(out_dir.get)
+      val f0 = out_dir.get.resolve(s"${name}.v")
+      Files.copy(
         outer_path,
-        output_dir.resolve(s"${name}.v"),
+        f0,
         StandardCopyOption.REPLACE_EXISTING
       )
-      val f1 = Files.copy(
+      val f1 = out_dir.get.resolve(s"${name}_gmem_m_axi.v").toAbsolutePath()
+      Files.copy(
         inner_path,
-        output_dir.resolve(s"${name}_gmem_m_axi.v"),
+        f1,
         StandardCopyOption.REPLACE_EXISTING
       )
       Seq(f0, f1)
@@ -257,7 +258,7 @@ class MemoryGateWay(cached_path: Seq[String] = Seq()) extends Module {
   class memory_gateway() extends BlackBox with HasBlackBoxPath {
     val io = IO(new MemoryGateWayInterface {
       val ap_clk = Input(Clock())
-      val ap_rst = Input(Bool())
+      val ap_rst_n = Input(Bool())
     })
     path.foreach(addPath(_))
   }
@@ -266,7 +267,7 @@ class MemoryGateWay(cached_path: Seq[String] = Seq()) extends Module {
 
   impl.io.ap_clk := clock
 
-  impl.io.ap_rst   := !(reset.asBool())
+  impl.io.ap_rst_n   := !(reset.asBool())
   impl.io.ap_start := io.ap_start
 
   impl.io.memory_pointer := io.memory_pointer
@@ -287,7 +288,6 @@ class MemoryGateWay(cached_path: Seq[String] = Seq()) extends Module {
 }
 object AxiMasterGeneratorApplication extends App {
 
-  
   new ChiselStage()
     .emitVerilog(new MemoryGateWay(), Array("-td", "gen-dir/mem_gate"))
 

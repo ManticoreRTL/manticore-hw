@@ -311,26 +311,22 @@ object ManticoreKernelGenerator {
       }
     }
 
-    if (Files.exists(out_dir) && deleteOrAbort()) {
-      throw new Exception("Kernel build aborted")
-    }
-
     val hdl_dir = Files.createDirectories(out_dir.resolve("hdl"))
 
     val (hregs, dregs, pregs) = makeAxiSlaveRegisters()
     // generate axi slave module
     val (port_map, slave_fp) = AxiSlaveGenerator(
       hregs ++ dregs ++ pregs,
-      hdl_dir.toAbsolutePath().toString(),
+      // hdl_dir.toAbsolutePath().toString(),
       platformDevice(platform)
     )
 
     println("Created axi slave module")
     // generate axi master module
     val master_fp = AxiMasterGenerator(
-      "memory_gateway",
-      hdl_dir.toAbsolutePath.toString,
-      platformDevice(platform)
+      name = "memory_gateway",
+      // out_dir = Some(hdl_dir),
+      part_num = platformDevice(platform)
     )
     println("Created axi master module")
 
@@ -391,6 +387,16 @@ object ManticoreKernelGenerator {
       xo_dir = out_dir.resolve("bin")
     )
     println("Created Xilinx Object")
+    
+    BuildXclbin(
+      bin_dir = out_dir.resolve("bin"),
+      xo_path = xo_file,
+      target = "hw_emu",
+      mem_if = Seq.tabulate(4) { i =>
+        KernelInfo.KernelMemoryInterface("m_axi", "bank_" + i, 256)
+      }
+    )
+
   }
 
   private def makeAxiSlaveRegisters() = {
