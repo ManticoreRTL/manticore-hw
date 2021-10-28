@@ -640,8 +640,8 @@ class ComputeGridShifterTester
       )
     ).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) {
       dut =>
-        dut.io.host_registers.global_memory_instruction_base_low.poke(0.U)
-        dut.io.host_registers.global_memory_instruction_base_high.poke(0.U)
+        dut.io.host_registers.global_memory_instruction_base.poke(0.U)
+        
         dut.io.host_registers.schedule_length
           .poke(the_program.schedule_length.U)
         dut.clock.step()

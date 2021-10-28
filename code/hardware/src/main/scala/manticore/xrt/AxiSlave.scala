@@ -11,61 +11,110 @@ import manticore.ManticoreFullISA
 import chisel3.experimental.ChiselEnum
 import chisel3.util.switch
 import chisel3.util.is
+import chisel3.util.Cat
 
-class AxiSlaveCorenterface(
-    AxiSlaveAddrWidth: Int = 8,
-    AxiSlaveDataWidth: Int = 32
-) extends Bundle {
+object AxiSlave {
+  class AxiSlaveCorenterface(
+      AxiSlaveAddrWidth: Int = 8,
+      AxiSlaveDataWidth: Int = 32
+  ) extends Bundle {
 
-  // val ACCLK    = Input(Clock())
-  // val ARESET   = Input(Bool())
-  // val ACLK_EN = Input(Bool())
-  val AWADDR  = Input(UInt(AxiSlaveAddrWidth.W))
-  val AWVALID = Input(Bool())
-  val AWREADY = Output(Bool())
-  val WDATA   = Input(UInt(AxiSlaveDataWidth.W))
-  val WSTRB   = Input(UInt((AxiSlaveDataWidth / 8).W))
-  val WVALID  = Input(Bool())
-  val WREADY  = Output(Bool())
-  val BRESP   = Output(UInt(2.W))
-  val BVALID  = Output(Bool())
-  val BREADY  = Input(Bool())
-  val ARADDR  = Input(UInt(AxiSlaveAddrWidth.W))
-  val ARVALID = Input(Bool())
-  val ARREADY = Output(Bool())
-  val RDATA   = Output(UInt(AxiSlaveDataWidth.W))
-  val RRESP   = Output(UInt(2.W))
-  val RVALID  = Output(Bool())
-  val RREADY  = Input(Bool())
+    // val ACCLK    = Input(Clock()) // implicit
+    // val ARESET   = Input(Bool()) // implicit
+    // val ACLK_EN = Input(Bool()) // always enabled
+    val AWADDR  = Input(UInt(AxiSlaveAddrWidth.W))
+    val AWVALID = Input(Bool())
+    val AWREADY = Output(Bool())
+    val WDATA   = Input(UInt(AxiSlaveDataWidth.W))
+    val WSTRB   = Input(UInt((AxiSlaveDataWidth / 8).W))
+    val WVALID  = Input(Bool())
+    val WREADY  = Output(Bool())
+    val BRESP   = Output(UInt(2.W))
+    val BVALID  = Output(Bool())
+    val BREADY  = Input(Bool())
+    val ARADDR  = Input(UInt(AxiSlaveAddrWidth.W))
+    val ARVALID = Input(Bool())
+    val ARREADY = Output(Bool())
+    val RDATA   = Output(UInt(AxiSlaveDataWidth.W))
+    val RRESP   = Output(UInt(2.W))
+    val RVALID  = Output(Bool())
+    val RREADY  = Input(Bool())
 
-}
-class AxiSlaveControlInterface extends Bundle {
+  }
+  class AxiSlaveControlInterface extends Bundle {
 
-  val ap_start  = Output(Bool())
-  val ap_ready  = Input(Bool())
-  val ap_done   = Input(Bool())
-  val ap_idle   = Input(Bool())
-  val interrupt = Output(Bool())
+    val ap_start  = Output(Bool())
+    val ap_ready  = Input(Bool())
+    val ap_done   = Input(Bool())
+    val ap_idle   = Input(Bool())
+    val interrupt = Output(Bool())
 
-}
-class AxiSlaveManticoreInterface(config: ISA) extends Bundle {
+  }
+  class AxiSlaveManticoreInterface(config: ISA) extends Bundle {
 
-  val host_regs    = Output(new HostRegisters(config))
-  val pointer_regs = Output(new MemoryPointers())
-  val dev_regs     = Input(new DeviceRegisters(config))
+    val host_regs    = Output(new HostRegisters(config))
+    val pointer_regs = Output(new MemoryPointers())
+    val dev_regs     = Input(new DeviceRegisters(config))
 
-  val AxiSlaveAddrWidth = log2Ceil((
-    host_regs.elements ++ pointer_regs.elements ++ dev_regs.elements
-  ).size * 4 + 0x20)
-  
-  val core = new AxiSlaveCorenterface(
-    AxiSlaveAddrWidth = AxiSlaveAddrWidth,
-    AxiSlaveDataWidth = 32
-  )
+    val AxiSlaveAddrWidth = log2Ceil(
+      (
+        host_regs.elements ++ pointer_regs.elements ++ dev_regs.elements
+      ).map { case (_, data) =>
+        require(
+          data.isInstanceOf[UInt],
+          "Only UInt data types are accepted as slave regs"
+        )
+        data.getWidth / 8 + 4 // 3 registers for 64 bit data and 2 for 32 bit data
 
-  val control = new AxiSlaveControlInterface()
-}
-class AxiSlave(config: ISA) extends Module {
+      }.sum + 0x10
+    )
+
+    val core = new AxiSlaveCorenterface(
+      AxiSlaveAddrWidth = AxiSlaveAddrWidth,
+      AxiSlaveDataWidth = 32
+    )
+
+    val control = new AxiSlaveControlInterface()
+
+    def createUserAddressMap() = {
+     
+      val regs = (
+        host_regs.elements.toSeq ++
+          pointer_regs.elements.toSeq ++
+          dev_regs.elements.toSeq
+      )
+
+      @tailrec
+      def construct(
+          base: Int,
+          elems_left: Seq[(String, Data)],
+          offset_map: Map[(String, Data), Int]
+      ): Map[(String, Data), Int] = {
+
+        elems_left match {
+          case Nil => offset_map
+          case (name, data) +: rest =>
+            require(
+              data.isInstanceOf[UInt],
+              "Only UInt registers are supported"
+            )
+            require(
+              data.getWidth == 32 || data.getWidth == 64,
+              "Only 32 or 64 bit registers are supported!"
+            )
+            val next_base = base + (data.getWidth / 8) + 4
+            construct(
+              next_base,
+              rest,
+              offset_map + (
+                (name, data) -> base
+              )
+            )
+        }
+      }
+      construct(UserAddressBase, regs, Map())
+    }
+  }
 
   //------------------------Address Info-------------------
   // 0x00 : Control signals
@@ -90,13 +139,28 @@ class AxiSlave(config: ISA) extends Module {
   // pointer_regs: host writeable, device readable
   // dev_regs: host readable, device writeable
   // (SC = Self Clear, COR = Clear on Read, TOW = Toggle on Write, COH = Clear on Handshake)
-  val io = IO(new AxiSlaveManticoreInterface(config))
-
   val ApControlAddress             = 0x00
   val GlobalInterruptEnableAddress = 0x04
   val IpInterruptEnableRegister    = 0x08
   val IpInterruptStatusRegister    = 0x0c
   val UserAddressBase              = 0x10 // from Xilinx Documentation
+
+  def createUserAddressMap() = {
+    val io = new AxiSlaveManticoreInterface(ManticoreFullISA)
+    io.createUserAddressMap()
+  }
+  def getUserPointers() = {
+    val io = new MemoryPointers
+    io.elements
+  }
+
+}
+
+class AxiSlave(config: ISA) extends Module {
+
+  import AxiSlave._
+
+  val io = IO(new AxiSlaveManticoreInterface(config))
 
   case class BitRange(high: Int, low: Int)
   case class AddressMapEntry(
@@ -107,14 +171,10 @@ class AxiSlave(config: ISA) extends Module {
       vector_index: Option[Int] = None
   )
 
-  val AddressMap =
-    (io.host_regs.elements ++ io.pointer_regs.elements ++ io.dev_regs.elements).zipWithIndex.map {
-      case ((name, data), ix) =>
-        (name, data) -> (UserAddressBase + ix * 4)
-    }.toMap
+  val AddressMap = io.createUserAddressMap()
 
-  AddressMap.foreach { case ((name, _), offset) =>
-    println(s"${offset} -> ${name}")
+  AddressMap.toSeq.sortBy(_._2).foreach { case ((name, _), offset) =>
+    println(f"0x${offset}%02x -> ${name}")
   }
   val rdata = Reg(UInt(32.W))
 
@@ -236,7 +296,6 @@ class AxiSlave(config: ISA) extends Module {
     int_ap_done := false.B // clear on read
   }
 
-
   // handle interrupt enable
 
   when(w_hs && waddr === GlobalInterruptEnableAddress.U && io.core.WSTRB(0)) {
@@ -270,15 +329,35 @@ class AxiSlave(config: ISA) extends Module {
   // the axi slave, the manitcore array writes them externally
 
   val writables = (io.host_regs.elements ++ io.pointer_regs.elements)
+    .map { k =>
+      k -> AddressMap(k)
+    }
+    .toSeq
+    .sortBy { case (k, offset) => offset }
+  val writeable_address_start = writables.head._2
+  val writeable_address_end = writables.last match {
+    case ((_, data: UInt), offset) if data.getWidth == 32 => offset
+    case ((_, data: UInt), offset) if data.getWidth == 64 => offset + 4
+    case _ =>
+      throw new UnsupportedOperationException(
+        "slave registers should be either UInt<32> or UInt<64>"
+      )
+  }
+  val num_writable =
+    (writeable_address_end / 4) - (writeable_address_start / 4) + 1
+  println(
+    f"Writeable address range ${writeable_address_start} -> ${writeable_address_end} (total ${num_writable})"
+  )
   val host_controlled_regs = Reg(
-    Vec(writables.size, UInt(32.W))
+    Vec(
+      num_writable,
+      UInt(32.W)
+    )
   )
 
   when(w_hs) {
     when(
-      waddr >= AddressMap(writables.head).U && waddr <= AddressMap(
-        writables.last
-      ).U
+      waddr >= writeable_address_start.U && waddr <= writeable_address_end.U
     ) {
       val old_value = Wire(UInt(32.W))
       old_value := host_controlled_regs((waddr >> 2) - (UserAddressBase >> 2).U)
@@ -314,31 +393,43 @@ class AxiSlave(config: ISA) extends Module {
     }.otherwise {
 
       when(
-        raddr >= AddressMap(writables.head).U && raddr <= AddressMap(
-          writables.last
-        ).U
+        raddr >= writeable_address_start.U && raddr <= writeable_address_end.U
       ) {
         rdata := host_controlled_regs((raddr >> 2) - (UserAddressBase >> 2).U)
       } otherwise {
 
-        readables.foreach { case r@(_, data) =>
+        readables.foreach { case r @ (_, data: UInt) =>
           val offset = AddressMap(r)
-          when (raddr === offset.U) {
-            rdata := data
+          if (data.getWidth == 64) {
+            when(raddr === offset.U) {
+              rdata := data(31, 0)
+            }.elsewhen(raddr === (offset + 4).U) {
+              rdata := data(63, 32)
+            }
+          } else {
+            // 32 bit reg
+            when(raddr === offset.U) {
+              rdata := data(31, 0)
+            }
           }
+
         }
       }
     }
   }
 
-  writables.foreach { case r@(_, data) =>
-    val offset = AddressMap(r)
+  writables.foreach { case r @ ((_, data: UInt), offset) =>
     val ix = (offset >> 2) - (UserAddressBase >> 2)
-    data := host_controlled_regs(ix)  
+    if (data.getWidth == 64) {
+      data := Cat(host_controlled_regs(ix + 1), host_controlled_regs(ix))
+    } else {
+      data := host_controlled_regs(ix)
+    }
+
   }
 }
 
-object MyAxiSlaveTest extends App {
+object MyAxiSlaveApplication extends App {
 
   new ChiselStage().emitVerilog(
     new AxiSlave(ManticoreFullISA),

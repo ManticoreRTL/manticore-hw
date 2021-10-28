@@ -9,21 +9,16 @@ import memory.CacheCommand
 
 /// registers written by the host
 class HostRegisters(config: ISA) extends Bundle {
-  val global_memory_instruction_base_low: UInt  = UInt(32.W)
-  val global_memory_instruction_base_high: UInt = UInt(32.W)
-  val value_change_symbol_table_base_low: UInt  = UInt(32.W)
-  val value_change_symbol_table_base_high: UInt = UInt(32.W)
-  val value_change_log_base_low: UInt           = UInt(32.W)
-  val value_change_log_base_high: UInt          = UInt(32.W)
-  require(config.NumPcBits < 32)
-  val schedule_length: UInt = UInt(32.W)
+  val global_memory_instruction_base: UInt = UInt(64.W)
+  val value_change_symbol_table_base: UInt = UInt(64.W)
+  val value_change_log_base: UInt          = UInt(64.W)
+  val schedule_length: UInt                = UInt(32.W)
   // val clear_exception: UInt = UInt(32.W)
 }
 
 /// registers written by the device, i.e., the compute grid
 class DeviceRegisters(config: ISA) extends Bundle {
-  val virtual_cycles_low: UInt  = UInt(32.W)
-  val virtual_cycles_high: UInt = UInt(32.W)
+  val virtual_cycles: UInt = UInt(64.W)
 
   val bootloader_cycles: UInt = UInt(32.W) // for profiling
   // val exception_id: Vec[UInt] = Vec(4, UInt(config.DataBits.W))
@@ -156,9 +151,8 @@ class ComputeGridOrchestrator(
 
   val bootloader_counter: UInt = Reg(UInt(32.W))
 
-  io.registers.to_host.bootloader_cycles   := bootloader_counter
-  io.registers.to_host.virtual_cycles_low  := virtual_cycles(31, 0)
-  io.registers.to_host.virtual_cycles_high := virtual_cycles(47, 0)
+  io.registers.to_host.bootloader_cycles := bootloader_counter
+  io.registers.to_host.virtual_cycles    := virtual_cycles
 
   val exception: Bool = Wire(Bool())
   exception := io.periphery_core.exists(_.exception.error === true.B)
@@ -179,11 +173,7 @@ class ComputeGridOrchestrator(
 
   program_loader.io.start  := false.B
   program_loader.io.finish := false.B
-  program_loader.io.instruction_stream_base :=
-    Cat(
-      io.registers.from_host.global_memory_instruction_base_high,
-      io.registers.from_host.global_memory_instruction_base_low
-    )
+  program_loader.io.instruction_stream_base := io.registers.from_host.global_memory_instruction_base
 
   io.done := false.B
   io.idle := false.B

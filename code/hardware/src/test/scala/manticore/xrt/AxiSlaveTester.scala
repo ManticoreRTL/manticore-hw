@@ -122,7 +122,7 @@ class AxiSlaveTester extends FlatSpec with ChiselScalatestTester with Matchers {
       .withAnnotations(Seq(WriteVcdAnnotation)) { implicit dut =>
         dut.clock.step(1)
         val start_command = 0x1
-        writeWord(start_command, dut.ApControlAddress)
+        writeWord(start_command, AxiSlave.ApControlAddress)
         Range(0, 10).foreach { _ =>
           dut.io.control.ap_start.expect(true.B)
           val ctrl_word = readWord(0)
@@ -152,11 +152,11 @@ class AxiSlaveTester extends FlatSpec with ChiselScalatestTester with Matchers {
     test(new AxiSlave(ManticoreFullISA))
       .withAnnotations(Seq(WriteVcdAnnotation)) { implicit dut =>
         // enable interrupts
-        writeWord(0x1, dut.GlobalInterruptEnableAddress)
-        writeWord(0x1, dut.IpInterruptEnableRegister)
+        writeWord(0x1, AxiSlave.GlobalInterruptEnableAddress)
+        writeWord(0x1, AxiSlave.IpInterruptEnableRegister)
         dut.clock.step(10)
         // start the axi slave
-        writeWord(0x1, dut.ApControlAddress)
+        writeWord(0x1, AxiSlave.ApControlAddress)
         // wait for some cycles
         Range(0, 20).foreach { _ =>
           dut.io.control.ap_start.expect(true.B)
@@ -172,7 +172,7 @@ class AxiSlaveTester extends FlatSpec with ChiselScalatestTester with Matchers {
           dut.clock.step()
         }
 
-        writeWord(0x3, dut.IpInterruptStatusRegister) // clear interrupt on ap_ready and ap_done
+        writeWord(0x3, AxiSlave.IpInterruptStatusRegister) // clear interrupt on ap_ready and ap_done
         Range(0, 5).foreach { _ =>
           dut.io.control.interrupt.expect(false.B)
           dut.clock.step()

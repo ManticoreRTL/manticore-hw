@@ -19,14 +19,10 @@ import chisel3.util.is
 import chisel3.util.Cat
 
 class MemoryPointers extends Bundle {
-  val pointer_0_low: UInt  = UInt(32.W)
-  val pointer_0_high: UInt = UInt(32.W)
-  val pointer_1_low: UInt  = UInt(32.W)
-  val pointer_1_high: UInt = UInt(32.W)
-  val pointer_2_low: UInt  = UInt(32.W)
-  val pointer_2_high: UInt = UInt(32.W)
-  val pointer_3_low: UInt  = UInt(32.W)
-  val pointer_3_high: UInt = UInt(32.W)
+  val pointer_0: UInt  = UInt(64.W)
+  val pointer_1: UInt  = UInt(64.W)
+  val pointer_2: UInt  = UInt(64.W)
+  val pointer_3: UInt  = UInt(64.W)
 }
 
 object KernelInfo {
@@ -61,41 +57,33 @@ class ManticoreKernel(
     DimX: Int,
     DimY: Int,
     debug_enable: Boolean = false,
-    m_axi_path: Seq[String] = Seq(), // path to m_axi implementation if exits
-    s_axi_port_map: Option[
-      (
-          Map[AxiSlaveGenerator.AxiRegister, Seq[
-            AxiSlaveGenerator.AxiRegisterMapEntry
-          ]],
-          String
-      )
-    ] = None // path to s_axi implementation if exits
+    m_axi_path: Seq[String] = Seq() // path to m_axi implementation if exits
 ) extends MultiIOModule {
 
   val m_axi_bank    = IO(Vec(4, new AxiMasterInterface))
-  val s_axi_control = IO(new AxiSlaveInterface)
+  val s_axi_control = IO(new AxiSlave.AxiSlaveCorenterface())
   val interrupt     = IO(Output(Bool()))
 
-  val slave = Module(new AxiHlsSlave(s_axi_port_map))
+  val slave = Module(new AxiSlave(ManticoreFullISA))
 
-  slave.io.AWADDR       := s_axi_control.AWADDR
-  slave.io.AWVALID      := s_axi_control.AWVALID
-  s_axi_control.AWREADY := slave.io.AWREADY
-  slave.io.WDATA        := s_axi_control.WDATA
-  slave.io.WSTRB        := s_axi_control.WSTRB
-  slave.io.WVALID       := s_axi_control.WVALID
-  s_axi_control.WREADY  := slave.io.WREADY
-  s_axi_control.BRESP   := slave.io.BRESP
-  s_axi_control.BVALID  := slave.io.BVALID
-  slave.io.BREADY       := s_axi_control.BREADY
-  slave.io.ARADDR       := s_axi_control.ARADDR
-  slave.io.ARVALID      := s_axi_control.ARVALID
-  s_axi_control.ARREADY := slave.io.ARREADY
-  s_axi_control.RDATA   := slave.io.RDATA
-  s_axi_control.RRESP   := slave.io.RRESP
-  s_axi_control.RVALID  := slave.io.RVALID
-  slave.io.RREADY       := s_axi_control.RREADY
-  interrupt             := slave.io.interrupt
+  slave.io.core.AWADDR  := s_axi_control.AWADDR
+  slave.io.core.AWVALID := s_axi_control.AWVALID
+  s_axi_control.AWREADY := slave.io.core.AWREADY
+  slave.io.core.WDATA   := s_axi_control.WDATA
+  slave.io.core.WSTRB   := s_axi_control.WSTRB
+  slave.io.core.WVALID  := s_axi_control.WVALID
+  s_axi_control.WREADY  := slave.io.core.WREADY
+  s_axi_control.BRESP   := slave.io.core.BRESP
+  s_axi_control.BVALID  := slave.io.core.BVALID
+  slave.io.core.BREADY  := s_axi_control.BREADY
+  slave.io.core.ARADDR  := s_axi_control.ARADDR
+  slave.io.core.ARVALID := s_axi_control.ARVALID
+  s_axi_control.ARREADY := slave.io.core.ARREADY
+  s_axi_control.RDATA   := slave.io.core.RDATA
+  s_axi_control.RRESP   := slave.io.core.RRESP
+  s_axi_control.RVALID  := slave.io.core.RVALID
+  slave.io.core.RREADY  := s_axi_control.RREADY
+  interrupt             := slave.io.control.interrupt
 
   val master_gateway = Module(new MemoryGateWay(m_axi_path))
 
@@ -103,7 +91,7 @@ class ManticoreKernel(
     Module(master_gateway.makeCopy())
   }
 
-  val manticore_done = Wire(Bool())
+  
 
   // connect the outer axi master interface bundles to the gateway interfaces
   gateways.zip(m_axi_bank).foreach { case (g, io) =>
@@ -112,22 +100,11 @@ class ManticoreKernel(
 
   // connect the memory_pointer values to the gateways that comes from the host(base addresses)
 
-  gateways(0).io.memory_pointer := Cat(
-    slave.io.pregs.pointer_0_high,
-    slave.io.pregs.pointer_0_low
-  )
-  gateways(1).io.memory_pointer := Cat(
-    slave.io.pregs.pointer_1_high,
-    slave.io.pregs.pointer_1_low
-  )
-  gateways(2).io.memory_pointer := Cat(
-    slave.io.pregs.pointer_2_high,
-    slave.io.pregs.pointer_2_low
-  )
-  gateways(3).io.memory_pointer := Cat(
-    slave.io.pregs.pointer_3_high,
-    slave.io.pregs.pointer_3_low
-  )
+  gateways(0).io.memory_pointer := slave.io.pointer_regs.pointer_0
+  gateways(1).io.memory_pointer := slave.io.pointer_regs.pointer_1
+  gateways(2).io.memory_pointer := slave.io.pointer_regs.pointer_2
+  gateways(3).io.memory_pointer := slave.io.pointer_regs.pointer_3
+ 
 
   val manticore = Module(new ManticoreArray(DimX, DimY, debug_enable))
 
@@ -142,158 +119,16 @@ class ManticoreKernel(
     cache.rline        := memory.io.ap_return
   }
 
-  // manticore.io.device_registers := slave.io.dregs
-  manticore.io.host_registers := slave.io.hregs
+  
+  manticore.io.host_registers := slave.io.host_regs
 
-  manticore.io.start := slave.io.ap_start
+  slave.io.dev_regs:= manticore.io.device_registers
 
-  val device_registers: ListMap[String, UInt] =
-    manticore.io.device_registers.elements.flatMap { case (n, t) =>
-      // get a mapping from implementation names to the chisel data and implementation offsets
-      // i.e., "virtual_cycles" -> manticore.io.device_registers.virtual_cycles
-      // or    "exception_id_2" -> manticore.io.device_registers.exception_id(2)
-      AxiRegisterBuilder.makeName(n, t) match {
-        case Seq(impl_name) => // t is UInt type
-          Seq(impl_name -> t.asInstanceOf[UInt])
-        case ls @ _ => // t is Vec[UInt] type
-          ls.zipWithIndex.map { case (impl_name, ix) =>
-            t match {
-              case vec: Vec[_] =>
-                (impl_name, vec(ix).asInstanceOf[UInt])
-              case _ =>
-                throw new MatchError(
-                  "device registers should only be UInt or Vec[UInt]"
-                )
-            }
-          }
-      }
-    }
+  manticore.io.start := slave.io.control.ap_start
 
-  // create a sorted map from offsets to signals (with names)
-  // i.e., 0x4c -> (exception_id_0, device_registers.io.execption_id(0)(31, 0))
-  //       0x74 -> (virtual_cycles, device_registers.io.virtual_cycles(31, 0))
-  //       0x78 -> (virtual_cycles, device_registers.io.virtual_cycles(63, 32))
-  val offsets_to_data =
-    device_registers
-      .flatMap { case (name, chisel_type) =>
-        slave.getOffset(name) match {
-          case Some(offset_seq) =>
-            offset_seq.sorted match {
-              case Seq(x) => //
-                assert(chisel_type.getWidth <= 32)
-                Seq(x -> (name, chisel_type(chisel_type.getWidth - 1, 0)))
-              case Seq(lo, hi) =>
-                assert(chisel_type.getWidth <= 64 && chisel_type.getWidth > 32)
-                Seq(
-                  lo -> (name, chisel_type(31, 0)),
-                  hi -> (name, chisel_type(chisel_type.getWidth - 1, 32))
-                )
-              case _ =>
-                throw new UnsupportedOperationException(
-                  s"Only up to 64-bit registers are supported! Can not have ${name} with width ${chisel_type.getWidth} bits"
-                )
-            }
-          case None =>
-            throw new NoSuchElementException(
-              s"Could not find the offset sequence for device registers ${name}"
-            )
-        }
-      }
-      .toSeq
-      .sortBy { case (offset, _) => offset }
-
-  val device_reg_vec = Wire(Vec(offsets_to_data.size, UInt(32.W)))
-  device_reg_vec
-    .zip(offsets_to_data.map { case (offset, (name, data)) => data })
-    .foreach { case (wire, data) =>
-      wire := data
-    }
-
-  val offset_vec = Wire(
-    Vec(offsets_to_data.size, UInt(log2Ceil(offsets_to_data.size).W))
-  )
-
-  offset_vec.zip(offsets_to_data.map { case (offset, _) => offset }).foreach {
-    case (wire, value) =>
-      wire := value.U
-  }
-  // when the Manticore is done, start writing device registers to the axi slave
-  // val slave_offsets_map = slave.io.dregs.elements
-
-  //   .map { case (pname, _) =>
-  //     slave.getOffset(pname)
-  //   }
-  //   .zip(manticore.io.device_registers.elements)
-  //   .map { case (offsets, (name, data)) =>
-  //     require(
-  //       offsets.nonEmpty,
-  //       s"device register ${name} does not have a offset in axi slave implementation"
-  //     )
-  //     offsets.zipWithIndex.map { case (v, ix) =>
-  //       val range_high = data.getWidth.min((ix + 1) * 32)
-  //       def extract_off
-  //       data match {
-  //         case vec: Vec[_] =>
-  //         case elem: UInt  =>
-  //       }
-  //       data(range_high, ix * 32)
-  //     }
-  //   }
-
-  // val num_offsets = slave_offsets_map.flatMap(_._1.get).size
-  // require(
-  //   slave_offsets_map.forall { case (offset, _) => offset.nonEmpty },
-  //   "All device registers should have defined s_axi slave offsets!"
-  // )
-
-  // val device_reg_values =
-  //   Vec(slave_offsets_map.flatMap(_._1.get).size, UInt(32.W))
-
-  val slave_id = Reg(UInt(log2Ceil(offsets_to_data.size).W))
-
-  val ap_start_reg = Reg(Bool())
-  ap_start_reg := slave.io.ap_start
-  val ap_start_pulse = slave.io.ap_start & (!ap_start_reg)
-
-  object WriteState extends ChiselEnum {
-    val WaitForStart, WaitForDone, WaitForAwReady, WaitForWReady, WaitForBValid,
-        PulseDone =
-      Value
-  }
-
-  // require(offsets_to_data.size > 0, "Should have at least one device register!")
-  val state = RegInit(WriteState.Type(), WriteState.WaitForStart)
-
-  switch(state) {
-    is(WriteState.WaitForStart) {
-      when(ap_start_pulse) {
-        state    := WriteState.WaitForDone
-        slave_id := 0.U
-      }
-    }
-    is(WriteState.WaitForDone) {
-      when(manticore.io.done) {
-        if (offsets_to_data.size > 0) {
-          state := WriteState.WaitForDone
-        } else {
-          state := WriteState.PulseDone
-        }
-      }
-    }
-    is(WriteState.WaitForAwReady) {
-      when(slave.io.AWREADY) {
-        state := WriteState.WaitForWReady
-      }
-    }
-    is(WriteState.WaitForWReady) {
-      when(slave.io.WREADY) {
-        state := WriteState.WaitForBValid
-      }
-    }
-  }
-  slave.io.ap_done  := manticore.io.done
-  slave.io.ap_idle  := manticore.io.idle
-  slave.io.ap_ready := manticore.io.done // is this correct?
+  slave.io.control.ap_done  := manticore.io.done
+  slave.io.control.ap_idle  := manticore.io.idle
+  slave.io.control.ap_ready := manticore.io.done // is this correct?
 
 }
 
@@ -433,12 +268,11 @@ object BuildXclbin {
 
     Files.createDirectories(bin_dir)
 
-    // val mem_bank_config = mem_if.zipWithIndex
-    //   .map { case (m, ix) =>
-    //     s"--connectivity.sp ${top_name}.${m.portName}:DDR[${ix}]"
-    //   }
-    //   .mkString(" ")
-    val mem_bank_config = ""
+    val mem_bank_config = mem_if.zipWithIndex
+      .map { case (m, ix) =>
+        s"--connectivity.sp ${top_name}_1.${m.portName}:DDR[${ix}]"
+      }
+      .mkString(" ")
     val xclbin_path =
       bin_dir.resolve(s"${top_name}.${target}.${platform}.xclbin")
     val command =
@@ -484,15 +318,6 @@ object ManticoreKernelGenerator {
 
     val hdl_dir = Files.createDirectories(out_dir.resolve("hdl"))
 
-    val (hregs, dregs, pregs) = makeAxiSlaveRegisters()
-    // generate axi slave module
-    val (port_map, slave_fp) = AxiSlaveGenerator(
-      hregs ++ dregs ++ pregs,
-      // hdl_dir.toAbsolutePath().toString(),
-      platformDevice(platform)
-    )
-
-    println("Created axi slave module")
     // generate axi master module
     val master_fp = AxiMasterGenerator(
       name = "memory_gateway",
@@ -505,56 +330,29 @@ object ManticoreKernelGenerator {
       KernelInfo.KernelMemoryInterface("m_axi", "bank_" + i, 256)
     }
 
-    val slave_regs_args = {
-      pregs.zip(mem_if).map { case (r, mem) =>
-        KernelInfo.KernelSlaveRegister(
-          id = 0,
-          name = r.prefix + "_" + r.name,
-          offset = port_map(r).sortBy(_.hw_name).head.offset,
-          cpp_type = r.cppType,
-          is_pointer = true,
-          port_interface = mem.portName
-        )
-      } ++ (hregs ++ dregs).map { r =>
-        KernelInfo.KernelSlaveRegister(
-          id = 0,
-          name = r.prefix + "_" + r.name,
-          offset = port_map(r).sortBy(_.hw_name).head.offset,
-          cpp_type = r.cppType,
-          is_pointer = false,
-          port_interface = "s_axi_control"
-        )
-      }
-    }.zipWithIndex.map { case (arg, i) => arg.withId(i) }
-
     println("generating top module")
     new ChiselStage().emitVerilog(
       new ManticoreKernel(
         DimX = 2,
         DimY = 2,
         debug_enable = true,
-        m_axi_path = master_fp.map(_.toAbsolutePath().toString()),
-        s_axi_port_map = Some(
-          (port_map, slave_fp.toAbsolutePath().toString())
-        )
+        m_axi_path = master_fp.map(_.toAbsolutePath().toString())
       ),
       Array("--target-dir", hdl_dir.toAbsolutePath().toString())
     )
 
-    val xml_file = hdl_dir.resolve("kernel.xml")
-    KernelXmlGenrator(
-      "ManticoreKernel",
-      mem_if,
-      slave_regs_args,
-      Some(xml_file)
-    )
+    
+    val xml_path = hdl_dir.resolve("kernel.xml")
+    val xml_writer = Files.newBufferedWriter(hdl_dir.resolve("kernel.xml"))
+    xml_writer.write(scala.io.Source.fromResource("hls/kernel.xml").mkString)
+    xml_writer.close()
 
     val xo_file = PackageKernel(
       verilog_path = hdl_dir,
       packaged_path = out_dir.resolve("packaged"),
       temp_kernel_package_path = out_dir.resolve("temp_packaged"),
       scripts_path = out_dir.resolve("scripts"),
-      kernel_xml_path = xml_file,
+      kernel_xml_path = xml_path,
       xo_dir = out_dir.resolve("bin")
     )
     println("Created Xilinx Object")
@@ -570,7 +368,7 @@ object ManticoreKernelGenerator {
 
   }
 
-  private def makeAxiSlaveRegisters() = AxiRegisterBuilder.apply()
+  // private def makeAxiSlaveRegisters() = AxiRegisterBuilder.apply()
 
 }
 
