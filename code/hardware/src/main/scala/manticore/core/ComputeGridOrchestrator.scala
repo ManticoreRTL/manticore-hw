@@ -9,21 +9,29 @@ import memory.CacheCommand
 
 /// registers written by the host
 class HostRegisters(config: ISA) extends Bundle {
-  val global_memory_instruction_base: UInt = UInt(64.W)
-  val value_change_symbol_table_base: UInt = UInt(64.W)
-  val value_change_log_base: UInt          = UInt(64.W)
-  val schedule_length: UInt                = UInt((config.NumPcBits + 1).W)
-  val clear_exception: Bool                = Bool()
+  val global_memory_instruction_base_low: UInt  = UInt(32.W)
+  val global_memory_instruction_base_high: UInt = UInt(32.W)
+  val value_change_symbol_table_base_low: UInt  = UInt(32.W)
+  val value_change_symbol_table_base_high: UInt = UInt(32.W)
+  val value_change_log_base_low: UInt           = UInt(32.W)
+  val value_change_log_base_high: UInt          = UInt(32.W)
+  require(config.NumPcBits < 32)
+  val schedule_length: UInt = UInt(32.W)
+  // val clear_exception: UInt = UInt(32.W)
 }
 
 /// registers written by the device, i.e., the compute grid
 class DeviceRegisters(config: ISA) extends Bundle {
-  val virtual_cycles: UInt = UInt(
-    48.W
-  ) // notice we can simulate up to 2^48 - 1 cycles
+  val virtual_cycles_low: UInt  = UInt(32.W)
+  val virtual_cycles_high: UInt = UInt(32.W)
+
   val bootloader_cycles: UInt = UInt(32.W) // for profiling
-  val exception_id: Vec[UInt] = Vec(4, UInt(config.DataBits.W))
-  val status: UInt            = UInt(32.W)
+  // val exception_id: Vec[UInt] = Vec(4, UInt(config.DataBits.W))
+  val exception_id_0: UInt = UInt(32.W)
+  val exception_id_1: UInt = UInt(32.W)
+  val exception_id_2: UInt = UInt(32.W)
+  val exception_id_3: UInt = UInt(32.W)
+  val status: UInt         = UInt(32.W)
 
 }
 
@@ -148,12 +156,16 @@ class ComputeGridOrchestrator(
 
   val bootloader_counter: UInt = Reg(UInt(32.W))
 
-  io.registers.to_host.bootloader_cycles := bootloader_counter
-  io.registers.to_host.virtual_cycles    := virtual_cycles
+  io.registers.to_host.bootloader_cycles   := bootloader_counter
+  io.registers.to_host.virtual_cycles_low  := virtual_cycles(31, 0)
+  io.registers.to_host.virtual_cycles_high := virtual_cycles(47, 0)
 
   val exception: Bool = Wire(Bool())
   exception := io.periphery_core.exists(_.exception.error === true.B)
-  io.registers.to_host.exception_id := io.periphery_core.map(_.exception.id)
+  io.registers.to_host.exception_id_0 := io.periphery_core(0).exception.id
+  io.registers.to_host.exception_id_1 := io.periphery_core(1).exception.id
+  io.registers.to_host.exception_id_2 := io.periphery_core(2).exception.id
+  io.registers.to_host.exception_id_3 := io.periphery_core(3).exception.id
 
   object Phase extends ChiselEnum {
     val WaitForStart, // initial state, requires boot-loading
@@ -168,7 +180,10 @@ class ComputeGridOrchestrator(
   program_loader.io.start  := false.B
   program_loader.io.finish := false.B
   program_loader.io.instruction_stream_base :=
-    io.registers.from_host.global_memory_instruction_base
+    Cat(
+      io.registers.from_host.global_memory_instruction_base_high,
+      io.registers.from_host.global_memory_instruction_base_low
+    )
 
   io.done := false.B
   io.idle := false.B
@@ -204,7 +219,7 @@ class ComputeGridOrchestrator(
         val any_exceptions = Wire(Vec(4, Bool()))
         any_exceptions := exception_handler.map(_.io.caught)
         when(any_exceptions.exists(_ === true.B)) {
-          phase   := Phase.StartFlush
+          phase := Phase.StartFlush
         } // otherwise {
         //  handling cache requests, will resume automatically, no host interference
         // }
@@ -221,15 +236,15 @@ class ComputeGridOrchestrator(
     }
 
     is(Phase.WaitFlush) {
-      val all_idle = Wire(Bool())
+      val all_idle   = Wire(Bool())
       val cache_idle = Wire(Vec(4, Bool()))
       cache_idle := (master_cache +: storage_cache).map(c => c.io.front.idle)
 
       when(cache_idle.forall(_ === true.B)) {
-        phase := Phase.WaitForResume
+        phase   := Phase.WaitForResume
         io.done := true.B
       }
-      
+
     }
   }
 

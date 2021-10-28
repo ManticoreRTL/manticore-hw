@@ -169,7 +169,6 @@ ${no_dce}
             raw"\|\s*(\w*)\s*\|\s*s_axi_control\s*(\w*)\s*\|\s*register\s*\|\soffset\s*=\s*0[xX]([0-9a-fA-F]+)\s*,\s*range\s*=\s*(\d*)\s*\|".r
           line match {
             case expr(arg, hw_name, offset, range) =>
-              println(line)
               Some(
                 AxiRegisterMapEntry(
                   arg,
@@ -203,7 +202,7 @@ ${no_dce}
         .toSeq
     )
 
-    mapping.foreach { case (r, xs) =>
+    mapping.toSeq.sortBy(_._2.map(_.offset).min).foreach { case (r, xs) =>
       println(s"${r.name} ->")
       xs.foreach { x =>
         println(f"\t0x${x.offset}%x (as ${x.hw_name}%s)")
@@ -217,6 +216,93 @@ ${no_dce}
     )
   }
 
+}
+
+object AxiRegisterBuilder {
+
+  
+  // create a name for the Cpp implementation
+  def makeName(chisel_name: String, chisel_type: Data): Seq[String] = {
+    val cpp_type = lowerType(chisel_type)
+    cpp_type match {
+      case x +: Nil  => Seq(chisel_name)
+      case x +: tail => cpp_type.indices.map(i => chisel_name + s"_${i}")
+    }
+  }
+  private def lowerType(data: Data): Seq[String] = {
+
+    data match {
+      case vec: Vec[_] =>
+        vec.map(x => AxiSlaveGenerator.translateType(x.asInstanceOf[UInt]))
+      case elem: UInt =>
+        Seq(AxiSlaveGenerator.translateType(elem))
+      case _ =>
+        throw new Exception(
+          "Can not lower anything other than UInt and Vec[UInt]"
+        )
+    }
+
+  }
+
+  private def makeRegs(
+      name: String,
+      t: Data,
+      prefix: String
+  ): Seq[AxiSlaveGenerator.AxiRegister] = {
+    val cpp_type = lowerType(t)
+    val cpp_name = cpp_type match {
+      case x +: Nil  => Seq(name)
+      case x +: tail => cpp_type.indices.map(i => name + s"_${i}")
+    }
+
+    cpp_name.zip(cpp_type).map { case (_n, _t) =>
+      AxiSlaveGenerator.AxiRegister(_n, _t, prefix)
+    }
+  }
+
+  def apply(): (
+      Seq[AxiSlaveGenerator.AxiRegister],
+      Seq[AxiSlaveGenerator.AxiRegister],
+      Seq[AxiSlaveGenerator.AxiRegister]
+  ) = {
+    val io_inst = new AxiHlsSlaveInterface
+    val host_regs =
+      new HostRegisters(ManticoreFullISA).elements.flatMap { case (name, t) =>
+        makeRegs(
+          name,
+          t,
+          io_inst.elements
+            .filter { case (_, ht) => ht.isInstanceOf[HostRegisters] }
+            .map { case (n, _) => n }
+            .head
+        )
+      }.toSeq
+    val dev_regs = new DeviceRegisters(ManticoreFullISA).elements.flatMap {
+      case (name, t) =>
+        makeRegs(
+          name,
+          t,
+          io_inst.elements
+            .filter { case (_, ht) => ht.isInstanceOf[DeviceRegisters] }
+            .map { case (n, _) => n }
+            .head
+        )
+    }.toSeq
+
+    val pointer_regs = (new MemoryPointers).elements.flatMap { case (name, t) =>
+      makeRegs(
+        name,
+        t,
+        io_inst.elements
+          .filter { case (_, ht) => ht.isInstanceOf[MemoryPointers] }
+          .map { case (n, _) => n }
+          .head
+      )
+    }.toSeq
+
+    (host_regs, dev_regs, pointer_regs)
+
+  }
 }
 
 class AxiSlaveInterface(AxiSlaveAddrWidth: Int = 8, AxiSlaveDataWidth: Int = 32)
@@ -280,72 +366,6 @@ class AxiHlsSlave(
       val ACLK_EN = Input(Bool())
     })
 
-    private def lowerType(data: Data): Seq[String] = {
-
-      data match {
-        case vec: Vec[_] =>
-          vec.map(x => AxiSlaveGenerator.translateType(x.asInstanceOf[UInt]))
-        case elem: UInt =>
-          Seq(AxiSlaveGenerator.translateType(elem))
-        case _ =>
-          throw new Exception(
-            "Can not lower anything other than UInt and Vec[UInt]"
-          )
-      }
-
-    }
-    private def makeRegs(
-        name: String,
-        t: Data,
-        prefix: String
-    ): Seq[AxiSlaveGenerator.AxiRegister] = {
-
-      val cpp_type = lowerType(t)
-      val cpp_name = cpp_type match {
-        case x +: Nil  => Seq(name)
-        case x +: tail => cpp_type.indices.map(i => name + s"_${i}")
-      }
-
-      cpp_name.zip(cpp_type).map { case (_n, _t) =>
-        AxiSlaveGenerator.AxiRegister(_n, _t, prefix)
-      }
-    }
-
-    val io_inst = new AxiHlsSlaveInterface
-    val host_regs =
-      new HostRegisters(ManticoreFullISA).elements.flatMap { case (name, t) =>
-        makeRegs(
-          name,
-          t,
-          io_inst.elements
-            .filter { case (_, ht) => ht.isInstanceOf[HostRegisters] }
-            .map { case (n, _) => n }
-            .head
-        )
-      }.toSeq
-    val dev_regs = new DeviceRegisters(ManticoreFullISA).elements.flatMap {
-      case (name, t) =>
-        makeRegs(
-          name,
-          t,
-          io_inst.elements
-            .filter { case (_, ht) => ht.isInstanceOf[DeviceRegisters] }
-            .map { case (n, _) => n }
-            .head
-        )
-    }.toSeq
-
-    val pointer_regs = (new MemoryPointers).elements.flatMap { case (name, t) =>
-      makeRegs(
-        name,
-        t,
-        io_inst.elements
-          .filter { case (_, ht) => ht.isInstanceOf[MemoryPointers] }
-          .map { case (n, _) => n }
-          .head
-      )
-    }.toSeq
-
     // generate the slave implemenation by calling Vitis HLS and keep the
     // register address map
     val (
@@ -354,9 +374,11 @@ class AxiHlsSlave(
       ]],
       path: String
     ) = if (cached_map.isEmpty) {
-      AxiSlaveGenerator(
-        pointer_regs ++ host_regs ++ dev_regs
+      val (hregs, dregs, pregs) = AxiRegisterBuilder()
+      val (m, p) = AxiSlaveGenerator(
+        hregs ++ dregs ++ pregs
       )
+      (m, p.toAbsolutePath().toString())
     } else {
       cached_map.get
     }
@@ -369,6 +391,19 @@ class AxiHlsSlave(
 
   val impl = Module(new slave_registers_control_s_axi)
 
+  /** Get the port offset in the axi slave implementation, depending on the port
+    * size (i.e., 32-bit ot 64-bit) one or two port offsets are returned. The
+    * first offset corresponds to the lower 32 bits (i.e., little-endian)
+    * @param port_name
+    * @return
+    */
+  def getOffset(port_name: String): Option[Seq[Int]] = {
+
+    impl.port_map.find { case (k, v) => k.name == port_name }.map {
+      case (k, v) => v.map(_.offset)
+    }
+
+  }
   impl.io.ACLK   := clock
   impl.io.ARESET := reset
 

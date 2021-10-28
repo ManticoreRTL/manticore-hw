@@ -12,9 +12,21 @@ import java.nio.file.Paths
 import java.io.File
 import java.io.PrintWriter
 import scala.collection.immutable.ListMap
+import chisel3.util.log2Ceil
+import chisel3.experimental.ChiselEnum
+import chisel3.util.switch
+import chisel3.util.is
+import chisel3.util.Cat
 
 class MemoryPointers extends Bundle {
-  val pointer: Vec[UInt] = Vec(4, UInt(64.W))
+  val pointer_0_low: UInt  = UInt(32.W)
+  val pointer_0_high: UInt = UInt(32.W)
+  val pointer_1_low: UInt  = UInt(32.W)
+  val pointer_1_high: UInt = UInt(32.W)
+  val pointer_2_low: UInt  = UInt(32.W)
+  val pointer_2_high: UInt = UInt(32.W)
+  val pointer_3_low: UInt  = UInt(32.W)
+  val pointer_3_high: UInt = UInt(32.W)
 }
 
 object KernelInfo {
@@ -91,16 +103,31 @@ class ManticoreKernel(
     Module(master_gateway.makeCopy())
   }
 
+  val manticore_done = Wire(Bool())
+
   // connect the outer axi master interface bundles to the gateway interfaces
   gateways.zip(m_axi_bank).foreach { case (g, io) =>
     g.io.m_axi_gmem <> io
   }
 
   // connect the memory_pointer values to the gateways that comes from the host(base addresses)
-  slave.io.pregs.pointer.zip(gateways).foreach {
-    case (pointer: UInt, g: MemoryGateWay) =>
-      g.io.memory_pointer := pointer
-  }
+
+  gateways(0).io.memory_pointer := Cat(
+    slave.io.pregs.pointer_0_high,
+    slave.io.pregs.pointer_0_low
+  )
+  gateways(1).io.memory_pointer := Cat(
+    slave.io.pregs.pointer_1_high,
+    slave.io.pregs.pointer_1_low
+  )
+  gateways(2).io.memory_pointer := Cat(
+    slave.io.pregs.pointer_2_high,
+    slave.io.pregs.pointer_2_low
+  )
+  gateways(3).io.memory_pointer := Cat(
+    slave.io.pregs.pointer_3_high,
+    slave.io.pregs.pointer_3_low
+  )
 
   val manticore = Module(new ManticoreArray(DimX, DimY, debug_enable))
 
@@ -120,6 +147,150 @@ class ManticoreKernel(
 
   manticore.io.start := slave.io.ap_start
 
+  val device_registers: ListMap[String, UInt] =
+    manticore.io.device_registers.elements.flatMap { case (n, t) =>
+      // get a mapping from implementation names to the chisel data and implementation offsets
+      // i.e., "virtual_cycles" -> manticore.io.device_registers.virtual_cycles
+      // or    "exception_id_2" -> manticore.io.device_registers.exception_id(2)
+      AxiRegisterBuilder.makeName(n, t) match {
+        case Seq(impl_name) => // t is UInt type
+          Seq(impl_name -> t.asInstanceOf[UInt])
+        case ls @ _ => // t is Vec[UInt] type
+          ls.zipWithIndex.map { case (impl_name, ix) =>
+            t match {
+              case vec: Vec[_] =>
+                (impl_name, vec(ix).asInstanceOf[UInt])
+              case _ =>
+                throw new MatchError(
+                  "device registers should only be UInt or Vec[UInt]"
+                )
+            }
+          }
+      }
+    }
+
+  // create a sorted map from offsets to signals (with names)
+  // i.e., 0x4c -> (exception_id_0, device_registers.io.execption_id(0)(31, 0))
+  //       0x74 -> (virtual_cycles, device_registers.io.virtual_cycles(31, 0))
+  //       0x78 -> (virtual_cycles, device_registers.io.virtual_cycles(63, 32))
+  val offsets_to_data =
+    device_registers
+      .flatMap { case (name, chisel_type) =>
+        slave.getOffset(name) match {
+          case Some(offset_seq) =>
+            offset_seq.sorted match {
+              case Seq(x) => //
+                assert(chisel_type.getWidth <= 32)
+                Seq(x -> (name, chisel_type(chisel_type.getWidth - 1, 0)))
+              case Seq(lo, hi) =>
+                assert(chisel_type.getWidth <= 64 && chisel_type.getWidth > 32)
+                Seq(
+                  lo -> (name, chisel_type(31, 0)),
+                  hi -> (name, chisel_type(chisel_type.getWidth - 1, 32))
+                )
+              case _ =>
+                throw new UnsupportedOperationException(
+                  s"Only up to 64-bit registers are supported! Can not have ${name} with width ${chisel_type.getWidth} bits"
+                )
+            }
+          case None =>
+            throw new NoSuchElementException(
+              s"Could not find the offset sequence for device registers ${name}"
+            )
+        }
+      }
+      .toSeq
+      .sortBy { case (offset, _) => offset }
+
+  val device_reg_vec = Wire(Vec(offsets_to_data.size, UInt(32.W)))
+  device_reg_vec
+    .zip(offsets_to_data.map { case (offset, (name, data)) => data })
+    .foreach { case (wire, data) =>
+      wire := data
+    }
+
+  val offset_vec = Wire(
+    Vec(offsets_to_data.size, UInt(log2Ceil(offsets_to_data.size).W))
+  )
+
+  offset_vec.zip(offsets_to_data.map { case (offset, _) => offset }).foreach {
+    case (wire, value) =>
+      wire := value.U
+  }
+  // when the Manticore is done, start writing device registers to the axi slave
+  // val slave_offsets_map = slave.io.dregs.elements
+
+  //   .map { case (pname, _) =>
+  //     slave.getOffset(pname)
+  //   }
+  //   .zip(manticore.io.device_registers.elements)
+  //   .map { case (offsets, (name, data)) =>
+  //     require(
+  //       offsets.nonEmpty,
+  //       s"device register ${name} does not have a offset in axi slave implementation"
+  //     )
+  //     offsets.zipWithIndex.map { case (v, ix) =>
+  //       val range_high = data.getWidth.min((ix + 1) * 32)
+  //       def extract_off
+  //       data match {
+  //         case vec: Vec[_] =>
+  //         case elem: UInt  =>
+  //       }
+  //       data(range_high, ix * 32)
+  //     }
+  //   }
+
+  // val num_offsets = slave_offsets_map.flatMap(_._1.get).size
+  // require(
+  //   slave_offsets_map.forall { case (offset, _) => offset.nonEmpty },
+  //   "All device registers should have defined s_axi slave offsets!"
+  // )
+
+  // val device_reg_values =
+  //   Vec(slave_offsets_map.flatMap(_._1.get).size, UInt(32.W))
+
+  val slave_id = Reg(UInt(log2Ceil(offsets_to_data.size).W))
+
+  val ap_start_reg = Reg(Bool())
+  ap_start_reg := slave.io.ap_start
+  val ap_start_pulse = slave.io.ap_start & (!ap_start_reg)
+
+  object WriteState extends ChiselEnum {
+    val WaitForStart, WaitForDone, WaitForAwReady, WaitForWReady, WaitForBValid,
+        PulseDone =
+      Value
+  }
+
+  // require(offsets_to_data.size > 0, "Should have at least one device register!")
+  val state = RegInit(WriteState.Type(), WriteState.WaitForStart)
+
+  switch(state) {
+    is(WriteState.WaitForStart) {
+      when(ap_start_pulse) {
+        state    := WriteState.WaitForDone
+        slave_id := 0.U
+      }
+    }
+    is(WriteState.WaitForDone) {
+      when(manticore.io.done) {
+        if (offsets_to_data.size > 0) {
+          state := WriteState.WaitForDone
+        } else {
+          state := WriteState.PulseDone
+        }
+      }
+    }
+    is(WriteState.WaitForAwReady) {
+      when(slave.io.AWREADY) {
+        state := WriteState.WaitForWReady
+      }
+    }
+    is(WriteState.WaitForWReady) {
+      when(slave.io.WREADY) {
+        state := WriteState.WaitForBValid
+      }
+    }
+  }
   slave.io.ap_done  := manticore.io.done
   slave.io.ap_idle  := manticore.io.idle
   slave.io.ap_ready := manticore.io.done // is this correct?
@@ -387,7 +558,7 @@ object ManticoreKernelGenerator {
       xo_dir = out_dir.resolve("bin")
     )
     println("Created Xilinx Object")
-    
+
     BuildXclbin(
       bin_dir = out_dir.resolve("bin"),
       xo_path = xo_file,
@@ -399,76 +570,7 @@ object ManticoreKernelGenerator {
 
   }
 
-  private def makeAxiSlaveRegisters() = {
-    def lowerType(data: Data): Seq[String] = {
-
-      data match {
-        case vec: Vec[_] =>
-          vec.map(x => AxiSlaveGenerator.translateType(x.asInstanceOf[UInt]))
-        case elem: UInt =>
-          Seq(AxiSlaveGenerator.translateType(elem))
-        case _ =>
-          throw new Exception(
-            "Can not lower anything other than UInt and Vec[UInt]"
-          )
-      }
-
-    }
-
-    def makeRegs(
-        name: String,
-        t: Data,
-        prefix: String
-    ): Seq[AxiSlaveGenerator.AxiRegister] = {
-      val cpp_type = lowerType(t)
-      val cpp_name = cpp_type match {
-        case x +: Nil  => Seq(name)
-        case x +: tail => cpp_type.indices.map(i => name + s"_${i}")
-      }
-
-      cpp_name.zip(cpp_type).map { case (_n, _t) =>
-        AxiSlaveGenerator.AxiRegister(_n, _t, prefix)
-      }
-    }
-
-    val io_inst = new AxiHlsSlaveInterface
-    val host_regs =
-      new HostRegisters(ManticoreFullISA).elements.flatMap { case (name, t) =>
-        makeRegs(
-          name,
-          t,
-          io_inst.elements
-            .filter { case (_, ht) => ht.isInstanceOf[HostRegisters] }
-            .map { case (n, _) => n }
-            .head
-        )
-      }.toSeq
-    val dev_regs = new DeviceRegisters(ManticoreFullISA).elements.flatMap {
-      case (name, t) =>
-        makeRegs(
-          name,
-          t,
-          io_inst.elements
-            .filter { case (_, ht) => ht.isInstanceOf[DeviceRegisters] }
-            .map { case (n, _) => n }
-            .head
-        )
-    }.toSeq
-
-    val pointer_regs = (new MemoryPointers).elements.flatMap { case (name, t) =>
-      makeRegs(
-        name,
-        t,
-        io_inst.elements
-          .filter { case (_, ht) => ht.isInstanceOf[MemoryPointers] }
-          .map { case (n, _) => n }
-          .head
-      )
-    }.toSeq
-
-    (host_regs, dev_regs, pointer_regs)
-
-  }
+  private def makeAxiSlaveRegisters() = AxiRegisterBuilder.apply()
 
 }
 

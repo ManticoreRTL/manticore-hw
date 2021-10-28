@@ -104,7 +104,7 @@ class Processor(
     execute_stage.io.debug_time := io.periphery.debug_time
     
   val memory_stage = Module(new MemoryAccess(config, DimX, DimY))
-
+  
   val register_file = Module(new RegisterFile(config, initial_registers))
   val array_memory = Module(
     new SimpleDualPortMemory(
