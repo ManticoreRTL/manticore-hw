@@ -102,20 +102,26 @@ class UniProcessorCoupledCountersTester extends FlatSpec with Matchers with Chis
       SetGreaterThanUnsigned(cond_y_1, x_ptr, const_coeffs),
       SetLessThanUnsigned(cond_x, x_ptr, const_x_mem_size),
       Add2(x_ptr_plus_1, x_ptr, const_1),
+      Nop(),
       And2(cond_y, cond_y_0, cond_y_1),
       Add2(y_ptr_plus_1, y_ptr, const_1),
       LocalLoad(reset_value, reset_ptr, 0),
+      Nop(),
       Add2(cond_y_as_sel, cond_y, const_FFFF), // we want to create a fanout from cond_y, to do so we
       // first add it to 0xFFFF
       Mux2(x_ptr_next_0, x_ptr, x_ptr_plus_1), // another way of muxing is using custom functions
       SetEqual(reset_cond, reset_value, const_1),
+      Nop(),
       Xor2(cond_y_as_sel, cond_y_as_sel, const_FFFF), // then perform a not (through xor with 1 is not)
       Mux2(x_ptr_next, x_ptr_next_0, const_0),
       Add2(reset_ptr, reset_ptr, const_1),
+      Nop(),
       Custom0(y_ptr_next_0, mux_eq, const_0, cond_y_as_sel, y_ptr_plus_1, y_ptr), // muxing with custom function requires a fanout operation
+      Nop(),
       Add2(x_ptr, x_ptr_next, const_0),
       Nop(),
       Mux2(y_ptr, y_ptr_next_0, const_0),
+      Nop(),
 ////      Send(x_ptr, x_ptr, 4, 4),
 ////      Send(y_ptr, y_ptr, 4, 4),
 //      Nop(),
@@ -176,7 +182,7 @@ class UniProcessorCoupledCountersTester extends FlatSpec with Matchers with Chis
         case Nop() | Send(_, _, _, _) =>
           Array(inst)
         case _ =>
-          Array(inst, Nop(), Nop(), send_inst, Nop(), Nop(), Nop(), Nop(), Nop(), Nop())
+          Array(inst, Nop(), Nop(), Nop(), send_inst, Nop(), Nop(), Nop(), Nop(), Nop(), Nop())
       }
 
     }
@@ -206,7 +212,7 @@ class UniProcessorCoupledCountersTester extends FlatSpec with Matchers with Chis
       }
 
 //      streamInstructions(non_piped_program.flatten)
-      val num_vcycles = 2060
+      val num_vcycles = 1000
       val expected = Range(0, num_vcycles).flatMap { i =>
         non_piped_program.toSeq.map { b =>
           interp.run(b)

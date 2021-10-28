@@ -176,6 +176,7 @@ class ProgrammerNoCTester extends FlatSpec with ChiselScalatestTester with Match
         Send(dest_header_x, const_x, 1, 0), // send the counter to the east
         // neighbor, with the header indicating the source of the message
         Send(dest_header_y, const_y, 1, 0),
+        Nop(),
         Send(dest_counter, counter, 1, 0),
         Expect(stop_cond, const_0, 0xFFFF)
       ) ++ Array.fill(num_nops) { // fill up enough Nops

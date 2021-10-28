@@ -112,9 +112,11 @@ class UniProcessorFirFilterTester extends FlatSpec with Matchers with ChiselScal
       Mult2(tap1b1, const_b1, tap1),
       Add2(x_ptr_plus_1, x_ptr, const_1),
       Mult2(tap2b2, const_b2, tap2),
+      Nop(),
       Add2(sum01, tap0b0, tap1b1),
       Add2(y_ptr_plus_1, y_ptr, const_1),
       LocalLoad(reset_value, reset_ptr, 0),
+      Nop(),
       Add2(sum, sum01, tap2b2),
       Add2(reset_ptr, reset_ptr, const_1),
       SetEqual(reset_cond, reset_value, const_1),
@@ -126,7 +128,11 @@ class UniProcessorFirFilterTester extends FlatSpec with Matchers with ChiselScal
       LocalLoad(tmp, y_ptr, 0),
       Mux2(x_ptr, x_ptr_plus_1, x_vals_base),
       Mux2(y_ptr, y_ptr_plus_1, y_vals_base),
-      Send(y_value, tmp, 4, 4) // send the computed value
+      Nop(),
+      Send(y_value, tmp, 4, 4), // send the computed value
+      Nop(),
+      Nop(),
+      Nop(),
     )
 
 

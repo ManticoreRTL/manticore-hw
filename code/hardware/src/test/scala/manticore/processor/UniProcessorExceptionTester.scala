@@ -57,6 +57,7 @@ class UniProcessorExceptionTester extends FlatSpec with Matchers
         SetEqual(R(reg_id), R(reg_id), R(0)), // should set R(reg_id) to 0
         Nop(),
         Nop(),
+        Nop(),
         Expect(R(reg_id), R(1), reg_id), // this should fail
         LocalLoad(R(reg_id), R(0), 0),
         Nop(),
