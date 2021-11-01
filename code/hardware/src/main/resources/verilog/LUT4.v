@@ -8,7 +8,7 @@ module LUT4
     output wire out
 );
 
-`ifndef SYNTHESIS
+`ifdef VERILATOR
     assign out = INIT >> {x, y, u, v};
 `else 
     (* DONT_TOUCH = "yes" *)

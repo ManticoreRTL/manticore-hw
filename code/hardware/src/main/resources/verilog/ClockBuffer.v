@@ -7,7 +7,7 @@ module ClockBuffer(
     output wire O // output clock
 );
 
-`ifndef SYNTHESIS
+`ifdef VERILATOR
     // simulation purpose only
     wire input_clk;
     reg output_clk;

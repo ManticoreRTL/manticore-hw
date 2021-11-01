@@ -13,7 +13,7 @@ module URAMLike #(
    input  [DATA_WIDTH - 1:0] din
  );
 
-`ifndef SYNTHESIS
+`ifdef VERILATOR
    (* ram_style = "ultra" *)
    reg [DATA_WIDTH - 1:0] memory [0: (1 << ADDRESS_WIDTH) - 1];
    reg [DATA_WIDTH - 1:0] dout_reg;

@@ -14,6 +14,7 @@ module BRAMLike #(
    input  [DATA_WIDTH - 1:0] din
  );
 
+`ifdef VERILATOR
    (* ram_style = "block" *)
    reg [DATA_WIDTH - 1:0] memory [0: (1 << ADDRESS_WIDTH) - 1];
    reg [DATA_WIDTH - 1:0] dout_reg;
@@ -31,7 +32,6 @@ module BRAMLike #(
    end
    assign dout = dout_reg;
    //assign dout = memory[addr_reg];
-`ifndef SYNTHESIS
   initial begin
     if (filename != "") begin
       $readmemb(filename, memory);
