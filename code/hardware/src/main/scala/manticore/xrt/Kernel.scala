@@ -19,10 +19,10 @@ import chisel3.util.is
 import chisel3.util.Cat
 
 class MemoryPointers extends Bundle {
-  val pointer_0: UInt  = UInt(64.W)
-  val pointer_1: UInt  = UInt(64.W)
-  val pointer_2: UInt  = UInt(64.W)
-  val pointer_3: UInt  = UInt(64.W)
+  val pointer_0: UInt = UInt(64.W)
+  val pointer_1: UInt = UInt(64.W)
+  val pointer_2: UInt = UInt(64.W)
+  val pointer_3: UInt = UInt(64.W)
 }
 
 object KernelInfo {
@@ -57,7 +57,8 @@ class ManticoreKernel(
     DimX: Int,
     DimY: Int,
     debug_enable: Boolean = false,
-    m_axi_path: Seq[String] = Seq() // path to m_axi implementation if exits
+    m_axi_path: Seq[String] =
+      Seq() // path to m_axi implementation if exits, uses simulation models otherwise
 ) extends MultiIOModule {
 
   val m_axi_bank    = IO(Vec(4, new AxiMasterInterface))
@@ -85,13 +86,13 @@ class ManticoreKernel(
   slave.io.core.RREADY  := s_axi_control.RREADY
   interrupt             := slave.io.control.interrupt
 
-  val master_gateway = Module(new MemoryGateWay(m_axi_path))
+  val manticore = Module(new ManticoreArray(DimX, DimY, debug_enable))
 
-  val gateways = master_gateway +: Seq.fill(3) {
-    Module(master_gateway.makeCopy())
+  val gateways: Seq[MemoryGateway] = m_axi_path match {
+
+    case Nil => Seq.fill(4) { Module(new MemoryGatewarySim) }
+    case _   => Seq.fill(4) { Module(new MemoryGatewayHls(m_axi_path)) }
   }
-
-  
 
   // connect the outer axi master interface bundles to the gateway interfaces
   gateways.zip(m_axi_bank).foreach { case (g, io) =>
@@ -104,9 +105,7 @@ class ManticoreKernel(
   gateways(1).io.memory_pointer := slave.io.pointer_regs.pointer_1
   gateways(2).io.memory_pointer := slave.io.pointer_regs.pointer_2
   gateways(3).io.memory_pointer := slave.io.pointer_regs.pointer_3
- 
 
-  val manticore = Module(new ManticoreArray(DimX, DimY, debug_enable))
 
   // connect the caches to the memory gateways
   manticore.io.cache_backend.zip(gateways).foreach { case (cache, memory) =>
@@ -119,10 +118,9 @@ class ManticoreKernel(
     cache.rline        := memory.io.ap_return
   }
 
-  
   manticore.io.host_registers := slave.io.host_regs
 
-  slave.io.dev_regs:= manticore.io.device_registers
+  slave.io.dev_regs := manticore.io.device_registers
 
   manticore.io.start := slave.io.control.ap_start
 
@@ -298,7 +296,13 @@ object ManticoreKernelGenerator {
     "xilinx_u250_gen3x16_xdma_3_1_202020_1" -> "xcu250-figd2104-2l-e"
   )
 
-  def apply(target_dir: String, platform: String = platformDevice.head._1) = {
+  def apply(
+      target_dir: String,
+      platform: String = platformDevice.head._1,
+      target: String = "hw_emu",
+      dimx: Int = 8,
+      dimy: Int = 8
+  ) = {
 
     val out_dir = Paths.get(target_dir)
     def deleteOrAbort(): Boolean = {
@@ -333,16 +337,15 @@ object ManticoreKernelGenerator {
     println("generating top module")
     new ChiselStage().emitVerilog(
       new ManticoreKernel(
-        DimX = 2,
-        DimY = 2,
+        DimX = dimx,
+        DimY = dimy,
         debug_enable = true,
         m_axi_path = master_fp.map(_.toAbsolutePath().toString())
       ),
       Array("--target-dir", hdl_dir.toAbsolutePath().toString())
     )
 
-    
-    val xml_path = hdl_dir.resolve("kernel.xml")
+    val xml_path   = hdl_dir.resolve("kernel.xml")
     val xml_writer = Files.newBufferedWriter(hdl_dir.resolve("kernel.xml"))
     xml_writer.write(scala.io.Source.fromResource("hls/kernel.xml").mkString)
     xml_writer.close()
@@ -360,7 +363,7 @@ object ManticoreKernelGenerator {
     BuildXclbin(
       bin_dir = out_dir.resolve("bin"),
       xo_path = xo_file,
-      target = "hw_emu",
+      target = target,
       mem_if = Seq.tabulate(4) { i =>
         KernelInfo.KernelMemoryInterface("m_axi", "bank_" + i, 256)
       }
@@ -373,29 +376,22 @@ object ManticoreKernelGenerator {
 }
 
 object KernelTest extends App {
-  val out_dir = Paths.get("gen-dir/kernel/01")
-  ManticoreKernelGenerator(
-    out_dir.toAbsolutePath().toString()
+  // val out_dir = Paths.get("gen-dir/kernel/4x4/hw")
+
+  // ManticoreKernelGenerator(
+  //   target_dir = out_dir.toAbsolutePath().toString(),
+  //   dimx = 4,
+  //   dimy = 4,
+  //   target = "hw"
+  // )
+  new ChiselStage().emitVerilog(
+    new ManticoreKernel(
+      4,
+      4,
+      true,
+      Nil
+    ),
+    Array("-td", "gen-dir/sim/hdl")
   )
-  // val out_dir = Paths.get("gen-dir/kernel/01")
-
-  // val xo_file = PackageKernel(
-  //   verilog_path = out_dir.resolve("hdl"),
-  //   packaged_path = out_dir.resolve("packaged"),
-  //   temp_kernel_package_path = out_dir.resolve("temp_packaged"),
-  //   scripts_path = out_dir.resolve("scripts"),
-  //   kernel_xml_path = out_dir.resolve("hdl").resolve("kernel.xml"),
-  //   xo_dir = out_dir.resolve("bin"),
-  //   target = "hw_emu"
-  // )
-
-  // BuildXclbin(
-  //   bin_dir = out_dir.resolve("bin"),
-  //   xo_path = xo_file,
-  //   target = "hw_emu",
-  //   mem_if = Seq.tabulate(4) { i =>
-  //     KernelInfo.KernelMemoryInterface("m_axi", "bank_" + i, 256)
-  //   }
-  // )
 
 }

@@ -29,7 +29,7 @@ module URAMLike #(
 `else
   xpm_memory_sdpram # (
     // Common module parameters
-    .MEMORY_SIZE (ADDRESS_WIDTH), //positive integer
+    .MEMORY_SIZE ((1 << ADDRESS_WIDTH) * DATA_WIDTH), //positive integer
     .MEMORY_PRIMITIVE ("ultra"), //string; "auto", "distributed", "block" or "ultra";
     .CLOCKING_MODE ("common_clock"), //string; "common_clock", "independent_clock"
     .MEMORY_INIT_FILE ("none"), //string; "none" or "<filename>.mem"

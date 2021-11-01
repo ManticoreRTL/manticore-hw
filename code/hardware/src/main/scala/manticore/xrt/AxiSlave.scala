@@ -373,17 +373,18 @@ class AxiSlave(config: ISA) extends Module {
     */
 
   val readables = io.dev_regs.elements
+  val ctrl_vec = Wire(Vec(32, UInt(1.W)))
+  ctrl_vec.foreach(_ := 0.U)
+  ctrl_vec(0)        := int_ap_start
+  ctrl_vec(1)        := int_ap_done
+  ctrl_vec(2)        := int_ap_idle
+  ctrl_vec(3)        := int_ap_ready
   when(ar_hs) {
 
     rdata := 0.U
 
     when(raddr === ApControlAddress.U) {
-      val rdata_vec = Wire(Vec(32, UInt(1.W)))
-      rdata_vec.foreach(_ := 0.U)
-      rdata_vec(0)        := int_ap_start
-      rdata_vec(1)        := int_ap_done
-      rdata_vec(2)        := int_ap_ready
-      rdata               := rdata_vec.asUInt()
+      rdata               := ctrl_vec.asUInt()
     }.elsewhen(raddr === GlobalInterruptEnableAddress.U) {
       rdata := int_gie.asUInt()
     }.elsewhen(raddr === IpInterruptEnableRegister.U) {

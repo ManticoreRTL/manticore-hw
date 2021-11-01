@@ -191,104 +191,10 @@ class AxiMasterInterface(
   val BREADY   = Output(Bool())
 }
 
-class MemoryGateWayInterface(
-    AxiIdWidth: Int = 1,
-    AxiAddrWidth: Int = 64,
-    AxiGMemDataWidth: Int = 256,
-    AxiAwUserWidth: Int = 1,
-    AxiArUserWidth: Int = 1,
-    AxiWUserWidth: Int = 1,
-    AxiRUserWidth: Int = 1,
-    AxiBUserWIdth: Int = 1,
-    AxiUserValue: Int = 0,
-    AxiProtValue: Int = 0,
-    AxiCacheValue: Int = 3,
-    AxiDataWidth: Int = 32,
-    AxiGMemWStrbWidth: Int = 256 / 8,
-    AxiWStrbWidth: Int = 32 / 8
-) extends Bundle {
 
-  // val ap_clk             = Input(Clock())
-  val m_axi_gmem = new AxiMasterInterface(
-    AxiIdWidth,
-    AxiAddrWidth,
-    AxiGMemDataWidth,
-    AxiAwUserWidth,
-    AxiArUserWidth,
-    AxiWUserWidth,
-    AxiRUserWidth,
-    AxiBUserWIdth,
-    AxiUserValue,
-    AxiProtValue,
-    AxiCacheValue,
-    AxiDataWidth,
-    AxiGMemWStrbWidth,
-    AxiWStrbWidth
-  )
-
-  val ap_start = Input(Bool())
-
-  val ap_done  = Output(Bool())
-  val ap_idle  = Output(Bool())
-  val ap_ready = Output(Bool())
-
-  val ap_return = Output(UInt(256.W))
-
-  val memory_pointer = Input(UInt(64.W))
-  val raddr          = Input(UInt(64.W))
-  val waddr          = Input(UInt(64.W))
-  val cmd            = Input(UInt(8.W))
-  val wline          = Input(UInt(256.W))
-
-}
-
-class MemoryGateWay(cached_path: Seq[String] = Seq()) extends Module {
-
-  val io = IO(new MemoryGateWayInterface)
-  // generate the black box implementation
-  val path =
-    if (cached_path.isEmpty) {
-      println("Generating axi master because there is no cached path")
-      AxiMasterGenerator("memory_gateway").map(_.toAbsolutePath().toString())
-    } else {
-      require(cached_path.size == 2)
-      println("Using cached path " + cached_path)
-      cached_path
-    }
-  class memory_gateway() extends BlackBox with HasBlackBoxPath {
-    val io = IO(new MemoryGateWayInterface {
-      val ap_clk = Input(Clock())
-      val ap_rst_n = Input(Bool())
-    })
-    path.foreach(addPath(_))
-  }
-
-  val impl = Module(new memory_gateway)
-
-  impl.io.ap_clk := clock
-
-  impl.io.ap_rst_n   := !(reset.asBool())
-  impl.io.ap_start := io.ap_start
-
-  impl.io.memory_pointer := io.memory_pointer
-  impl.io.raddr          := io.raddr
-  impl.io.waddr          := io.waddr
-  impl.io.cmd            := io.cmd
-  impl.io.wline          := io.wline
-
-  io.ap_done  := impl.io.ap_done
-  io.ap_idle  := impl.io.ap_idle
-  io.ap_ready := impl.io.ap_ready
-
-  io.ap_return := impl.io.ap_return
-
-  io.m_axi_gmem <> impl.io.m_axi_gmem
-
-  def makeCopy() = new MemoryGateWay(path)
-}
 object AxiMasterGeneratorApplication extends App {
 
   new ChiselStage()
-    .emitVerilog(new MemoryGateWay(), Array("-td", "gen-dir/mem_gate"))
+    .emitVerilog(new MemoryGateway(), Array("-td", "gen-dir/mem_gate"))
 
 }

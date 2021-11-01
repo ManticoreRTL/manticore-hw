@@ -131,17 +131,18 @@ class AxiSlaveTester extends FlatSpec with ChiselScalatestTester with Matchers {
 
         dut.io.control.ap_ready.poke(true.B)
         dut.io.control.ap_done.poke(true.B)
+        
         dut.clock.step()
         dut.io.control.ap_ready.poke(false.B)
         dut.io.control.ap_done.poke(false.B)
         dut.io.control.ap_idle.poke(true.B)
         dut.clock.step(3)
         val ctrl_word = readWord(0)
-        // ctrl_word should equal(0x02)
+        ctrl_word should equal(0x6)
         Range(0, 10).foreach { _ =>
           // dut.io.control.ap_start.expect(true.B)
           val ctrl_word = readWord(0)
-          ctrl_word should equal(0x0) // done is cleared on read
+          ctrl_word should equal(0x4) // done is cleared on read
         }
         dut.clock.step(10)
 

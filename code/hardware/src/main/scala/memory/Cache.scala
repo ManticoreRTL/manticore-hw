@@ -188,7 +188,7 @@ object CacheConfig {
   val TagBits: Int = BankLineTaggedBits - BankLineBits
 
   // number of address bits actually used by the front-end interface
-  val UsedAddressBits = 40
+  val UsedAddressBits = 64
 
   /** The address provided by the front-end is a half-word address, that is
     * zero-extended to a larger address space with the following format

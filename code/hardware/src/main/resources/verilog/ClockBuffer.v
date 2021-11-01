@@ -25,8 +25,8 @@ module ClockBuffer(
     // the actual deal
     BUFGCE #(
         .CE_TYPE("SYNC"), // SYNC, ASYNC
-        .IS_CE_INVERTED(1’b1), // Programmable inversion on CE
-        .IS_I_INVERTED(1’b0) // Programmable inversion on I
+        .IS_CE_INVERTED(1'b1), // Programmable inversion on CE
+        .IS_I_INVERTED(1'b0) // Programmable inversion on I
     )
     impl (
         .O(O), // 1-bit output: Buffer

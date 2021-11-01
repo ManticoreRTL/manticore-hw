@@ -278,7 +278,7 @@ class ExecuteComb(
         io.pipe_in.opcode.send.toUInt +
         io.pipe_in.opcode.set.toUInt
 
-    when(num_decoded =/= 1.U) {
+    when(num_decoded >= 1.U) {
       dprintf("\tERROR multiple decoded operations (%d)!\n", num_decoded)
     }
 
@@ -367,7 +367,6 @@ class ExecuteComb(
         standard_alu.io.out
       )
     }
-
 
     when(io.pipe_in.opcode.lstore) {
       dprintf(
