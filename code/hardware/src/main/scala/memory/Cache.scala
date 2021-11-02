@@ -188,7 +188,7 @@ object CacheConfig {
   val TagBits: Int = BankLineTaggedBits - BankLineBits
 
   // number of address bits actually used by the front-end interface
-  val UsedAddressBits = 64
+  val UsedAddressBits = 40
 
   /** The address provided by the front-end is a half-word address, that is
     * zero-extended to a larger address space with the following format
@@ -255,8 +255,8 @@ class Cache extends Module {
     * cache. against
     */
   object StateValue extends ChiselEnum {
-    val Idle, HitCheck, WaitResponse, Flush, FlushCheck, FlushResponse, Reset =
-      Value
+    val Idle, ReadCached, HitCheck, WaitResponse, Flush, FlushRead, FlushCheck,
+        FlushResponse, Reset = Value
   }
 
   require(DataBits == 16, "only 16-bit data width is implemented!")
@@ -266,17 +266,17 @@ class Cache extends Module {
 
   case class BankCollection(module: SimpleDualPortMemory, id: Int) {
     val loaded_hwords = Wire(Vec(BankLineHalfWords, UInt(DataBits.W)))
-    val cached_hwords = Wire(Vec(BankLineHalfWords, UInt(DataBits.W)))
-    val cached_tag    = Wire(UInt(TagBits.W))
+    val cached_hwords = Reg(Vec(BankLineHalfWords, UInt(DataBits.W)))
+    val cached_tag    = Reg(UInt(TagBits.W))
 
     val write_hwords = Wire(Vec(BankLineHalfWords, UInt(DataBits.W)))
     val write_tag    = Wire(UInt(TagBits.W))
     val write_addr   = Wire(UInt(IndexBits.W))
 
-    cached_tag := module.io.dout.head(TagBits)
-    cached_hwords.zipWithIndex.foreach { case (chw, i) =>
-      chw := module.io.dout((i + 1) * DataBits - 1, i * DataBits)
-    }
+    // cached_tag := module.io.dout.head(TagBits)
+    // cached_hwords.zipWithIndex.foreach { case (chw, i) =>
+    //   chw := module.io.dout((i + 1) * DataBits - 1, i * DataBits)
+    // }
 
     loaded_hwords.zipWithIndex.foreach { case (lhw, i) =>
       val flat_ix = id * BankLineHalfWords + i
@@ -299,7 +299,6 @@ class Cache extends Module {
 
   }
 
-
   val banks = Range(0, NumBanks).map { i =>
     BankCollection(
       Module(
@@ -314,16 +313,16 @@ class Cache extends Module {
     )
   }
 
-  banks.last.cached_tag := banks.last.module.io.dout.head(TagBits).tail(2)
+  // banks.last.cached_tag := banks.last.module.io.dout.head(TagBits).tail(2)
 
-  val dirty_bit = Wire(Bool())
-  val valid_bit = Wire(Bool())
+  val dirty_bit = Reg(Bool())
+  val valid_bit = Reg(Bool())
 
-  dirty_bit := banks.last.module.io.dout.head(2).tail(1)
-  valid_bit := banks.last.module.io.dout.head(1)
+  // dirty_bit := banks.last.module.io.dout.head(2).tail(1)
+  // valid_bit := banks.last.module.io.dout.head(1)
 
-  val addr = Reg(UInt(AddressBits.W))
-  addr := io.front.addr
+  // val addr = Reg(UInt(AddressBits.W))
+  // addr := io.front.addr
   val addr_reg  = Reg(UInt(AddressBits.W))
   val wdata_reg = Reg(UInt(DataBits.W))
   val cmd_reg   = Reg(CacheCommand.Type())
@@ -332,7 +331,7 @@ class Cache extends Module {
   val flush_index   = Reg(UInt(IndexBits.W))
   val hit           = Wire(Bool())
 
-  hit := (Cat(banks.map(_.cached_tag).reverse) === addr.head(
+  hit := (Cat(banks.map(_.cached_tag).reverse) === addr_reg.head(
     TagBits * NumBanks
   )) & valid_bit
 
@@ -352,10 +351,10 @@ class Cache extends Module {
 
     b.module.io.waddr := addr_reg(IndexBits + OffsetBits - 1, OffsetBits)
     b.module.io.raddr := io.front.addr(IndexBits + OffsetBits - 1, OffsetBits)
-    if (b == banks.last)
-      b.cached_tag := Cat(UInt("b00"), b.module.io.dout.head(TagBits).tail(2))
-    else
-      b.cached_tag := b.module.io.dout.head(TagBits)
+  // if (b == banks.last)
+  //   b.cached_tag := Cat(UInt("b00"), b.module.io.dout.head(TagBits).tail(2))
+  // else
+  //   b.cached_tag := b.module.io.dout.head(TagBits)
 
   }
 
@@ -373,7 +372,7 @@ class Cache extends Module {
     banks.map(_.cached_tag).reverse ++ Seq(addr_reg.tail(TagBits * NumBanks))
   )
   // default values
-  addr_reg := addr_reg
+  // addr_reg := addr_reg
   val addr_tag = Wire(UInt((TagBits * NumBanks).W))
   addr_tag := addr_reg.head(TagBits * NumBanks)
 
@@ -384,6 +383,20 @@ class Cache extends Module {
 
   io.front.idle := false.B
 
+  def registerCacheLine() = {
+    banks.foreach { b =>
+      if (b == banks.last)
+        b.cached_tag := Cat(UInt("b00"), b.module.io.dout.head(TagBits).tail(2))
+      else
+        b.cached_tag := b.module.io.dout.head(TagBits)
+      val half_word_base = b.id * BankLineHalfWords
+      b.cached_hwords.zipWithIndex.foreach { case (chw, i) =>
+        chw := b.module.io.dout((i + 1) * DataBits - 1, i * DataBits)
+      }
+    }
+    dirty_bit := banks.last.module.io.dout.head(2).tail(1)
+    valid_bit := banks.last.module.io.dout.head(1)
+  }
   switch(pstate) {
 
     is(StateValue.Idle) {
@@ -406,7 +419,7 @@ class Cache extends Module {
             )
           )
           // read the requested line from the banks
-          decoded := StateValue.HitCheck
+          decoded := StateValue.ReadCached
         }.elsewhen(io.front.cmd === CacheCommand.Flush) {
 
           decoded := StateValue.Flush
@@ -420,9 +433,12 @@ class Cache extends Module {
 
       }
     }
+    is(StateValue.ReadCached) {
+      pstate := StateValue.HitCheck
+      // let the cached values be registered
+      registerCacheLine()
+    }
     is(StateValue.HitCheck) {
-
-      rdata_reg := rdata
       when(hit) {
         when(cmd_reg === CacheCommand.Write) {
           // write hit
@@ -516,9 +532,13 @@ class Cache extends Module {
     is(StateValue.Flush) {
 
       banks.foreach(b => b.module.io.raddr := flush_pointer)
+      pstate := StateValue.FlushRead
+    }
+    is(StateValue.FlushRead) {
+      // register the read cache line
+      registerCacheLine()
       pstate := StateValue.FlushCheck
     }
-
     is(StateValue.FlushCheck) {
 
       when(valid_bit && dirty_bit) {
@@ -536,7 +556,7 @@ class Cache extends Module {
         } otherwise {
           banks.foreach { b => b.module.io.raddr := flush_pointer + 1.U }
           flush_pointer := flush_pointer + 1.U
-          pstate        := StateValue.FlushCheck
+          pstate        := StateValue.FlushRead
         }
       }
     }
@@ -552,7 +572,7 @@ class Cache extends Module {
         } otherwise {
           banks.foreach { b => b.module.io.raddr := flush_pointer + 1.U }
           flush_pointer := flush_pointer + 1.U
-          pstate        := StateValue.FlushCheck
+          pstate        := StateValue.FlushRead
         }
 
       }
@@ -567,7 +587,7 @@ class Cache extends Module {
         banks.foreach { b =>
           b.module.io.waddr := flush_pointer
           b.module.io.wen   := true.B
-          b.module.io.din  := 0.U
+          b.module.io.din   := 0.U
         }
         flush_pointer := flush_pointer + 1.U
         pstate        := StateValue.Reset
@@ -579,10 +599,7 @@ class Cache extends Module {
 
 }
 
-
-
 object TailTestGen extends App {
 
-  
   new ChiselStage().emitVerilog(new Cache(), Array("--target-dir", "gen-dir"))
 }

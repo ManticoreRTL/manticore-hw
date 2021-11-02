@@ -279,7 +279,7 @@ class CacheTester extends FlatSpec with ChiselScalatestTester with Matchers {
   }
   behavior of "Cache"
   it should "respect raw dependencies" in {
-    test(new Cache()).withAnnotations(Seq(USE_VERILATOR)) { implicit dut =>
+    test(new Cache()).withAnnotations(Seq(USE_VERILATOR, DUMP_VCD)) { implicit dut =>
       val mem_spec = new MemorySpec
       dut.clock.step()
       println("Resetting cache")
@@ -292,13 +292,17 @@ class CacheTester extends FlatSpec with ChiselScalatestTester with Matchers {
       println("Dirtying the loaded values")
       // an address to every half-word in the cache
       val whit_addr = hit_addr.flatMap{ addr => Range(0, 1 << 4).map(addr + _)}
-      val whit_val = hit_addr.map(_ => rdgen.nextInt(1 << 16))
+      val whit_val = whit_addr.map(_ => rdgen.nextInt(1 << 16))
+      
       checkReadAfterWrite(whit_addr.zip(whit_val))
       // all the cache line are dirty now, any read miss should result in a write back
       println("Testing capacity read miss and write-back")
       val miss_addr = hit_addr.map(_ + ( 4096 << 4 ) + rdgen.nextInt(1 << 4))
 
+      dut.clock.step(20)
+
       loadAddresses(miss_addr, mem_spec)
+      println("Checking read values")
       // assert that the values have been written back to memory
       whit_addr.zip(whit_val).foreach{ case (addr, value) =>
         mem_spec.read(addr) should be (value)
