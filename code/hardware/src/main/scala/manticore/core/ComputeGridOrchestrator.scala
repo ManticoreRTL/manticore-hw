@@ -123,45 +123,8 @@ class ComputeGridOrchestrator(
   // disable master cache access when the core is not active and let the programmer module
   // talk to the cache
   when(io.periphery_core.head.active === false.B) {
-    // program_loader.io.cache_frontend <> master_cache.io.front
-    
-    def connectViaReg[T <: Data](source: T, dest: T): Unit = {
-      val pipe = Reg(source.cloneType)
-      pipe := source
-      dest := pipe
-    }
-
-    connectViaReg(
-      false.B,
-      io.memory_backend(0).wen
-    )
-    connectViaReg(
-      program_loader.io.memory_backend.addr,
-      io.memory_backend(0).addr
-    )
-
-    connectViaReg(
-      io.memory_backend(0).rdata,
-      program_loader.io.memory_backend.rdata
-    )
-
-    connectViaReg(
-      io.memory_backend(0).done,
-      program_loader.io.memory_backend.done
-    )
-    connectViaReg(
-      program_loader.io.memory_backend.start,
-      io.memory_backend(0).start
-    )
-    connectViaReg(
-      0.U,
-      io.memory_backend(0).wdata
-    )
-
-    connectViaReg(
-      io.memory_backend(0).idle,
-      program_loader.io.memory_backend.idle
-    )
+  
+    io.memory_backend(0) <> program_loader.io.memory_backend  
 
   } otherwise {
     io.memory_backend(0) <> master_memory_intercept.io.memory

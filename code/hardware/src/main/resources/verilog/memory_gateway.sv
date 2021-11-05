@@ -12,8 +12,8 @@ module memory_gateway #(
     input bit [1:0] cmd,
     input bit start,
     input bit [CACHE_LINE_WIDTH - 1 : 0] wline,
-    input bit [63:0] raddr,
-    input bit [63:0] waddr,
+    input bit [64:0] raddr,  // cache line address/offset
+    input bit [64:0] waddr,  // cache line address/offset
     output bit [CACHE_LINE_WIDTH - 1 : 0] rline,
     output bit done,
     output bit idle,
@@ -59,14 +59,14 @@ module memory_gateway #(
   task read_line(input longint base_addr);
     int j;
     for (j = 0; j < (CACHE_LINE_WIDTH / 64); j = j + 1) begin
-      rline[j*64+:64] <= read_long_word(memory_pointer, base_addr + j * 8);
+      rline[j*64+:64] <= read_long_word(memory_pointer, base_addr + j);
     end
   endtask
 
   task write_line(input longint base_addr);
     int j;
     for (j = 0; j < (CACHE_LINE_WIDTH / 64); j = j + 1) begin
-      write_long_word(memory_pointer, base_addr + j * 8, wline[j*64+:64]);
+      write_long_word(memory_pointer, base_addr + j, wline[j*64+:64]);
     end
   endtask
 
@@ -88,8 +88,8 @@ module memory_gateway #(
     if (pstate == s_idle) begin
       cmd_reg   <= cmd;
       wline_reg <= wline;
-      raddr_reg <= raddr;
-      waddr_reg <= waddr;
+      raddr_reg <= raddr << $clog2(CACHE_LINE_WIDTH / 64);  // store as word offsets
+      waddr_reg <= waddr << $clog2(CACHE_LINE_WIDTH / 64);  // store as word offsets
     end
     if (pstate == s_dpi) begin
       case (cmd_reg)

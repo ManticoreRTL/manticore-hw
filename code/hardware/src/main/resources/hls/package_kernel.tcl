@@ -38,19 +38,19 @@ set_property core_revision 2 $core
 foreach up [ipx::get_user_parameters] {
   ipx::remove_user_parameter [get_property NAME $up] $core
 }
-ipx::associate_bus_interfaces -busif $master_interface_0 -clock clock $core
-ipx::associate_bus_interfaces -busif $master_interface_1 -clock clock $core
-ipx::associate_bus_interfaces -busif $master_interface_2 -clock clock $core
-ipx::associate_bus_interfaces -busif $master_interface_3 -clock clock $core
-ipx::associate_bus_interfaces -busif $slave_interface -clock clock $core
+ipx::associate_bus_interfaces -busif $master_interface_0 -clock ap_clk $core
+ipx::associate_bus_interfaces -busif $master_interface_1 -clock ap_clk $core
+ipx::associate_bus_interfaces -busif $master_interface_2 -clock ap_clk $core
+ipx::associate_bus_interfaces -busif $master_interface_3 -clock ap_clk $core
+ipx::associate_bus_interfaces -busif $slave_interface -clock ap_clk $core
 
 # Specify the freq_hz parameter 
-set clkbif      [::ipx::get_bus_interfaces -of $core "clock"]
-set clkbifparam [::ipx::add_bus_parameter -quiet "FREQ_HZ" $clkbif]
+set clkbif      [::ipx::get_bus_interfaces -of $core "ap_clk"]
+# set clkbifparam [::ipx::add_bus_parameter -quiet "FREQ_HZ" $clkbif]
 # Set desired frequency                   
-set_property value 300000000 $clkbifparam
+# set_property value 300000000 $clkbifparam
 # set value_resolve_type 'user' if the frequency can vary. 
-set_property value_resolve_type user $clkbifparam
+# set_property value_resolve_type user $clkbifparam
 # set value_resolve_type 'immediate' if the frequency cannot change. 
 # set_property value_resolve_type immediate $clkbifparam
 

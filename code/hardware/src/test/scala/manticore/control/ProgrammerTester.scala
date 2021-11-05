@@ -148,7 +148,7 @@ class ProgrammerTester
               dut.io.packet_out.xHops.expect(expected_stream.head._2.U)
               dut.io.packet_out.yHops.expect(expected_stream.head._3.U)
               dut.io.packet_out.data.expect(expected_stream.head._1.U)
-              println(s"Validated ${expected_stream.head}")
+              // println(s"Validated ${expected_stream.head}")
               dut.clock.step()
               validateStream(expected_stream.tail)
             } else {
@@ -164,7 +164,7 @@ class ProgrammerTester
         dut.clock.step()
         dut.clock.setTimeout(1000 * DimX * DimY)
         dut.io.start.poke(false.B)
-        println(memory_spec.expected_stream)
+        // println(memory_spec.expected_stream)
 //        dut.io.core_active.foreach{v => v.poke(false.B)}
 
         validateStream(memory_spec.expected_stream)
