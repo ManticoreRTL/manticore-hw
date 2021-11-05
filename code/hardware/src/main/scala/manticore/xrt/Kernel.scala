@@ -17,6 +17,7 @@ import chisel3.experimental.ChiselEnum
 import chisel3.util.switch
 import chisel3.util.is
 import chisel3.util.Cat
+import memory.CacheConfig
 
 class MemoryPointers extends Bundle {
   val pointer_0: UInt = UInt(64.W)
@@ -61,6 +62,8 @@ class ManticoreKernel(
       Seq() // path to m_axi implementation if exits, uses simulation models otherwise
 ) extends MultiIOModule {
 
+  clock.suggestName("ap_clk")
+  reset.suggestName("ap_rst")
   val m_axi_bank    = IO(Vec(4, new AxiMasterInterface))
   val s_axi_control = IO(new AxiSlave.AxiSlaveCorenterface())
   val interrupt     = IO(Output(Bool()))
@@ -90,8 +93,8 @@ class ManticoreKernel(
 
   val gateways: Seq[MemoryGateway] = m_axi_path match {
 
-    case Nil => Seq.fill(4) { Module(new MemoryGatewarySim) }
-    case _   => Seq.fill(4) { Module(new MemoryGatewayHls(m_axi_path)) }
+    // case Nil => Seq.fill(4) { Module(new MemoryGatewarySim) }
+    case _ => Seq.fill(4) { Module(new MemoryGatewaySimpleHls(m_axi_path)) }
   }
 
   // connect the outer axi master interface bundles to the gateway interfaces
@@ -106,16 +109,15 @@ class ManticoreKernel(
   gateways(2).io.memory_pointer := slave.io.pointer_regs.pointer_2
   gateways(3).io.memory_pointer := slave.io.pointer_regs.pointer_3
 
-
   // connect the caches to the memory gateways
-  manticore.io.cache_backend.zip(gateways).foreach { case (cache, memory) =>
-    memory.io.cmd      := cache.cmd
-    memory.io.raddr    := cache.raddr
-    memory.io.waddr    := cache.waddr
-    memory.io.wline    := cache.wline
-    memory.io.ap_start := cache.start
-    cache.done         := memory.io.ap_done
-    cache.rline        := memory.io.ap_return
+  manticore.io.memory_backend.zip(gateways).foreach { case (mio, memory) =>
+    memory.io.wen      := mio.wen
+    memory.io.addr     := (mio.addr >> 1) // memory uses half-word offset
+    memory.io.wdata    := mio.wdata
+    memory.io.ap_start := mio.start
+    mio.done           := memory.io.ap_done
+    mio.rdata          := memory.io.ap_return
+    mio.idle           := memory.io.ap_idle
   }
 
   manticore.io.host_registers := slave.io.host_regs
@@ -266,16 +268,24 @@ object BuildXclbin {
 
     Files.createDirectories(bin_dir)
 
+    // connect each axi port to a single DDR bank.
     val mem_bank_config = mem_if.zipWithIndex
       .map { case (m, ix) =>
         s"--connectivity.sp ${top_name}_1.${m.portName}:DDR[${ix}]"
       }
       .mkString(" ")
+
+    // clock is defaulted to 250MHz with 200MHz tolernace, i.e., it can go
+    // as high as 450MHz and as low as 50MHz
+    val clock_constraint =
+      "--clock.freqHz 200000000:ManticoreKernel_1 " +
+        "--clock.tolerance 100000000:ManticoreKernel_1 "
     val xclbin_path =
       bin_dir.resolve(s"${top_name}.${target}.${platform}.xclbin")
     val command =
       s"v++ --link -g -t ${target} --platform ${platform} --save-temps " +
-        s"${mem_bank_config} -o ${xclbin_path.toAbsolutePath.toString} " +
+        " --to_step vpl.impl  --vivado.synth.jobs 20 --vivado.impl.jobs 16 " +
+        s"${mem_bank_config} ${clock_constraint} -o ${xclbin_path.toAbsolutePath.toString} " +
         s"${xo_path.toAbsolutePath.toString}"
 
     println(s"Executing:\n${command}")
@@ -376,22 +386,27 @@ object ManticoreKernelGenerator {
 }
 
 object KernelTest extends App {
-  // val out_dir = Paths.get("gen-dir/kernel/4x4/hw")
+  val out_dir =
+    Paths.get("gen-dir/kernel/2x2_no_cache_to_impl_mmcm/hw")
 
-  // ManticoreKernelGenerator(
-  //   target_dir = out_dir.toAbsolutePath().toString(),
-  //   dimx = 4,
-  //   dimy = 4,
-  //   target = "hw"
-  // )
-  new ChiselStage().emitVerilog(
-    new ManticoreKernel(
-      4,
-      4,
-      true,
-      Nil
-    ),
-    Array("-td", "gen-dir/sim/hdl")
+  ManticoreKernelGenerator(
+    target_dir = out_dir.toAbsolutePath().toString(),
+    dimx = 2,
+    dimy = 2,
+    target = "hw"
   )
+  // val master_fp = AxiMasterGenerator(
+  //   name = "memory_gateway"
+  //   // out_dir = Some(hdl_dir),
+  // )
+  // new ChiselStage().emitVerilog(
+  //   new ManticoreKernel(
+  //     4,
+  //     4,
+  //     true,
+  //     master_fp.map(_.toAbsolutePath().toString())
+  //   ),
+  //   Array("-td", "gen-dir/sim/hdl")
+  // )
 
 }

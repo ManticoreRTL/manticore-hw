@@ -19,8 +19,8 @@ class ManticoreArrayInterface extends Bundle {
   val done: Bool = Output(Bool())
 
   // Interfaces to memory
-  val cache_backend: Vec[CacheBackInterface] =
-    Vec(4, CacheConfig.backInterface())
+  val memory_backend: Vec[MemoryReadWriteInterface] =
+    Vec(4, new MemoryReadWriteInterface(ManticoreFullISA))
 
 }
 class ManticoreArray(DimX: Int, DimY: Int, debug_enable: Boolean = false)
@@ -78,7 +78,7 @@ class ManticoreArray(DimX: Int, DimY: Int, debug_enable: Boolean = false)
   io.idle               := orchestrator.io.idle
   io.done := orchestrator.io.done
 
-  io.cache_backend.zip(orchestrator.io.cache_backend).foreach {
+  io.memory_backend.zip(orchestrator.io.memory_backend).foreach {
     case (outer, inner) =>
       outer <> inner
   }

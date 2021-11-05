@@ -6,6 +6,7 @@ import chisel3.stage.ChiselStage
 import memory.{Cache, CacheBackInterface, CacheConfig, CacheFrontInterface}
 import manticore.{ISA, ManticoreFullISA}
 import memory.CacheCommand
+import memory.CacheBackendCommand
 
 /// registers written by the host
 class HostRegisters(config: ISA) extends Bundle {
@@ -36,8 +37,10 @@ class ComputeGridOrchestratorInterface(DimX: Int, DimY: Int, config: ISA)
   val periphery_core: Vec[PeripheryProcessorInterface] = Flipped(
     Vec(4, new PeripheryProcessorInterface(config))
   )
-  val cache_backend: Vec[CacheBackInterface] =
-    Vec(4, CacheConfig.backInterface())
+  val memory_backend: Vec[MemoryReadWriteInterface] =
+    Vec(4, new MemoryReadWriteInterface(config))
+  // val cache_backend: Vec[CacheBackInterface] =
+  //   Vec(4, CacheConfig.backInterface())
   val start: Bool = Input(Bool())
   val registers = new Bundle {
     val from_host = Input(new HostRegisters(config))
@@ -61,11 +64,11 @@ class ComputeGridOrchestrator(
     new ComputeGridOrchestratorInterface(DimX, DimY, config)
   )
 
-  val master_cache = Module(new Cache)
+  // val master_cache = Module(new Cache)
 
-  val storage_cache: Seq[Cache] = Seq.fill(3) {
-    Module(new Cache)
-  }
+  // val storage_cache: Seq[Cache] = Seq.fill(3) {
+  //   Module(new Cache)
+  // }
 
   val program_loader: Programmer = Module(new Programmer(config, DimX, DimY))
 
@@ -77,11 +80,16 @@ class ComputeGridOrchestrator(
     handler
   }
 
-  val master_cache_intercept: CacheRequestIntercept = Module(
-    new CacheRequestIntercept
-  )
-  val storage_cache_intercept: Seq[CacheRequestIntercept] = storage_cache
-    .map(_ => Module(new CacheRequestIntercept))
+  val master_memory_intercept = Module(new MemoryRequestIntercept(config))
+  val storage_memory_intercept = Seq.fill(3) {
+    Module(new MemoryRequestIntercept(config))
+  }
+
+  // val master_cache_intercept: CacheRequestIntercept = Module(
+  //   new CacheRequestIntercept
+  // )
+  // val storage_cache_intercept: Seq[CacheRequestIntercept] = storage_cache
+  //   .map(_ => Module(new CacheRequestIntercept))
 
   val clock_manager: ClockManager = Module(
     new ClockManager(NumUsers = 4 * 2, debug_enable = debug_enable)
@@ -104,7 +112,7 @@ class ComputeGridOrchestrator(
     .slice(4, 8)
     .zip(clock_manager.io.done_request.slice(4, 8))
     .zip(
-      (master_cache_intercept +: storage_cache_intercept)
+      (master_memory_intercept +: storage_memory_intercept)
     )
     .foreach { case ((_start, _end), _intercept) =>
       _start := _intercept.io.clock_manager.gate_request_start
@@ -115,27 +123,70 @@ class ComputeGridOrchestrator(
   // disable master cache access when the core is not active and let the programmer module
   // talk to the cache
   when(io.periphery_core.head.active === false.B) {
-    program_loader.io.cache_frontend <> master_cache.io.front
-  } otherwise {
-    master_cache_intercept.io.front_side.cache <> master_cache.io.front
-  }
-  io.periphery_core.head.cache <> master_cache_intercept.io.front_side.core
+    // program_loader.io.cache_frontend <> master_cache.io.front
+    
+    def connectViaReg[T <: Data](source: T, dest: T): Unit = {
+      val pipe = Reg(source.cloneType)
+      pipe := source
+      dest := pipe
+    }
 
-  (storage_cache_intercept)
-    .zip(
-      storage_cache
-        .zip(io.periphery_core.tail)
+    connectViaReg(
+      false.B,
+      io.memory_backend(0).wen
     )
-    .foreach { case (_intercept, (_cache, _core)) =>
-      _intercept.io.front_side.cache <> _cache.io.front
-      _core.cache <> _intercept.io.front_side.core
+    connectViaReg(
+      program_loader.io.memory_backend.addr,
+      io.memory_backend(0).addr
+    )
+
+    connectViaReg(
+      io.memory_backend(0).rdata,
+      program_loader.io.memory_backend.rdata
+    )
+
+    connectViaReg(
+      io.memory_backend(0).done,
+      program_loader.io.memory_backend.done
+    )
+    connectViaReg(
+      program_loader.io.memory_backend.start,
+      io.memory_backend(0).start
+    )
+    connectViaReg(
+      0.U,
+      io.memory_backend(0).wdata
+    )
+
+    connectViaReg(
+      io.memory_backend(0).idle,
+      program_loader.io.memory_backend.idle
+    )
+
+  } otherwise {
+    io.memory_backend(0) <> master_memory_intercept.io.memory
+  }
+
+  io.periphery_core.head.cache <> master_memory_intercept.io.core
+
+  io.periphery_core.tail.zip(storage_memory_intercept).foreach {
+    case (_core, _intercept) =>
+      _core.cache <> _intercept.io.core
+  }
+
+  (master_memory_intercept +: storage_memory_intercept)
+    .zip(io.memory_backend)
+    .foreach { case (_intercept, _io) =>
+      _io <> _intercept.io.memory
     }
 
-  (master_cache +: storage_cache)
-    .zip(io.cache_backend)
-    .foreach { case (_cache, _io) =>
-      _io <> _cache.io.back
-    }
+  // (master_cache +: storage_cache)
+  //   .zip(io.cache_backend)
+  //   .foreach { case (_cache, _io) =>
+  //     _io <> _cache.io.back
+  //   }
+
+  val dev_regs = Reg(new DeviceRegisters(config))
 
   val schedule_counter: UInt = Reg(UInt((config.NumPcBits + 1).W))
   val virtual_cycles: UInt = Reg(UInt(48.W)) // can simulate up to 2^48 cycles,
@@ -144,27 +195,25 @@ class ComputeGridOrchestrator(
   when(clock_manager.io.clock_enable_n && program_loader.io.running) {
     schedule_counter := schedule_counter + 1.U
     when(schedule_counter === io.registers.from_host.schedule_length - 1.U) {
-      schedule_counter := 0.U
-      virtual_cycles   := virtual_cycles + 1.U
+      schedule_counter        := 0.U
+      dev_regs.virtual_cycles := dev_regs.virtual_cycles + 1.U
     }
   }
 
-  val bootloader_counter: UInt = Reg(UInt(32.W))
+  dev_regs.exception_id_0 := io.periphery_core(0).exception.id
+  dev_regs.exception_id_1 := io.periphery_core(1).exception.id
+  dev_regs.exception_id_2 := io.periphery_core(2).exception.id
+  dev_regs.exception_id_3 := io.periphery_core(3).exception.id
 
-  io.registers.to_host.bootloader_cycles := bootloader_counter
-  io.registers.to_host.virtual_cycles    := virtual_cycles
+  io.registers.to_host := dev_regs
 
   val exception: Bool = Wire(Bool())
   exception := io.periphery_core.exists(_.exception.error === true.B)
-  io.registers.to_host.exception_id_0 := io.periphery_core(0).exception.id
-  io.registers.to_host.exception_id_1 := io.periphery_core(1).exception.id
-  io.registers.to_host.exception_id_2 := io.periphery_core(2).exception.id
-  io.registers.to_host.exception_id_3 := io.periphery_core(3).exception.id
 
   object Phase extends ChiselEnum {
     val WaitForStart, // initial state, requires boot-loading
     WaitForResume,    // state after went back to the host to handle exceptions
-    BootLoading, VirtualCycle, StartFlush, WaitFlush = Value
+    BootLoading, VirtualCycle, StartFlush, WaitFlush, SignalDone = Value
   }
 
   exception_handler.foreach { h =>
@@ -182,11 +231,11 @@ class ComputeGridOrchestrator(
     is(Phase.WaitForStart) {
       io.idle := true.B
       when(io.start) {
-        phase                   := Phase.BootLoading
-        program_loader.io.start := true.B
-        schedule_counter        := 0.U
-        bootloader_counter      := 0.U
-        virtual_cycles          := 0.U
+        phase                      := Phase.BootLoading
+        program_loader.io.start    := true.B
+        schedule_counter           := 0.U
+        dev_regs.bootloader_cycles := 0.U
+        virtual_cycles             := 0.U
       }
     }
     is(Phase.WaitForResume) {
@@ -198,7 +247,7 @@ class ComputeGridOrchestrator(
       }
     }
     is(Phase.BootLoading) {
-      bootloader_counter := bootloader_counter + 1.U
+      dev_regs.bootloader_cycles := dev_regs.bootloader_cycles + 1.U
       when(program_loader.io.running) {
         phase := Phase.VirtualCycle
       }
@@ -209,33 +258,37 @@ class ComputeGridOrchestrator(
         val any_exceptions = Wire(Vec(4, Bool()))
         any_exceptions := exception_handler.map(_.io.caught)
         when(any_exceptions.exists(_ === true.B)) {
-          phase := Phase.StartFlush
+          phase := Phase.SignalDone
         } // otherwise {
         //  handling cache requests, will resume automatically, no host interference
         // }
       }
     }
 
-    is(Phase.StartFlush) {
+    // is(Phase.StartFlush) {
 
-      (master_cache +: storage_cache).foreach { cache =>
-        cache.io.front.cmd   := CacheCommand.Flush
-        cache.io.front.start := true.B
-      }
-      phase := Phase.WaitFlush
+    //   (master_cache +: storage_cache).foreach { cache =>
+    //     cache.io.front.cmd   := CacheCommand.Flush
+    //     cache.io.front.start := true.B
+    //   }
+    //   phase := Phase.WaitFlush
+    // }
+
+    // is(Phase.WaitFlush) {
+    //   val all_idle   = Wire(Bool())
+    //   val cache_idle = Wire(Vec(4, Bool()))
+    //   cache_idle := (master_cache +: storage_cache).map(c => c.io.front.idle)
+
+    //   when(cache_idle.forall(_ === true.B)) {
+    //     phase   := Phase.WaitForResume
+    //     io.done := true.B
+    //   }
+    // }
+    is(Phase.SignalDone) {
+      io.done := true.B
+      phase   := Phase.WaitForResume
     }
 
-    is(Phase.WaitFlush) {
-      val all_idle   = Wire(Bool())
-      val cache_idle = Wire(Vec(4, Bool()))
-      cache_idle := (master_cache +: storage_cache).map(c => c.io.front.idle)
-
-      when(cache_idle.forall(_ === true.B)) {
-        phase   := Phase.WaitForResume
-        io.done := true.B
-      }
-
-    }
   }
 
   val debug_time = RegInit(UInt(64.W), 0.U)

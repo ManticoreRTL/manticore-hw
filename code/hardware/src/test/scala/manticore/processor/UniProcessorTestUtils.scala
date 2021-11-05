@@ -18,6 +18,7 @@ import manticore.ManticoreFullISA
 import chisel3.VecInit
 import memory.SimpleDualPortMemory
 import memory.CacheBackendCommand
+import manticore.assembly.Instruction
 
 object UniProcessorTestUtils {
 
@@ -30,6 +31,7 @@ object UniProcessorTestUtils {
     fw.close()
     filepath.toString
   }
+
 
 
   def streamInstructions(instructions: Seq[Long], packet_stream: BareNoCBundle, clock: Clock)

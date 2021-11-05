@@ -9,113 +9,167 @@ import manticore.core.Programmer
 import org.scalatest.{FlatSpec, Matchers}
 
 import scala.annotation.tailrec
-
-class ProgrammerTester extends FlatSpec with ChiselScalatestTester with Matchers {
-
+import chisel3.MultiIOModule
+import manticore.core.MemoryReadWriteInterface
+import manticore.ManticoreFullISA
+import chisel3.VecInit
+import chisel3.experimental.ChiselEnum
+import manticore.core.NoCBundle
+class ProgrammerTester
+    extends FlatSpec
+    with ChiselScalatestTester
+    with Matchers {
 
   val rdgen = new scala.util.Random(0)
+  class MemoryError extends Bundle {
+    val multiple_access: Bool = Output(Bool())
+    val out_of_range: Bool    = Output(Bool())
+    val write_access: Bool    = Output(Bool())
+  }
+  class InstructionRom(content: Seq[Int]) extends MultiIOModule {
+
+    val io    = IO(Flipped(new MemoryReadWriteInterface(ManticoreFullISA)))
+    val error = IO(Output(new MemoryError))
+
+    
+
+    def stickySet(err: Bool, cond: => Bool) {
+      val r = RegInit(Bool(), false.B)
+
+      when(cond) {
+        r := true.B
+      }
+      err := r
+    }
+
+    val rom     = VecInit(content.map(_.U))
+    val latency = VecInit(content.map(_ => rdgen.nextInt(10) max 4).map(_.U))
+
+    val counter = Reg(UInt(32.W))
+    val data    = Reg(UInt(ManticoreFullISA.DataBits.W))
+    object State extends ChiselEnum {
+      val Idle, Busy, Done = Value
+    }
+
+    val state = RegInit(State.Type(), State.Idle)
+    stickySet(error.write_access, io.wen === true.B)
+    stickySet(
+      error.multiple_access,
+      io.start === true.B && state =/= State.Idle
+    )
+    stickySet(
+      error.out_of_range,
+      io.start === true.B && io.addr >= rom.length.U
+    )
+    io.rdata := 0.U
+    io.done  := false.B
+    switch(state) {
+      is(State.Idle) {
+        when(io.start) {
+          counter := latency(io.addr)
+          data    := rom(io.addr)
+          state   := State.Busy
+        }
+      }
+      is(State.Busy) {
+        when(counter === 1.U) {
+          state := State.Done
+        }
+        counter := counter - 1.U
+      }
+      is(State.Done) {
+        state    := State.Idle
+        io.rdata := data
+        io.done  := true.B
+      }
+    }
+
+  }
+
+  class ProgrammerWithMemory(dimx: Int, dimy: Int, content: Seq[Int])
+      extends Module {
+
+    val io = IO(new Bundle {
+      val errors     = Output(new MemoryError)
+      val packet_out = Output(new NoCBundle(dimx, dimy, ManticoreFullISA))
+      val instruction_base: UInt = Input(UInt(64.W))
+      val running                = Output(Bool())
+      val start                  = Input(Bool())
+    })
+
+    val programmer = Module(
+      new Programmer(config = ManticoreFullISA, DimX = dimx, DimY = dimy)
+    )
+    val inst_rom = Module(new InstructionRom(content))
+
+    io.packet_out := programmer.io.packet_out
+    io.errors     := inst_rom.error
+
+    inst_rom.io <> programmer.io.memory_backend
+    inst_rom.io.addr := programmer.io.memory_backend.addr - io.instruction_base
+
+    programmer.io.finish := false.B
+    programmer.io.start  := io.start
+    programmer.io.instruction_stream_base := io.instruction_base
+
+  }
+
   val DimX = 3
   val DimY = 3
-  val isa = ManticoreBaseISA
+  val isa  = ManticoreBaseISA
+  val memory_spec =
+    new ProgrammerTestUtils.MemoryStreamSpec(DimX, DimY, isa, rdgen)
   behavior of "Programmer"
 
-  it should "correctly read instruction stream from the cache and stream it out" in {
+  it should "correctly read instruction stream from the cache or memory and stream it out" in {
 
-
-    test(new Programmer(config = isa, DimX = DimX, DimY = DimY)).withAnnotations(
-      Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)
-    ){ dut =>
-
-      val memory_spec = new ProgrammerTestUtils.MemoryStreamSpec(DimX, DimY, isa, rdgen)
-
-      def validateStreaming(): Unit = {
-        case class MemAccess(counter: Int, value: Int)
+    test(
+      new ProgrammerWithMemory(
+        content = memory_spec.content,
+        dimx = DimX,
+        dimy = DimY
+      )
+    )
+      .withAnnotations(
+        Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)
+      ) { dut =>
         @tailrec
-        def loop(check_index: Int, access: Option[MemAccess], expected_stream: Seq[(Int, Int, Int)]): Unit = {
-          if (memory_spec.checkAddress(check_index) && expected_stream.nonEmpty) {
-            val next_access = access match {
-              case Some(MemAccess(counter, value)) =>
-                if (counter == 0) {
-                  dut.io.cache_frontend.done.poke(true.B)
-                  dut.io.cache_frontend.rdata.poke(value.U)
-                  None
-                } else {
-                  dut.io.cache_frontend.rdata.poke(0.U)
-                  dut.io.cache_frontend.done.poke(false.B)
-                  Some(MemAccess(counter - 1, value))
-                }
-              case None =>
-                dut.io.cache_frontend.rdata.poke(0.U)
-                dut.io.cache_frontend.done.poke(false.B)
-                None
-            }
-
-            val new_access = if (dut.io.cache_frontend.start.peek().litToBoolean) {
-              /// read from the cache/memory
-              if (next_access.nonEmpty) {
-                fail("Can not handle multiple cache accesses")
-              }
-              val latency = 2 max rdgen.nextInt(2)
-              val address = dut.io.cache_frontend.addr.peek().litValue().toInt
-              val rdata = memory_spec(address)
-              Some(MemAccess(latency, rdata))
-            } else {
-              next_access
-            }
-
-            val (next_index: Int, next_expected_stream: Seq[(Int, Int, Int)]) =
-              if (dut.io.packet_out.valid.peek().litToBoolean) {
-                dut.io.packet_out.xHops.expect(expected_stream.head._2.U)
-                dut.io.packet_out.yHops.expect(expected_stream.head._3.U)
-                dut.io.packet_out.data.expect(expected_stream.head._1.U)
-                (check_index + 1, expected_stream.tail)
-              } else {
-                (check_index, expected_stream)
-              }
+        def validateStream(expected_stream: Seq[(Int, Int, Int)]): Unit = {
+          dut.io.start.poke(false.B)
+          dut.io.errors.multiple_access.expect(false.B)
+          dut.io.errors.out_of_range.expect(false.B)
+          dut.io.errors.write_access.expect(false.B)
+          if (expected_stream.isEmpty) {
 
             dut.clock.step()
-            loop(next_index, new_access, next_expected_stream)
+            println("Validated the instruction stream")
+          } else {
+            if (dut.io.packet_out.valid.peek.litToBoolean) {
+              dut.io.packet_out.xHops.expect(expected_stream.head._2.U)
+              dut.io.packet_out.yHops.expect(expected_stream.head._3.U)
+              dut.io.packet_out.data.expect(expected_stream.head._1.U)
+              println(s"Validated ${expected_stream.head}")
+              dut.clock.step()
+              validateStream(expected_stream.tail)
+            } else {
+              dut.clock.step()
+              validateStream(expected_stream)
+            }
           }
+          
         }
 
         dut.io.start.poke(true.B)
-        dut.io.instruction_stream_base.poke(memory_spec.base_address.U)
+        dut.io.instruction_base.poke(memory_spec.base_address.U)
         dut.clock.step()
-        dut.clock.setTimeout(DimX * DimY * 1024)
+        dut.clock.setTimeout(1000 * DimX * DimY)
         dut.io.start.poke(false.B)
+        println(memory_spec.expected_stream)
 //        dut.io.core_active.foreach{v => v.poke(false.B)}
-        loop(memory_spec.base_address, None, memory_spec.expected_stream)
+
+        validateStream(memory_spec.expected_stream)
+
       }
-
-      println("Starting stream validation, this may take a while...")
-      validateStreaming()
-
-//      def checkSyn(exec_times: Seq[Int]): Unit = {
-//        @tailrec
-//        def loop(counters: Seq[Int]): Unit = {
-//          if (counters.exists(_ != 0)) {
-//
-//            counters zip dut.io.core_active foreach { case (v, port) => port.poke((v > 0).B) }
-//            val next_counters = counters.map(x => 0 max (x - 1))
-//            dut.clock.step()
-//            dut.io.global_synch.expect(false.B)
-//            loop(next_counters)
-//          }
-//        }
-//        loop(exec_times)
-//        dut.io.core_active.foreach(port => port.poke(false.B))
-//        dut.clock.step()
-//        dut.io.global_synch.expect(true.B)
-//        dut.io.core_active.foreach(p => p.poke(false.B))
-//        dut.clock.step()
-//      }
-//
-//      checkSyn(Seq.fill(DimX * DimY){rdgen.nextInt(300)})
-
-
-
-
-    }
 
   }
 

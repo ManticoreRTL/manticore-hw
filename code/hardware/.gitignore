@@ -10,4 +10,5 @@ test_data_dir
 .bloop
 .vscode
 .metals
+.ipcache
 project

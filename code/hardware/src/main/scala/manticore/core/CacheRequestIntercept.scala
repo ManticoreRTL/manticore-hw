@@ -20,7 +20,6 @@ class CacheRequestInterceptInterface extends Bundle {
     val clock_enable: Bool = Input(Bool())
   }
 
-
 }
 class CacheRequestIntercept extends Module {
 
@@ -72,3 +71,4 @@ class CacheRequestIntercept extends Module {
     }
   }
 }
+
