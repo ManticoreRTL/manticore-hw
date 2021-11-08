@@ -18,9 +18,9 @@ set path_to_hdl @VERILOG_PATH@
 set path_to_packaged @PACKAGED_PATH@
 set path_to_tmp_project @TEMP_KERNEL_PACKAGE_PATH@
 set master_interface_0 @MASTER_INTERFACE_0@
-set master_interface_1 @MASTER_INTERFACE_1@
-set master_interface_2 @MASTER_INTERFACE_2@
-set master_interface_3 @MASTER_INTERFACE_3@
+# set master_interface_1 @MASTER_INTERFACE_1@
+# set master_interface_2 @MASTER_INTERFACE_2@
+# set master_interface_3 @MASTER_INTERFACE_3@
 set slave_interface @SLAVE_INTERFACE@
 
 
@@ -39,9 +39,9 @@ foreach up [ipx::get_user_parameters] {
   ipx::remove_user_parameter [get_property NAME $up] $core
 }
 ipx::associate_bus_interfaces -busif $master_interface_0 -clock ap_clk $core
-ipx::associate_bus_interfaces -busif $master_interface_1 -clock ap_clk $core
-ipx::associate_bus_interfaces -busif $master_interface_2 -clock ap_clk $core
-ipx::associate_bus_interfaces -busif $master_interface_3 -clock ap_clk $core
+# ipx::associate_bus_interfaces -busif $master_interface_1 -clock ap_clk $core
+# ipx::associate_bus_interfaces -busif $master_interface_2 -clock ap_clk $core
+# ipx::associate_bus_interfaces -busif $master_interface_3 -clock ap_clk $core
 ipx::associate_bus_interfaces -busif $slave_interface -clock ap_clk $core
 
 # Specify the freq_hz parameter 

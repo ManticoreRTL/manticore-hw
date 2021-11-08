@@ -4,6 +4,7 @@ import Chisel._
 import chisel3.experimental.ChiselEnum
 import memory.{Cache, CacheCommand, CacheConfig, CacheFrontInterface}
 import manticore.ISA
+import org.scalatest.run
 
 class ProgrammerInterface(config: ISA, DimX: Int, DimY: Int) extends Bundle {
 
@@ -141,9 +142,10 @@ class Programmer(config: ISA, DimX: Int, DimY: Int) extends Module {
 //  io.global_synch := io.core_active.forall(_ === false.B)
 
   val phase_next: Phase.Type = Reg(Phase.Type(), Phase.Idle)
-
+  val running: Bool = Reg(Bool())
   switch(phase) {
     is(Phase.Idle) {
+      
       when(io.start) {
         phase      := Phase.StartCacheRead
         phase_next := Phase.StreamDest
@@ -159,7 +161,9 @@ class Programmer(config: ISA, DimX: Int, DimY: Int) extends Module {
         // transitions to State.Running.
         delay_value := (DimX * DimY - (DimX + DimY - 1)).U // magic formula
         instruction_stream_addr_reg := io.instruction_stream_base
+        
       }
+      running := false.B
     }
 
     is(Phase.StartCacheRead) {
@@ -261,9 +265,11 @@ class Programmer(config: ISA, DimX: Int, DimY: Int) extends Module {
     }
     is(Phase.WaitForCountDownEnd2) {
       phase := Phase.WaitForCountDownEnd3
+      
     }
     is(Phase.WaitForCountDownEnd3) {
       phase := Phase.Running
+      running := true.B
     }
 
     is(Phase.Running) {

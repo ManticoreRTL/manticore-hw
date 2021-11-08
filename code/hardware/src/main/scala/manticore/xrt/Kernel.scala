@@ -18,6 +18,7 @@ import chisel3.util.switch
 import chisel3.util.is
 import chisel3.util.Cat
 import memory.CacheConfig
+import manticore.core.ManticoreFlatArray
 
 class MemoryPointers extends Bundle {
   val pointer_0: UInt = UInt(64.W)
@@ -119,6 +120,69 @@ class ManticoreKernel(
     mio.rdata          := memory.io.ap_return
     mio.idle           := memory.io.ap_idle
   }
+
+  manticore.io.host_registers := slave.io.host_regs
+
+  slave.io.dev_regs := manticore.io.device_registers
+
+  manticore.io.start := slave.io.control.ap_start
+
+  slave.io.control.ap_done  := manticore.io.done
+  slave.io.control.ap_idle  := manticore.io.idle
+  slave.io.control.ap_ready := manticore.io.done // is this correct?
+
+}
+
+class ManticoreFlatKernel(
+    DimX: Int,
+    DimY: Int,
+    debug_enable: Boolean = false,
+    m_axi_path: Seq[String] =
+      Seq() // path to m_axi implementation if exits, uses simulation models otherwise
+) extends MultiIOModule {
+
+  clock.suggestName("ap_clk")
+  reset.suggestName("ap_rst")
+  val m_axi_bank_0  = IO(new AxiMasterInterface)
+  val s_axi_control = IO(new AxiSlave.AxiSlaveCorenterface())
+  val interrupt     = IO(Output(Bool()))
+
+  val slave = Module(new AxiSlave(ManticoreFullISA))
+
+  slave.io.core.AWADDR  := s_axi_control.AWADDR
+  slave.io.core.AWVALID := s_axi_control.AWVALID
+  s_axi_control.AWREADY := slave.io.core.AWREADY
+  slave.io.core.WDATA   := s_axi_control.WDATA
+  slave.io.core.WSTRB   := s_axi_control.WSTRB
+  slave.io.core.WVALID  := s_axi_control.WVALID
+  s_axi_control.WREADY  := slave.io.core.WREADY
+  s_axi_control.BRESP   := slave.io.core.BRESP
+  s_axi_control.BVALID  := slave.io.core.BVALID
+  slave.io.core.BREADY  := s_axi_control.BREADY
+  slave.io.core.ARADDR  := s_axi_control.ARADDR
+  slave.io.core.ARVALID := s_axi_control.ARVALID
+  s_axi_control.ARREADY := slave.io.core.ARREADY
+  s_axi_control.RDATA   := slave.io.core.RDATA
+  s_axi_control.RRESP   := slave.io.core.RRESP
+  s_axi_control.RVALID  := slave.io.core.RVALID
+  slave.io.core.RREADY  := s_axi_control.RREADY
+  interrupt             := slave.io.control.interrupt
+
+  val manticore = Module(new ManticoreFlatArray(DimX, DimY, debug_enable))
+
+  val gateway: MemoryGateway = Module(new MemoryGatewaySimpleHls(m_axi_path))
+
+  gateway.io.m_axi_gmem <> m_axi_bank_0
+
+  gateway.io.memory_pointer := slave.io.pointer_regs.pointer_0
+
+  gateway.io.wen := manticore.io.memory_backend.wen
+  gateway.io.addr := (manticore.io.memory_backend.addr >> 1) // memory uses half-word offset
+  gateway.io.wdata                  := manticore.io.memory_backend.wdata
+  gateway.io.ap_start               := manticore.io.memory_backend.start
+  manticore.io.memory_backend.done  := gateway.io.ap_done
+  manticore.io.memory_backend.rdata := gateway.io.ap_return
+  manticore.io.memory_backend.idle  := gateway.io.ap_idle
 
   manticore.io.host_registers := slave.io.host_regs
 
@@ -269,12 +333,12 @@ object BuildXclbin {
     Files.createDirectories(bin_dir)
 
     // connect each axi port to a single DDR bank.
-    val mem_bank_config = mem_if.zipWithIndex
-      .map { case (m, ix) =>
-        s"--connectivity.sp ${top_name}_1.${m.portName}:DDR[${ix}]"
-      }
-      .mkString(" ")
-
+    // val mem_bank_config = mem_if.zipWithIndex
+    //   .map { case (m, ix) =>
+    //     s"--connectivity.sp ${top_name}_1.${m.portName}:DDR[${ix}]"
+    //   }
+    //   .mkString(" ")
+    val mem_bank_config = " "
     // clock is defaulted to 250MHz with 200MHz tolernace, i.e., it can go
     // as high as 450MHz and as low as 50MHz
     val clock_constraint =
@@ -282,9 +346,14 @@ object BuildXclbin {
         "--clock.tolerance 100000000:ManticoreKernel_1 "
     val xclbin_path =
       bin_dir.resolve(s"${top_name}.${target}.${platform}.xclbin")
+    // val command =
+    //   s"v++ --link -g -t ${target} --platform ${platform} --save-temps " +
+    //     " --to_step vpl.impl  --vivado.synth.jobs 20 --vivado.impl.jobs 16 " +
+    //     s"${mem_bank_config} ${clock_constraint} -o ${xclbin_path.toAbsolutePath.toString} " +
+    //     s"${xo_path.toAbsolutePath.toString}"
     val command =
       s"v++ --link -g -t ${target} --platform ${platform} --save-temps " +
-        " --to_step vpl.impl  --vivado.synth.jobs 20 --vivado.impl.jobs 16 " +
+        "--vivado.synth.jobs 20 --vivado.impl.jobs 16 " +
         s"${mem_bank_config} ${clock_constraint} -o ${xclbin_path.toAbsolutePath.toString} " +
         s"${xo_path.toAbsolutePath.toString}"
 
@@ -346,7 +415,7 @@ object ManticoreKernelGenerator {
 
     println("generating top module")
     new ChiselStage().emitVerilog(
-      new ManticoreKernel(
+      new ManticoreFlatKernel(
         DimX = dimx,
         DimY = dimy,
         debug_enable = true,
@@ -387,7 +456,7 @@ object ManticoreKernelGenerator {
 
 object KernelTest extends App {
   val out_dir =
-    Paths.get("gen-dir/kernel/2x2_no_cache_to_impl_mmcm/hw")
+    Paths.get("gen-dir/kernel/2x2_flat_full/hw")
 
   ManticoreKernelGenerator(
     target_dir = out_dir.toAbsolutePath().toString(),

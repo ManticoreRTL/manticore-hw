@@ -2,9 +2,9 @@
     <kernel name="ManticoreKernel" language="ip_c" vlnv="vlsc.epfl.ch:kernes:ManticoreKernel:1.0" attributes="" preferredWorkGroupSizeMultiple="0" workGroupSize="1" interrupt="true">
         <ports>
             <port name="m_axi_bank_0" portType="addressable" mode="master" base="0x0" range="0xFFFFFFFFFFFFFFFF" dataWidth="256"/>
-            <port name="m_axi_bank_1" portType="addressable" mode="master" base="0x0" range="0xFFFFFFFFFFFFFFFF" dataWidth="256"/>
+            <!-- <port name="m_axi_bank_1" portType="addressable" mode="master" base="0x0" range="0xFFFFFFFFFFFFFFFF" dataWidth="256"/>
             <port name="m_axi_bank_2" portType="addressable" mode="master" base="0x0" range="0xFFFFFFFFFFFFFFFF" dataWidth="256"/>
-            <port name="m_axi_bank_3" portType="addressable" mode="master" base="0x0" range="0xFFFFFFFFFFFFFFFF" dataWidth="256"/>
+            <port name="m_axi_bank_3" portType="addressable" mode="master" base="0x0" range="0xFFFFFFFFFFFFFFFF" dataWidth="256"/> -->
             <port name="s_axi_control" portType="addressable" mode="slave" base="0x0" range="0x1000" dataWidth="32"/>
         </ports>
         <args>
@@ -13,9 +13,9 @@
             <arg id="2" name="value_change_symbol_table_base" addressQualifier="0" port = "s_axi_control" hostOffset="0x0" hostSize="0x8" offset="0x24" size="0x8" type="unsigned int"/>
             <arg id="3" name="global_memory_instruction_base" addressQualifier="0" port = "s_axi_control" hostOffset="0x0" hostSize="0x8" offset="0x30" size="0x8" type="unsigned int"/>
             <arg id="4" name="pointer_3" addressQualifier="1" port = "m_axi_bank_0" hostOffset="0x0" hostSize="0x8" offset="0x3c" size="0x8" type="unsigned int*"/>
-            <arg id="5" name="pointer_2" addressQualifier="1" port = "m_axi_bank_1" hostOffset="0x0" hostSize="0x8" offset="0x48" size="0x8" type="unsigned int*"/>
-            <arg id="6" name="pointer_1" addressQualifier="1" port = "m_axi_bank_2" hostOffset="0x0" hostSize="0x8" offset="0x54" size="0x8" type="unsigned int*"/>
-            <arg id="7" name="pointer_0" addressQualifier="1" port = "m_axi_bank_3" hostOffset="0x0" hostSize="0x8" offset="0x60" size="0x8" type="unsigned int*"/>
+            <arg id="5" name="pointer_2" addressQualifier="1" port = "m_axi_bank_0" hostOffset="0x0" hostSize="0x8" offset="0x48" size="0x8" type="unsigned int*"/>
+            <arg id="6" name="pointer_1" addressQualifier="1" port = "m_axi_bank_0" hostOffset="0x0" hostSize="0x8" offset="0x54" size="0x8" type="unsigned int*"/>
+            <arg id="7" name="pointer_0" addressQualifier="1" port = "m_axi_bank_0" hostOffset="0x0" hostSize="0x8" offset="0x60" size="0x8" type="unsigned int*"/>
             <arg id="8" name="status" addressQualifier="0" port = "s_axi_control" hostOffset="0x0" hostSize="0x4" offset="0x6c" size="0x4" type="unsigned int"/>
             <arg id="9" name="exception_id_3" addressQualifier="0" port = "s_axi_control" hostOffset="0x0" hostSize="0x4" offset="0x74" size="0x4" type="unsigned int"/>
             <arg id="10" name="exception_id_2" addressQualifier="0" port = "s_axi_control" hostOffset="0x0" hostSize="0x4" offset="0x7c" size="0x4" type="unsigned int"/>

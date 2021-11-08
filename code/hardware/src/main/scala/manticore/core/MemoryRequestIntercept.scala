@@ -45,7 +45,7 @@ class MemoryRequestIntercept(config: ISA) extends Module {
   }
 
   val rdata_reg: UInt = Reg(UInt(config.DataBits.W))
-  val raddr_reg: UInt = Reg(UInt(64.W))
+
   val addr_reg: UInt  = Reg(UInt(64.W))
   val wdata_reg: UInt = Reg(UInt(config.DataBits.W))
   val mem_done: Bool  = Reg(Bool())
@@ -98,8 +98,8 @@ class MemoryRequestIntercept(config: ISA) extends Module {
       when(start_int) {
         state                               := State.StartMemoryRequest
         io.clock_manager.gate_request_start := true.B
-        io.core.idle                        := true.B
       }
+      io.core.idle := true.B
     }
     is(State.StartMemoryRequest) {
       state           := State.WaitForMemoryResponse
@@ -114,7 +114,7 @@ class MemoryRequestIntercept(config: ISA) extends Module {
     is(State.WaitClockResume) {
       when(io.clock_manager.clock_enable) {
         io.core.done := true.B
-        state        := State.RelayResponse
+        state        := State.WaitForStart
       }
     }
   }
