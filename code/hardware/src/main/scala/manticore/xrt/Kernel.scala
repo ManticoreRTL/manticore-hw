@@ -19,6 +19,7 @@ import chisel3.util.is
 import chisel3.util.Cat
 import memory.CacheConfig
 import manticore.core.ManticoreFlatArray
+import manticore.core.ClockDistribution
 
 class MemoryPointers extends Bundle {
   val pointer_0: UInt = UInt(64.W)
@@ -138,16 +139,37 @@ class ManticoreFlatKernel(
     DimY: Int,
     debug_enable: Boolean = false,
     m_axi_path: Seq[String] =
-      Seq() // path to m_axi implementation if exits, uses simulation models otherwise
+      Seq(), // path to m_axi implementation if exits, uses simulation models otherwise
+    reset_latency: Int = 4
 ) extends MultiIOModule {
 
   clock.suggestName("ap_clk")
   reset.suggestName("ap_rst")
+
+  val clock_distribution = Module(new ClockDistribution())
+
+  clock_distribution.io.root_clock := clock
+
+  val reset_pipes = Seq.fill(reset_latency) {
+    withClock(clock_distribution.io.control_clock) { Reg(Reset()) }
+  }
+
+  val actual_reset = reset_pipes.foldLeft(reset) { case (prev, current) =>
+    current := prev
+    current
+  }
+
   val m_axi_bank_0  = IO(new AxiMasterInterface)
   val s_axi_control = IO(new AxiSlave.AxiSlaveCorenterface())
   val interrupt     = IO(Output(Bool()))
 
-  val slave = Module(new AxiSlave(ManticoreFullISA))
+  val slave =
+    withClockAndReset(
+      clock = clock_distribution.io.control_clock,
+      reset = actual_reset
+    ) {
+      Module(new AxiSlave(ManticoreFullISA))
+    }
 
   slave.io.core.AWADDR  := s_axi_control.AWADDR
   slave.io.core.AWVALID := s_axi_control.AWVALID
@@ -168,9 +190,19 @@ class ManticoreFlatKernel(
   slave.io.core.RREADY  := s_axi_control.RREADY
   interrupt             := slave.io.control.interrupt
 
-  val manticore = Module(new ManticoreFlatArray(DimX, DimY, debug_enable))
+  val manticore = 
+    Module(new ManticoreFlatArray(DimX, DimY, debug_enable))
 
-  val gateway: MemoryGateway = Module(new MemoryGatewaySimpleHls(m_axi_path))
+  manticore.io.reset := actual_reset
+  manticore.io.control_clock := clock_distribution.io.control_clock
+  manticore.io.compute_clock := clock_distribution.io.compute_clock
+
+  clock_distribution.io.compute_clock_en_n := manticore.io.clock_inactive
+
+  val gateway: MemoryGateway = withClockAndReset(
+    clock = clock_distribution.io.control_clock,
+    reset = actual_reset
+  ) { Module(new MemoryGatewaySimpleHls(m_axi_path)) }
 
   gateway.io.m_axi_gmem <> m_axi_bank_0
 
@@ -342,8 +374,8 @@ object BuildXclbin {
     // clock is defaulted to 250MHz with 200MHz tolernace, i.e., it can go
     // as high as 450MHz and as low as 50MHz
     val clock_constraint =
-      "--clock.freqHz 200000000:ManticoreKernel_1 " +
-        "--clock.tolerance 100000000:ManticoreKernel_1 "
+      "--clock.defaultFreqHz 200000000 " +
+        "--clock.defaultTolerance 0.1 "
     val xclbin_path =
       bin_dir.resolve(s"${top_name}.${target}.${platform}.xclbin")
     // val command =
@@ -456,7 +488,9 @@ object ManticoreKernelGenerator {
 
 object KernelTest extends App {
   val out_dir =
-    Paths.get("gen-dir/kernel/2x2_flat_full/hw")
+    Paths.get(
+      "gen-dir/kernel/2x2_flat_full_reset_pipes_4_buffered_feedback_mmcm_clock_dist_with_master_and_slave/hw"
+    )
 
   ManticoreKernelGenerator(
     target_dir = out_dir.toAbsolutePath().toString(),

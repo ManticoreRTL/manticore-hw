@@ -22,8 +22,22 @@ class ManticoreFlatArrayInterface extends Bundle {
   val memory_backend: MemoryReadWriteInterface = new MemoryReadWriteInterface(
     ManticoreFullISA
   )
+  val clock_inactive = Output(Bool())
+  val compute_clock  = Input(Clock())
+  val control_clock  = Input(Clock())
+  val reset          = Input(Reset())
 }
 
+class ClockDistribution extends BlackBox with HasBlackBoxResource {
+
+  val io = IO(new Bundle {
+    val root_clock         = Input(Clock())
+    val compute_clock      = Output(Clock())
+    val control_clock      = Output(Clock())
+    val compute_clock_en_n = Input(Bool())
+  })
+  addResource("/verilog/ClockDistribution.v")
+}
 class KernelControl extends Module {
   val io = IO(new Bundle {
 
@@ -35,13 +49,12 @@ class KernelControl extends Module {
     val device_registers  = Output(new DeviceRegisters(ManticoreFullISA))
     val kill_clock        = Input(Bool())
     val resume_clock      = Input(Bool())
-    val compute_clock     = Output(Clock())
     val exception_occured = Input(Bool())
     val exception_id      = Input(UInt(32.W))
     val config_enable     = Output(Bool())
+    val clock_inactive    = Output(Bool())
   })
 
-  val clock_buffer   = Module(new ClockBuffer())
   val clock_inactive = RegInit(Bool(), false.B)
   when(clock_inactive === false.B) {
     clock_inactive := io.kill_clock | io.exception_occured
@@ -50,9 +63,7 @@ class KernelControl extends Module {
     clock_inactive := !io.resume_clock
   }
 
-  clock_buffer.io.I  := clock
-  clock_buffer.io.CE := clock_inactive
-  io.compute_clock   := clock_buffer.io.O
+  io.clock_inactive := clock_inactive
 
   val start_reg: Bool = RegInit(Bool(), false.B)
   start_reg := io.start
@@ -219,7 +230,7 @@ class LoadStoreIssue extends Module {
 }
 
 class ComputeArray(dimx: Int, dimy: Int, debug_enable: Boolean = false)
-    extends RawModule {
+    extends Module {
 
   val io = IO(new Bundle {
     val mem_access        = Flipped(CacheConfig.frontInterface())
@@ -227,8 +238,6 @@ class ComputeArray(dimx: Int, dimy: Int, debug_enable: Boolean = false)
     val config_enable     = Input(Bool())
     val exception_id      = Output(UInt(32.W))
     val exception_occured = Output(Bool())
-    val clock             = Input(Clock())
-    val reset             = Input(Reset())
   })
   val equations = Seq.fill(1 << ManticoreFullISA.FunctBits) {
     Seq.tabulate(ManticoreFullISA.DataBits) { i => (1 << i) }
@@ -249,87 +258,96 @@ class ComputeArray(dimx: Int, dimy: Int, debug_enable: Boolean = false)
   def hasMemory(x: Int, y: Int): Boolean = (x == dimx - 1) && (y == dimy / 2)
   case class FatCore(core: Processor, switch: Switch, x: Int, y: Int)
 
-  withClockAndReset(clock = io.clock, reset = io.reset) {
+  val cores: Seq[Seq[FatCore]] = Seq.tabulate(dimx) { x =>
+    Seq.tabulate(dimy) { y =>
+      val core_conf =
+        if (hasMemory(x, y)) ManticoreFullISA else ManticoreBaseISA
 
-    val cores: Seq[Seq[FatCore]] = Seq.tabulate(dimx) { x =>
-      Seq.tabulate(dimy) { y =>
-        val core_conf =
-          if (hasMemory(x, y)) ManticoreFullISA else ManticoreBaseISA
-
-        val core = Module(
-          new Processor(
-            config = core_conf,
-            DimX = dimx,
-            DimY = dimy,
-            equations = equations,
-            initial_registers = s"rf_${x}_${y}.dat",
-            initial_array = s"ra_${x}_${y}.dat",
-            debug_enable = debug_enable,
-            debug_tag = s"CoreX${x}Y${y}"
-          )
+      val core = Module(
+        new Processor(
+          config = core_conf,
+          DimX = dimx,
+          DimY = dimy,
+          equations = equations,
+          initial_registers = s"rf_${x}_${y}.dat",
+          initial_array = s"ra_${x}_${y}.dat",
+          debug_enable = debug_enable,
+          debug_tag = s"CoreX${x}Y${y}"
         )
-        core.suggestName(s"core_${x}_${y}")
-        val switch = Module(
-          new Switch(dimx, dimy, core_conf)
-        )
-        switch.suggestName(s"switch_${x}_${y}")
-        FatCore(core, switch, x, y)
-      }
+      )
+      core.suggestName(s"core_${x}_${y}")
+      val switch = Module(
+        new Switch(dimx, dimy, core_conf)
+      )
+      switch.suggestName(s"switch_${x}_${y}")
+      FatCore(core, switch, x, y)
     }
-
-    // connect the cores via switches
-    Range(0, dimx).foreach { x =>
-      Range(0, dimy).foreach { y =>
-        cores(x)(y).switch.io.xInput := {
-          if (x == 0)
-            cores(dimx - 1)(y).switch.io.xOutput
-          else cores(x - 1)(y).switch.io.xOutput
-        }
-        cores(x)(y).switch.io.yInput := {
-          if (y == 0)
-            cores(x)(dimy - 1).switch.io.yOutput
-          else
-            cores(x)(y - 1).switch.io.yOutput
-        }
-
-        cores(x)(y).core.io.periphery.debug_time := 0.U
-
-        // connect the switches to the cores
-        cores(x)(y).core.io.packet_in       := cores(x)(y).switch.io.yOutput
-        cores(x)(y).core.io.packet_in.valid := cores(x)(y).switch.io.terminal
-        cores(x)(y).switch.io.lInput        := cores(x)(y).core.io.packet_out
-
-        cores(x)(y).core.io.periphery.cache.done  := false.B
-        cores(x)(y).core.io.periphery.cache.idle  := false.B
-        cores(x)(y).core.io.periphery.cache.rdata := 0.U
-      }
-
-      val master_core = cores.flatten.filter(c => hasMemory(c.x, c.y)).head
-
-      master_core.core.io.periphery.cache <> io.mem_access
-
-      // connect the configuration packet to the master core switch
-      when(io.config_enable) {
-        master_core.switch.io.xInput := io.config_packet
-
-      }
-
-      io.exception_id      := master_core.core.io.periphery.exception.id
-      io.exception_occured := master_core.core.io.periphery.exception.error
-    }
-
   }
+
+  // connect the cores via switches
+  Range(0, dimx).foreach { x =>
+    Range(0, dimy).foreach { y =>
+      cores(x)(y).switch.io.xInput := {
+        if (x == 0)
+          cores(dimx - 1)(y).switch.io.xOutput
+        else cores(x - 1)(y).switch.io.xOutput
+      }
+      cores(x)(y).switch.io.yInput := {
+        if (y == 0)
+          cores(x)(dimy - 1).switch.io.yOutput
+        else
+          cores(x)(y - 1).switch.io.yOutput
+      }
+
+      cores(x)(y).core.io.periphery.debug_time := 0.U
+
+      // connect the switches to the cores
+      cores(x)(y).core.io.packet_in       := cores(x)(y).switch.io.yOutput
+      cores(x)(y).core.io.packet_in.valid := cores(x)(y).switch.io.terminal
+      cores(x)(y).switch.io.lInput        := cores(x)(y).core.io.packet_out
+
+      cores(x)(y).core.io.periphery.cache.done  := false.B
+      cores(x)(y).core.io.periphery.cache.idle  := false.B
+      cores(x)(y).core.io.periphery.cache.rdata := 0.U
+    }
+
+    val master_core = cores.flatten.filter(c => hasMemory(c.x, c.y)).head
+
+    master_core.core.io.periphery.cache <> io.mem_access
+
+    // connect the configuration packet to the master core switch
+    when(io.config_enable) {
+      master_core.switch.io.xInput := io.config_packet
+
+    }
+
+    io.exception_id      := master_core.core.io.periphery.exception.id
+    io.exception_occured := master_core.core.io.periphery.exception.error
+  }
+
 }
 class ManticoreFlatArray(dimx: Int, dimy: Int, debug_enable: Boolean = false)
-    extends Module {
+    extends RawModule {
 
   val io = IO(new ManticoreFlatArrayInterface)
 
-  val controller = Module(new KernelControl)
+  // val clock_distribution = Module(new ClockDistribution())
 
-  val bootloader = Module(
-    new Programmer(ManticoreFullISA, dimx, dimy)
-  )
+  // clock_distribution.io.root_clock := clock
+
+  val controller =
+    withClockAndReset(reset = io.reset, clock = io.control_clock) {
+      Module(new KernelControl)
+    }
+
+  io.clock_inactive := controller.io.clock_inactive
+
+  val bootloader =
+    withClockAndReset(clock = io.control_clock, reset = io.reset) {
+      Module(
+        new Programmer(ManticoreFullISA, dimx, dimy)
+      )
+    }
 
   controller.io.start := io.start
   io.done             := controller.io.done
@@ -340,18 +358,24 @@ class ManticoreFlatArray(dimx: Int, dimy: Int, debug_enable: Boolean = false)
   bootloader.io.start         := controller.io.boot_start
   bootloader.io.instruction_stream_base := io.host_registers.global_memory_instruction_base
   bootloader.io.finish := false.B
-  val memory_intercept = Module(new LoadStoreIssue())
+  val memory_intercept =
+    withClockAndReset(clock = io.control_clock, reset = io.reset) {
+      Module(new LoadStoreIssue())
+    }
 
   controller.io.kill_clock   := memory_intercept.io.kill_clock
   controller.io.resume_clock := memory_intercept.io.resume_clock
 
-  val debug_time = RegInit(UInt(64.W), 0.U)
+  val debug_time =
+    withClockAndReset(clock = io.control_clock, reset = io.reset) {
+      RegInit(UInt(64.W), 0.U)
+    }
   debug_time := debug_time + 1.U
 
-  val compute_array = Module(new ComputeArray(dimx, dimy, debug_enable))
-
-  compute_array.io.clock := controller.io.compute_clock
-  compute_array.io.reset := reset
+  val compute_array =
+    withClockAndReset(clock = io.compute_clock, reset = io.reset) {
+      Module(new ComputeArray(dimx, dimy, debug_enable))
+    }
 
   compute_array.io.config_enable := controller.io.config_enable
   compute_array.io.config_packet := bootloader.io.packet_out
@@ -360,31 +384,31 @@ class ManticoreFlatArray(dimx: Int, dimy: Int, debug_enable: Boolean = false)
   io.memory_backend <> memory_intercept.io.outbound
 
   when(controller.io.config_enable) {
-    io.memory_backend.wen := bootloader.io.memory_backend.wen
-    io.memory_backend.wdata := bootloader.io.memory_backend.wdata
-    io.memory_backend.addr := bootloader.io.memory_backend.addr
-    bootloader.io.memory_backend.done := io.memory_backend.done
-    bootloader.io.memory_backend.idle := io.memory_backend.idle
+    io.memory_backend.wen              := bootloader.io.memory_backend.wen
+    io.memory_backend.wdata            := bootloader.io.memory_backend.wdata
+    io.memory_backend.addr             := bootloader.io.memory_backend.addr
+    bootloader.io.memory_backend.done  := io.memory_backend.done
+    bootloader.io.memory_backend.idle  := io.memory_backend.idle
     bootloader.io.memory_backend.rdata := io.memory_backend.rdata
 
-    memory_intercept.io.outbound.done := false.B
-    memory_intercept.io.outbound.idle := false.B
+    memory_intercept.io.outbound.done  := false.B
+    memory_intercept.io.outbound.idle  := false.B
     memory_intercept.io.outbound.rdata := DontCare
 
   } otherwise {
-    io.memory_backend.wen := memory_intercept.io.outbound.wen
-    io.memory_backend.wdata := memory_intercept.io.outbound.wdata
-    io.memory_backend.addr := memory_intercept.io.outbound.addr
-    memory_intercept.io.outbound.done := io.memory_backend.done
-    memory_intercept.io.outbound.idle := io.memory_backend.idle
+    io.memory_backend.wen              := memory_intercept.io.outbound.wen
+    io.memory_backend.wdata            := memory_intercept.io.outbound.wdata
+    io.memory_backend.addr             := memory_intercept.io.outbound.addr
+    memory_intercept.io.outbound.done  := io.memory_backend.done
+    memory_intercept.io.outbound.idle  := io.memory_backend.idle
     memory_intercept.io.outbound.rdata := io.memory_backend.rdata
 
-    bootloader.io.memory_backend.done := false.B
-    bootloader.io.memory_backend.idle := false.B
+    bootloader.io.memory_backend.done  := false.B
+    bootloader.io.memory_backend.idle  := false.B
     bootloader.io.memory_backend.rdata := DontCare
   }
 
-  controller.io.exception_id := compute_array.io.exception_id
+  controller.io.exception_id      := compute_array.io.exception_id
   controller.io.exception_occured := compute_array.io.exception_occured
 
 }

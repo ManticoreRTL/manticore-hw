@@ -72,13 +72,13 @@ class Processor(
   // the timer should count at least up to 2^12, because there could be 2^12 instructions in this processor, however,
   // since other processors should initialize as well, and there are DIMX * DIMY of them, we need 256 * 2 ^ 12 for
   // initialization (upper bound). But let's go with 2^22 reading since streaming form the DRAM could take longer
-  val countdown_timer = RegInit(UInt(config.DataBits.W), 0.U)
+  val countdown_timer = Reg(UInt(config.DataBits.W))
 
-  val program_body_length     = RegInit(UInt(config.NumPcBits.W), 0.U)
-  val program_epilogue_length = RegInit(UInt(config.NumPcBits.W), 0.U)
-  val program_sleep_length    = RegInit(UInt(config.NumPcBits.W), 0.U)
+  val program_body_length     = Reg(UInt(config.NumPcBits.W))
+  val program_epilogue_length = Reg(UInt(config.NumPcBits.W))
+  val program_sleep_length    = Reg(UInt(config.NumPcBits.W))
 
-  val program_pointer = RegInit(UInt(config.NumPcBits.W), 0.U)
+  val program_pointer = Reg(UInt(config.NumPcBits.W))
 
   require(
     config.NumPcBits / 8 <= 8,
@@ -366,13 +366,13 @@ class Processor(
   }
 
   // error bit to check whether a memory response came back
-  val gmem_expect_response = RegInit(Bool(), false.B)
+  val gmem_expect_response = Reg(Bool())
   gmem_expect_response := memory_stage.io.global_memory_interface.start
-  val gmem_failure = RegInit(Bool(), false.B)
+  val gmem_failure = Reg(Bool())
   gmem_failure := (gmem_expect_response && !io.periphery.cache.done) | gmem_failure
 
-  val exception_occurred: Bool = RegInit(Bool(), false.B)
-  val exception_id: UInt       = RegInit(UInt(config.DataBits.W), 0.U)
+  val exception_occurred: Bool = Reg(Bool())
+  val exception_id: UInt       = Reg(UInt(config.DataBits.W))
 
   val exception_cond: Bool = Wire(Bool())
 
