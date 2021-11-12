@@ -140,7 +140,7 @@ class ManticoreFlatKernel(
     debug_enable: Boolean = false,
     m_axi_path: Seq[String] =
       Seq(), // path to m_axi implementation if exits, uses simulation models otherwise
-    reset_latency: Int = 4
+    reset_latency: Int = 16
 ) extends MultiIOModule {
 
   clock.suggestName("ap_clk")
@@ -374,7 +374,7 @@ object BuildXclbin {
     // clock is defaulted to 250MHz with 200MHz tolernace, i.e., it can go
     // as high as 450MHz and as low as 50MHz
     val clock_constraint =
-      "--clock.defaultFreqHz 200000000 " +
+      "--clock.defaultFreqHz 100000000 " +
         "--clock.defaultTolerance 0.1 "
     val xclbin_path =
       bin_dir.resolve(s"${top_name}.${target}.${platform}.xclbin")
@@ -489,13 +489,13 @@ object ManticoreKernelGenerator {
 object KernelTest extends App {
   val out_dir =
     Paths.get(
-      "gen-dir/kernel/2x2_flat_full_reset_pipes_4_buffered_feedback_mmcm_clock_dist_with_master_and_slave/hw"
+      "gen-dir/kernel/32x10_100MHz_to_200MHz_BUFGCE_DIV_16_resets_pipes/hw"
     )
 
   ManticoreKernelGenerator(
     target_dir = out_dir.toAbsolutePath().toString(),
-    dimx = 2,
-    dimy = 2,
+    dimx = 10,
+    dimy = 32,
     target = "hw"
   )
   // val master_fp = AxiMasterGenerator(

@@ -19,6 +19,7 @@ class PeripheryProcessorInterface(config: ISA) extends Bundle {
   val gmem_access_failure_error: Bool = Output(Bool())
   val exception: NamedError           = Output(new NamedError(config.DataBits))
   val debug_time: UInt                = Input(UInt(64.W))
+  val dynamic_cycle: Bool             = Output(Bool())
 }
 class ProcessorInterface(config: ISA, DimX: Int, DimY: Int) extends Bundle {
 
@@ -391,6 +392,9 @@ class Processor(
     gmem_failure       := false.B
     exception_occurred := false.B
   }
+
+
+  io.periphery.dynamic_cycle := execute_stage.io.pipe_out.gmem.start
 
 }
 

@@ -73,7 +73,7 @@ class CustomFunctionComb(DATA_BITS: Int, EQUATIONS: Seq[Int]) extends Module {
   )
   val result = Wire(Vec(DATA_BITS, Bool()))
 
-  class LUT4(INIT: Int)
+  class WrappedLut4(INIT: Int)
       extends BlackBox(Map("INIT" -> INIT))
       with HasBlackBoxResource {
     val io = IO(new Bundle {
@@ -83,18 +83,17 @@ class CustomFunctionComb(DATA_BITS: Int, EQUATIONS: Seq[Int]) extends Module {
       val v   = Input(Bool())
       val out = Output(Bool())
     })
-    addResource("/verilog/LUT4.v")
+    addResource("/verilog/WrappedLut4.v")
   }
 
-
   for (ix <- Range(0, DATA_BITS)) {
-    val lut_impl = Module(new LUT4(EQUATIONS(ix)))
+    val lut_impl = Module(new WrappedLut4(EQUATIONS(ix)))
     lut_impl.suggestName(s"lut_impl_${ix}")
     lut_impl.io.x := io.in.x(ix)
     lut_impl.io.y := io.in.y(ix)
     lut_impl.io.u := io.in.u(ix)
     lut_impl.io.v := io.in.v(ix)
-    result(ix) := lut_impl.io.out
+    result(ix)    := lut_impl.io.out
   }
   // for (ix <- Range(0, DATA_BITS)) {
   //   result(ix) := EQUATIONS(ix).U(width = 16.W) >> Cat(

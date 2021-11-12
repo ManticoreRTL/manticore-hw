@@ -10,6 +10,7 @@ import org.scalatest.selenium.WebBrowser
 import memory.CacheCommand
 import manticore.xrt.ManticoreKernel
 import chisel3.stage.ChiselStage
+import chisel3.internal.sourceinfo.SourceInfo
 
 class ManticoreFlatArrayInterface extends Bundle {
 
@@ -238,6 +239,7 @@ class ComputeArray(dimx: Int, dimy: Int, debug_enable: Boolean = false)
     val config_enable     = Input(Bool())
     val exception_id      = Output(UInt(32.W))
     val exception_occured = Output(Bool())
+    val dynamic_cycle     = Output(Bool())
   })
   val equations = Seq.fill(1 << ManticoreFullISA.FunctBits) {
     Seq.tabulate(ManticoreFullISA.DataBits) { i => (1 << i) }
@@ -323,6 +325,7 @@ class ComputeArray(dimx: Int, dimy: Int, debug_enable: Boolean = false)
 
     io.exception_id      := master_core.core.io.periphery.exception.id
     io.exception_occured := master_core.core.io.periphery.exception.error
+    io.dynamic_cycle     := master_core.core.io.periphery.dynamic_cycle
   }
 
 }
@@ -363,7 +366,7 @@ class ManticoreFlatArray(dimx: Int, dimy: Int, debug_enable: Boolean = false)
       Module(new LoadStoreIssue())
     }
 
-  controller.io.kill_clock   := memory_intercept.io.kill_clock
+  // controller.io.kill_clock   := memory_intercept.io.kill_clock
   controller.io.resume_clock := memory_intercept.io.resume_clock
 
   val debug_time =
@@ -377,6 +380,8 @@ class ManticoreFlatArray(dimx: Int, dimy: Int, debug_enable: Boolean = false)
       Module(new ComputeArray(dimx, dimy, debug_enable))
     }
 
+  controller.io.kill_clock := compute_array.io.dynamic_cycle
+  
   compute_array.io.config_enable := controller.io.config_enable
   compute_array.io.config_packet := bootloader.io.packet_out
 
@@ -413,8 +418,17 @@ class ManticoreFlatArray(dimx: Int, dimy: Int, debug_enable: Boolean = false)
 
 }
 
+
+
 object Gentest extends App {
 
-  new ChiselStage()
-    .emitVerilog(new ManticoreFlatArray(2, 2), Array("-td", "gen-dir/flat"))
+  // // new ChiselStage()
+  // //   .emitVerilog(new ManticoreFlatArray(2, 2), Array("-td", "gen-dir/flat"))
+  // new ChiselStage().emitVerilog(
+  //   new GatedPipeReg(new Bundle {
+  //     val x = UInt(32.W)
+  //     val y = UInt(32.W)
+  //   }),
+  //   Array("-td", "gen-dir/pipereg")
+  // )
 }

@@ -82,14 +82,14 @@ module ClockDistribution (
       .COMPENSATION        ("AUTO"),
       .STARTUP_WAIT        ("FALSE"),
       .DIVCLK_DIVIDE       (1),
-      .CLKFBOUT_MULT_F     (6.000),
+      .CLKFBOUT_MULT_F     (12.000),
       .CLKFBOUT_PHASE      (0.000),
       .CLKFBOUT_USE_FINE_PS("FALSE"),
       .CLKOUT0_DIVIDE_F    (6.000),
       .CLKOUT0_PHASE       (0.000),
       .CLKOUT0_DUTY_CYCLE  (0.500),
       .CLKOUT0_USE_FINE_PS ("FALSE"),
-      .CLKIN1_PERIOD       (5.000)
+      .CLKIN1_PERIOD       (10.000)        // input clock is 100 MHz output is 250 MHz
   ) mmcme4_adv_inst
   // Output clocks
   (
@@ -145,25 +145,35 @@ module ClockDistribution (
   BUFG clkf_buf (
       .O(clkfbout_buf_clock_regen),
       .I(clkfbout_clock_regen)
-  ); // for compenstation
+  );  // for compenstation
 
-  BUFGCE #(
-      .CE_TYPE("SYNC"),  // SYNC, ASYNC
-      .IS_CE_INVERTED(1'b1),  // Programmable inversion on CE
-      .IS_I_INVERTED(1'b0)  // Programmable inversion on I
+  BUFGCE_DIV #(
+      .BUFGCE_DIVIDE  (1),     // 1-8
+      // Programmable Inversion Attributes: Specifies built-in programmable inversion on specific pins
+      .IS_CE_INVERTED (1'b1),  // Optional inversion for CE
+      .IS_CLR_INVERTED(1'b0),  // Optional inversion for CLR
+      .IS_I_INVERTED  (1'b0)   // Optional inversion for I
   ) compute_clock_impl (
-      .O(compute_clock),
+      .O (compute_clock),
       .CE(compute_clock_en_n),
-      .I(clk_out1_clock_regen)
-  );
-  // connect the control clock to the clock tree resources
-  BUFG control_clock_impl (
-      .O(control_clock),
-      .I(clk_out1_clock_regen)
+      .CLR(1'b0),
+      .I (clk_out1_clock_regen)
   );
 
+  BUFGCE_DIV #(
+      .BUFGCE_DIVIDE  (1),     // 1-8
+      // Programmable Inversion Attributes: Specifies built-in programmable inversion on specific pins
+      .IS_CE_INVERTED (1'b1),  // Optional inversion for CE
+      .IS_CLR_INVERTED(1'b0),  // Optional inversion for CLR
+      .IS_I_INVERTED  (1'b0)   // Optional inversion for I
+  ) control_clock_impl (
+      .O (control_clock),
+      .CE(1'b0),
+      .CLR(1'b0),
+      .I (clk_out1_clock_regen)
+  );
 
-
+  
 `endif
 
 endmodule

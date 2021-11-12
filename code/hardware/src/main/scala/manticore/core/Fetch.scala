@@ -96,7 +96,7 @@ class FetchCore(config: ISA) extends Module {
 
   val io = IO(new FetchCoreInterface(config))
 
-  val pc = RegInit(UInt(config.NumPcBits.W), 0.U)
+  val pc = Reg(UInt(config.NumPcBits.W))
 
 //  // a pointer to the next place and instruction can be written
 //  val inst_write_pointer = RegInit(UInt(config.NUM_PC_BITS.W), 0.U)
