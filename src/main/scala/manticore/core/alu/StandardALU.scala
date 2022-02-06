@@ -11,10 +11,14 @@ class ALUInterface(DATA_BITS: Int) extends Bundle {
   val in = Input(new Bundle {
     val x = UInt(DATA_BITS.W)
     val y = UInt(DATA_BITS.W)
+    val carry = UInt(1.W)
+    val carry_en = Bool()
+    val select = UInt(1.W)
   })
   val out           = Output(UInt(DATA_BITS.W))
+  val carry_out     = Output(UInt(1.W))
   val funct         = Input(UInt(4.W))
-  val select_enable = Input(Bool())
+  val select        = Input(Bool())
 }
 
 object StandardALU {
@@ -22,7 +26,7 @@ object StandardALU {
     type Functs = Value
     val ADD2, SUB2, MUL2, AND2, OR2, XOR2, SLL, // logical left shift
     SRL, // logical right shift (zeros padded to the right)
-    SEQ, SLTS, SLTU, SGTS, SGTU, MUX = Value
+    SRA, SEQ, SLTS, MUX = Value
 
   }
 
@@ -31,21 +35,33 @@ object StandardALU {
 class StandardALUComb(DATA_BITS: Int) extends Module {
   val io = IO(new ALUInterface(DATA_BITS = DATA_BITS))
 
-  val select_reg = Reg(Bool())
+
 
   val Functs = StandardALU.Functs
+  val shamnt = Wire(UInt(log2Ceil(DATA_BITS).W))
 
+  val sum_res = Wire(UInt((DATA_BITS + 1).W))
+  def widened(w: UInt): UInt = {
+    val as_wider = Wire(UInt((DATA_BITS + 1).W))
+    as_wider := w
+    as_wider
+  }
+
+  sum_res := widened(io.in.x) + widened(io.in.y) + widened(io.in.carry & io.in.carry_en)
+  io.carry_out := sum_res >> (DATA_BITS.U)
+
+  shamnt := io.in.y(log2Ceil(DATA_BITS) - 1, 0)
   switch(io.funct) {
 
     is(Functs.ADD2.id.U) {
-      io.out := io.in.x + io.in.y
+      io.out := sum_res(DATA_BITS - 1, 0)
     }
     is(Functs.SUB2.id.U) {
       io.out := io.in.x - io.in.y
     }
     is(Functs.MUL2.id.U) {
       //TODO: change back to mul!
-      io.out := io.in.x + io.in.y
+      io.out := io.in.x * io.in.y
     }
     is(Functs.AND2.id.U) {
       io.out := io.in.x & io.in.y
@@ -57,43 +73,22 @@ class StandardALUComb(DATA_BITS: Int) extends Module {
       io.out := io.in.x ^ io.in.y
     }
     is(Functs.SLL.id.U) {
-      io.out := io.in.x << io.in.y(log2Ceil(DATA_BITS) - 1, 0)
+      io.out := io.in.x << shamnt
     }
     is(Functs.SRL.id.U) {
-      io.out := io.in.x >> io.in.y(log2Ceil(DATA_BITS) - 1, 0)
+      io.out := io.in.x >> shamnt
+    }
+    is(Functs.SRA.id.U) {
+      io.out := (io.in.x.asSInt >> shamnt).asUInt
     }
     is(Functs.SEQ.id.U) {
       io.out := (io.in.x === io.in.y).asUInt
-      when(io.select_enable) {
-        select_reg := (io.in.x === io.in.y)
-      }
     }
     is(Functs.SLTS.id.U) {
       io.out := (io.in.x.asSInt < io.in.y.asSInt).asUInt
-      when(io.select_enable) {
-        select_reg := (io.in.x.asSInt < io.in.y.asSInt)
-      }
-    }
-    is(Functs.SLTU.id.U) {
-      io.out := (io.in.x < io.in.y).asUInt
-      when(io.select_enable) {
-        select_reg := (io.in.x < io.in.y)
-      }
-    }
-    is(Functs.SGTS.id.U) {
-      io.out := (io.in.x.asSInt > io.in.y.asSInt).asUInt
-      when(io.select_enable) {
-        select_reg := (io.in.x.asSInt > io.in.y.asSInt)
-      }
-    }
-    is(Functs.SGTU.id.U) {
-      io.out := (io.in.x > io.in.y).asUInt
-      when(io.select_enable) {
-        select_reg := (io.in.x > io.in.y)
-      }
     }
     is(Functs.MUX.id.U) {
-      when(select_reg) {
+      when(io.select) {
         io.out := io.in.y
       } otherwise {
         io.out := io.in.x
@@ -101,139 +96,6 @@ class StandardALUComb(DATA_BITS: Int) extends Module {
     }
   }
 
-}
-class StandardALU(DATA_BITS: Int) extends Module {
-
-  val io = IO(new ALUInterface(DATA_BITS = DATA_BITS))
-
-  val select     = Wire(Bool())
-  val select_reg = Reg(Bool())
-
-  val Functs = StandardALU.Functs
-
-  val funct_reg = Reg(UInt(4.W))
-  funct_reg := io.funct
-
-  val res_reg = Reg(UInt(DATA_BITS.W))
-
-  val add_reg = Reg(UInt(DATA_BITS.W))
-  add_reg := io.in.x + io.in.y
-
-  val sub_reg = Reg(UInt(DATA_BITS.W))
-  sub_reg := io.in.x - io.in.y
-
-  val mul_reg = Reg(UInt(DATA_BITS.W))
-  mul_reg := io.in.x * io.in.y
-
-  val and_reg = Reg(UInt(DATA_BITS.W))
-  and_reg := io.in.x & io.in.y
-
-  val or_reg = Reg(UInt(DATA_BITS.W))
-  or_reg := io.in.x | io.in.y
-
-  val xor_reg = Reg(UInt(DATA_BITS.W))
-  xor_reg := io.in.x ^ io.in.y
-
-  val seq_reg = Reg(UInt(DATA_BITS.W))
-  when(io.in.x === io.in.y) {
-    seq_reg := 1.U
-  } otherwise {
-    seq_reg := 0.U
-  }
-
-  val slts_reg = Reg(UInt(DATA_BITS.W))
-  when(io.in.x.asSInt < io.in.y.asSInt) {
-    slts_reg := 1.U
-  } otherwise {
-    slts_reg := 0.U
-  }
-
-  val sltu_reg = Reg(UInt(DATA_BITS.W))
-  when(io.in.x < io.in.y) {
-    sltu_reg := 1.U
-  } otherwise {
-    sltu_reg := 0.U
-  }
-
-  val sgts_reg = Reg(UInt(DATA_BITS.W))
-  when(io.in.x.asSInt > io.in.y.asSInt) {
-    sgts_reg := 1.U
-  } otherwise {
-    sgts_reg := 0.U
-  }
-
-  val sgtu_reg = Reg(UInt(DATA_BITS.W))
-  when(io.in.x > io.in.y) {
-    sgtu_reg := 1.U
-  } otherwise {
-    sgtu_reg := 0.U
-  }
-
-  val mux_reg = Reg(UInt(DATA_BITS.W))
-
-  when(select_reg) {
-    mux_reg := io.in.y
-  } otherwise {
-    mux_reg := io.in.x
-  }
-
-  val sll_reg = Reg(UInt(DATA_BITS.W))
-  sll_reg := io.in.x << io.in.y(log2Ceil(DATA_BITS) - 1, 0)
-
-  val srl_reg = Reg(UInt(DATA_BITS.W))
-  srl_reg := io.in.x >> io.in.y(log2Ceil(DATA_BITS) - 1, 0)
-
-  switch(funct_reg) {
-
-    is(Functs.ADD2.id.U) {
-      res_reg := add_reg
-    }
-    is(Functs.SUB2.id.U) {
-      res_reg := sub_reg
-    }
-    is(Functs.MUL2.id.U) {
-      res_reg := mul_reg
-    }
-    is(Functs.AND2.id.U) {
-      res_reg := and_reg
-    }
-    is(Functs.OR2.id.U) {
-      res_reg := or_reg
-    }
-    is(Functs.XOR2.id.U) {
-      res_reg := xor_reg
-    }
-    is(Functs.SLL.id.U) {
-      res_reg := sll_reg
-    }
-    is(Functs.SRL.id.U) {
-      res_reg := srl_reg
-    }
-    is(Functs.SEQ.id.U) {
-      res_reg    := seq_reg
-      select_reg := seq_reg
-    }
-    is(Functs.SLTS.id.U) {
-      res_reg    := slts_reg
-      select_reg := slts_reg
-    }
-    is(Functs.SLTU.id.U) {
-      res_reg    := sltu_reg
-      select_reg := sltu_reg
-    }
-    is(Functs.SGTS.id.U) {
-      res_reg    := sgts_reg
-      select_reg := sgts_reg
-    }
-    is(Functs.SGTU.id.U) {
-      res_reg    := sgtu_reg
-      select_reg := sgtu_reg
-    }
-    is(Functs.MUX.id.U) {
-      res_reg := mux_reg
-    }
-  }
-  io.out := res_reg
 }
 
 object StandardALUGenerator extends App {

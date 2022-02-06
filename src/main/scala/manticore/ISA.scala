@@ -25,6 +25,7 @@ trait ISA {
   def FunctBits: Int
   def OpcodeBits:  Int = NumBits - 5 * IdBits - FunctBits
   def WithGlobalMemory: Boolean
+  def CarryCount: Int
 
 
   sealed class Opcode(val value: Int) extends InstructionField(0, OpcodeBits)
@@ -43,7 +44,7 @@ trait ISA {
   object GlobalStore extends Opcode (Instruction.Opcode.GSTORE.id)
   object Send extends Opcode(Instruction.Opcode.SEND.id)
   object Predicate extends Opcode(Instruction.Opcode.PREDICATE.id)
-
+  object AddCarry extends Opcode(Instruction.Opcode.ADDCARRY.id)
   object DestReg extends  InstructionField(OpcodeBits, IdBits)
   object Funct extends InstructionField(DestReg.toIndex + 1, FunctBits)
   object SourceReg1 extends InstructionField(Funct.toIndex + 1, IdBits)
@@ -64,6 +65,7 @@ object ManticoreBaseISA extends ISA {
   val IdBits: Int = 11
   val FunctBits: Int = 5
   val WithGlobalMemory: Boolean = false
+  val CarryCount: Int = 32
 
 }
 
@@ -74,4 +76,6 @@ object ManticoreFullISA extends ISA {
   val IdBits: Int = ManticoreBaseISA.IdBits
   val FunctBits: Int = ManticoreBaseISA.FunctBits
   val WithGlobalMemory: Boolean = true
+
+  val CarryCount: Int = 32
 }

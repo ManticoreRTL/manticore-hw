@@ -190,7 +190,7 @@ class ManticoreFlatKernel(
   slave.io.core.RREADY  := s_axi_control.RREADY
   interrupt             := slave.io.control.interrupt
 
-  val manticore = 
+  val manticore =
     Module(new ManticoreFlatArray(DimX, DimY, debug_enable))
 
   manticore.io.reset := actual_reset
@@ -489,13 +489,13 @@ object ManticoreKernelGenerator {
 object KernelTest extends App {
   val out_dir =
     Paths.get(
-      "gen-dir/kernel/32x10_100MHz_to_200MHz_BUFGCE_DIV_16_resets_pipes/hw"
+      "gen-dir/kernel/28x10_100MHz_to_200MHz_8KiB/hw"
     )
 
   ManticoreKernelGenerator(
     target_dir = out_dir.toAbsolutePath().toString(),
     dimx = 10,
-    dimy = 32,
+    dimy = 28,
     target = "hw"
   )
   // val master_fp = AxiMasterGenerator(

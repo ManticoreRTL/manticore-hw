@@ -32,7 +32,7 @@ class MemoryInterface(config: ISA, DimX: Int, DimY: Int) extends Bundle {
   val pipe_in = Input(new MemoryAccess.PipeIn(config))
   val pipe_out = Output(new MemoryAccess.PipeOut(config, DimX, DimY))
   val local_memory_interface = Flipped(
-    new SimpleDualPortMemoryInterface(ADDRESS_WIDTH = 11, DATA_WIDTH = config.DataBits))
+    new SimpleDualPortMemoryInterface(ADDRESS_WIDTH = 12, DATA_WIDTH = config.DataBits))
   val global_memory_interface = Flipped(CacheConfig.frontInterface())
 }
 
@@ -79,9 +79,9 @@ class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
   if (config.WithGlobalMemory) {
     io.pipe_out.gmem_data := io.global_memory_interface.rdata
   }
-  
+
   io.pipe_out.lmem_data := io.local_memory_interface.dout
-  
+
 
 
 

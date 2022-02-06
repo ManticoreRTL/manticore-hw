@@ -24,7 +24,7 @@ object Instruction {
   object Opcode extends Enumeration {
     type Type = Value
     val NOP, SET, CUST0, ARITH, LLOAD, LSTORE, EXPECT, GLOAD, GSTORE, SEND,
-        PREDICATE = Value
+        PREDICATE, ADDCARRY = Value
   }
 
   sealed abstract class Instruction(val opcode: Opcode.Type)
@@ -108,7 +108,8 @@ object Instruction {
       addrmid: Register,
       addrhi: Register
   ) extends Instruction(Opcode.GLOAD) {
-    override def toString: String = s"GLOAD\t${rd}, [${addrhi}, ${addrmid}, ${addrlo}]"
+    override def toString: String =
+      s"GLOAD\t${rd}, [${addrhi}, ${addrmid}, ${addrlo}]"
   }
   case class GlobalStore(
       rs: Register,
@@ -116,10 +117,12 @@ object Instruction {
       addrmid: Register,
       addrhi: Register
   ) extends Instruction(Opcode.GSTORE) {
-    override def toString: String = s"GSTORE\t${rs}, [${addrhi}, ${addrmid}, ${addrlo}]"
+    override def toString: String =
+      s"GSTORE\t${rs}, [${addrhi}, ${addrmid}, ${addrlo}]"
   }
 
-  case class SetValue(rd: Register, value: Int) extends Instruction(Opcode.SET) {
+  case class SetValue(rd: Register, value: Int)
+      extends Instruction(Opcode.SET) {
     override def toString: String = s"SET\t${rd}, ${value}"
   }
   case class Send(
@@ -128,7 +131,8 @@ object Instruction {
       addressX: Long,
       addressY: Long
   ) extends Instruction(Opcode.SEND) {
-    override def toString: String = s"SEND\t${target}, ${rs}, ${addressX}, ${addressY}"
+    override def toString: String =
+      s"SEND\t${target}, ${rs}, ${addressX}, ${addressY}"
   }
   case class Predicate(rs: Register) extends Instruction(Opcode.PREDICATE) {
     override def toString: String = s"PREDICATE\t${rs}"
@@ -138,54 +142,15 @@ object Instruction {
     override def toString: String = s"NOP"
   }
 
-}
+  case class AddCarry(
+      target: Register,
+      co: Register,
+      rs1: Register,
+      rs2: Register,
+      ci: Register
+  ) extends Instruction(Opcode.ADDCARRY) {
+    override def toString: String =
+      s"ADDCARRY ${target}, ${co}, ${rs1}, ${rs2}, ${ci}"
+  }
 
-//object InstructionBuilder {
-//
-//
-//  sealed abstract class PartialBuilder
-//  class SetValueBuilder2(val rd: Register, val value: Long) extends PartialBuilder {
-//    def end : SetValue = SetValue(rd, value)
-//  }
-//  class SetValueBuilder1(val rd: Register) extends PartialBuilder {
-//    def value (value: Long): SetValue = SetValue(rd, value)
-//  }
-//
-//
-//  def RReg(x: Int): Register = Register(x)
-//
-//  implicit class SetValueBuilder00(val set: SetOpcode) extends PartialBuilder {
-//    def rd (rd: Int): SetValueBuilder1 = new SetValueBuilder1(Register(rd))
-//  }
-//
-//
-//  implicit class Add3Builder00(val add3: Add3Opcode) extends PartialBuilder {
-//    def rd (rd: Int): Add3Builder1 = new Add3Builder1(Register(rd))
-//  }
-//
-//
-//  class Add3Builder0 extends PartialBuilder {
-//    def rd (rd: Int): Add3Builder1 = new Add3Builder1(Register(rd))
-//  }
-//
-//
-//
-//  class Add3Builder1(val rd: Register) extends PartialBuilder {
-//    def rs1 (rs1: Int): Add3Builder2 = new Add3Builder2(rd, Register(rs1))
-//  }
-//  class Add3Builder2(val rd: Register, val rs1: Register) extends PartialBuilder {
-//    def rs2 (rs2: Int): Add3Builder3 = new Add3Builder3(rd, rs1, Register(rs2))
-//  }
-//  class Add3Builder3(val rd: Register, val rs1: Register, val rs2: Register) extends PartialBuilder {
-//    def rs3 (rs3: Int): Add3 = Add3(rd, rs1, rs2, Register(rs3))
-//  }
-//
-//  sealed abstract class OpcodeWord(val name: String)
-//  final class SetOpcode extends OpcodeWord("Set")
-//  final class Add3Opcode extends OpcodeWord("Add3")
-//
-//  val SET = new SetOpcode()
-//  val ADD3 = new Add3Opcode()
-//
-//
-//}
+}

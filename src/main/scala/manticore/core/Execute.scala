@@ -48,6 +48,9 @@ object ExecuteInterface {
     val data      = UInt(config.DataBits.W)
     val result    = UInt(config.DataBits.W)
     val rd        = UInt(config.IdBits.W)
+    val carry_rd  = UInt(log2Ceil(config.CarryCount).W)
+    val carry_wen = Bool()
+    val carry_din = UInt(1.W)
     val immediate = UInt(config.DataBits.W)
     val gmem      = new GlobalMemoryInterface(config)
     val pred      = Bool()
@@ -73,6 +76,7 @@ object ExecuteInterface {
 class ExecuteInterface(config: ISA) extends Bundle {
   val pipe_in: PipeIn = Input(new PipeIn(config))
   val regs_in         = Input(new ALUInput(config.DataBits))
+  val carry_in        = Input(UInt(1.W))
   val pipe_out        = Output(new PipeOut(config))
   val debug_time      = Input(UInt(64.W))
 }
@@ -85,96 +89,7 @@ class ExecuteBase(
 ) extends Module {
   val io = IO(new ExecuteInterface(config))
 }
-class ExecutePiped(config: ISA, equations: Seq[Seq[Int]])
-    extends ExecuteBase(config, equations) {
 
-  val custom_alu = Module(new CustomALU(config.DataBits, equations))
-
-  val standard_alu = Module(new StandardALU(config.DataBits))
-
-  // Custom ALU connections
-  custom_alu.io.in.x  := io.regs_in.x
-  custom_alu.io.in.y  := io.regs_in.y
-  custom_alu.io.in.u  := io.regs_in.u
-  custom_alu.io.in.v  := io.regs_in.v
-  custom_alu.io.funct := io.pipe_in.funct
-
-  when(io.pipe_in.opcode.arith | io.pipe_in.opcode.expect) {
-    standard_alu.io.in.y          := io.regs_in.y
-    standard_alu.io.select_enable := true.B // enable if arithmetic
-    when(io.pipe_in.opcode.expect) {
-      standard_alu.io.funct := StandardALU.Functs.SEQ.id.U
-      // standard_alu.io.select_enable := false.B // expect instruction should not change the select bit
-    } otherwise { //.elsewhen(io.pipe_in.opcode.arith)
-      standard_alu.io.funct         := io.pipe_in.funct
-      standard_alu.io.select_enable := true.B // enable if arithmetic
-    }
-  } otherwise {
-    standard_alu.io.funct := StandardALU.Functs.ADD2.id.U
-    // with non-arith instructions, funct can be any value, including the
-    // funct for Mux (which is stateful) so we should set it to zero to
-    // ensure no stateful ALU operations are performed.
-    standard_alu.io.select_enable := false.B
-    standard_alu.io.in.y          := io.pipe_in.immediate
-  }
-
-  when(io.pipe_in.opcode.set || io.pipe_in.opcode.send) {
-    standard_alu.io.in.x := 0.U
-  } otherwise {
-    standard_alu.io.in.x := io.regs_in.x
-  }
-
-  // taps
-  def makeTaps[T <: Data](source: T, count: Int)(cons: => T) = {
-    require(count >= 1)
-    val regs = Reg(Vec(count, cons))
-    regs(0) := source
-    regs.sliding(2, 1).foreach { case Seq(first, second) =>
-      second := first
-    }
-    regs.last
-  }
-
-  val data_tap = makeTaps(io.regs_in.y, 2) {
-    UInt(config.DataBits.W)
-  }
-
-  //  val opcode_taps = Reg(Vec(2, new OpcodePipe))
-  //  opcode_taps(0) := io.pipe_in.opcode
-  //  opcode_taps(1) := opcode_taps(0)
-  val opcode_tap = makeTaps(io.pipe_in.opcode, 2) {
-    new Decode.OpcodePipe
-  }
-  val rd_tap = makeTaps(io.pipe_in.rd, 2) {
-    UInt(config.DataBits.W)
-  }
-
-  val imm_tap = makeTaps(io.pipe_in.immediate, 2) {
-    UInt(config.DataBits.W)
-  }
-
-  val pipe_out = Reg(new PipeOut(config))
-
-  when(opcode_tap.cust0) {
-    pipe_out.result := custom_alu.io.out
-  } otherwise {
-    pipe_out.result := standard_alu.io.out
-  }
-
-  pipe_out.opcode    := opcode_tap
-  pipe_out.data      := data_tap
-  pipe_out.rd        := rd_tap
-  pipe_out.immediate := imm_tap
-
-  io.pipe_out := pipe_out
-
-//  // start the read early,
-//  io.lmem_if.address := standard_alu.io.out
-//  pipe_out.load_data := io.lmem_if.dout
-//  // read only, disable writing
-//  io.lmem_if.we := false.B
-
-}
 
 class ExecuteComb(
     config: ISA,
@@ -198,21 +113,20 @@ class ExecuteComb(
     standard_alu.io.in.y := io.regs_in.y
     when(io.pipe_in.opcode.expect) {
       standard_alu.io.funct         := StandardALU.Functs.SEQ.id.U
-      standard_alu.io.select_enable := false.B
     } otherwise {
       standard_alu.io.funct         := io.pipe_in.funct
-      standard_alu.io.select_enable := true.B
     }
   } otherwise {
     standard_alu.io.funct := StandardALU.Functs.ADD2.id.U
     // with non-arith instructions, funct can be any value, including the
     // funct for Mux (which is stateful) so we should set it to zero to
     // ensure no stateful ALU operations are performed.
-    standard_alu.io.select_enable := false.B
-
     standard_alu.io.in.y := io.pipe_in.immediate
-
   }
+
+  standard_alu.io.select := io.regs_in.u
+  standard_alu.io.in.carry_en := io.pipe_in.opcode.carry_en
+  standard_alu.io.in.carry := io.carry_in
 
   when(io.pipe_in.opcode.set || io.pipe_in.opcode.send) {
     standard_alu.io.in.x := 0.U
@@ -232,7 +146,9 @@ class ExecuteComb(
   pipe_out.data      := io.regs_in.y
   pipe_out.rd        := io.pipe_in.rd
   pipe_out.immediate := io.pipe_in.immediate
-
+  pipe_out.carry_rd  := io.pipe_in.rs4
+  pipe_out.carry_din := standard_alu.io.carry_out
+  pipe_out.carry_wen := io.pipe_in.opcode.carry_en
   io.pipe_out := pipe_out
 
   val pred_reg = Reg(Bool())
@@ -404,6 +320,5 @@ object ExecuteGen extends App {
   // create random LUT equations
   val equations = Seq.fill(32)(Seq.fill(16)(rdgen.nextInt(1 << 16)))
 
-  new ChiselStage().emitVerilog(new ExecutePiped(ManticoreBaseISA, equations))
   new ChiselStage().emitVerilog(new ExecuteComb(ManticoreBaseISA, equations))
 }

@@ -103,16 +103,18 @@ class Processor(
 
   if (debug_enable)
     execute_stage.io.debug_time := io.periphery.debug_time
-    
+
   val memory_stage = Module(new MemoryAccess(config, DimX, DimY))
-  
+
   val register_file = Module(new RegisterFile(config, initial_registers))
+  val carry_register_file = Module(new CarryRegisterFile(config))
+
   val array_memory = Module(
     new SimpleDualPortMemory(
-      config.IdBits,
-      config.DataBits,
-      memory.MemStyle.BRAM,
-      initial_array
+      ADDRESS_WIDTH = 12,
+      DATA_WIDTH = config.DataBits,
+      STYLE = memory.MemStyle.BRAM,
+      INIT = initial_array
     )
   )
 
@@ -311,6 +313,11 @@ class Processor(
   register_file.io.ry.addr   := decode_stage.io.pipe_out.rs2
   register_file.io.ru.addr   := decode_stage.io.pipe_out.rs3
   register_file.io.rv.addr   := decode_stage.io.pipe_out.rs4
+
+  carry_register_file.io.raddr := decode_stage.io.pipe_out.rs3
+  carry_register_file.io.wen := execute_stage.io.pipe_out.carry_wen
+  execute_stage.io.carry_in := carry_register_file.io.dout
+  carry_register_file.io.waddr := execute_stage.io.pipe_out.carry_rd
 
   // exec --> memory and write back implementation
   memory_stage.io.local_memory_interface <> array_memory.io

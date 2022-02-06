@@ -23,10 +23,11 @@
 package manticore.core
 
 
-import Chisel._
+import chisel3._
 import chisel3.stage.ChiselStage
 import memory.{GenericMemory, GenericMemoryInterface, SimpleDualPortMemory, SimpleDualPortMemoryInterface}
 import manticore.{ISA, ManticoreBaseISA}
+import chisel3.util.log2Ceil
 
 class RegisterFileInterface(config: ISA) extends Bundle {
   def makeAddr = Input(UInt(config.IdBits.W))
@@ -87,8 +88,30 @@ class RegisterFile(config: ISA, INIT: String = "") extends Module {
 
 }
 
+
+class CarryRegisterFileInterface(config: ISA) extends Bundle {
+  val AddressBits = log2Ceil(config.CarryCount)
+  val raddr = Input(UInt(AddressBits.W))
+  val waddr = Input(UInt(AddressBits.W))
+  val din = Input(UInt(1.W))
+  val dout = Output(UInt(1.W))
+  val wen = Input(Bool())
+}
+
+
+class CarryRegisterFile(config: ISA) extends Module {
+  val io = IO(new CarryRegisterFileInterface(config))
+  val storage = SyncReadMem(config.CarryCount, UInt(1.W))
+  when(io.wen) {
+    storage(io.waddr) := io.din
+  }
+  io.dout := storage(io.raddr)
+}
+
 object RegisterFileGen extends App {
 
 
-  new ChiselStage().emitVerilog(new RegisterFile(ManticoreBaseISA), Array("--help"))
+  // new ChiselStage().emitVerilog(new RegisterFile(ManticoreBaseISA), Array("--help"))
+  new ChiselStage()
+    .emitVerilog(new CarryRegisterFile(ManticoreBaseISA), Array("--target-dir", "gen-dir"))
 }

@@ -11,7 +11,7 @@ import manticore.assembly.Instruction.Opcode
 import manticore.core.ExecuteInterface.OpcodePipe
 import manticore.core.alu.StandardALU.Functs
 import manticore.core.alu.StandardALU.Functs.Functs
-import manticore.core.{ExecuteBase, ExecuteComb, ExecutePiped}
+import manticore.core.{ExecuteBase, ExecuteComb}
 import org.scalatest.{FlatSpec, Matchers}
 
 class ExecuteTester extends FlatSpec with ChiselScalatestTester with Matchers {
@@ -140,16 +140,6 @@ class ExecuteTester extends FlatSpec with ChiselScalatestTester with Matchers {
       check(expected.head)
       dut.clock.step()
       drainAfter(0)(expected.tail)
-    }
-  }
-  //  def executeLLoad(opcode, )
-  it should "correctly handle computation and send out data and result in 3 cycles" in {
-
-    test(new ExecutePiped(config = ManticoreBaseISA, equations = equations)).withAnnotations(Seq(USE_VERILATOR)) { dut =>
-      drainAfter(3000)(Seq.fill(3) {
-        setPipeIn(dut)
-      })(dut)
-      dut.clock.step()
     }
   }
 

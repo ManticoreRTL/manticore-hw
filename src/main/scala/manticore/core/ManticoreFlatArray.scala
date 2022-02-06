@@ -257,7 +257,7 @@ class ComputeArray(dimx: Int, dimy: Int, debug_enable: Boolean = false)
     regarray_files = makeConfigData((x, y) => s"ra_${x}_${y}.dat")
   )
 
-  def hasMemory(x: Int, y: Int): Boolean = (x == dimx - 1) && (y == dimy / 2)
+  def hasMemory(x: Int, y: Int): Boolean = (x == 0) && (y == 0)
   case class FatCore(core: Processor, switch: Switch, x: Int, y: Int)
 
   val cores: Seq[Seq[FatCore]] = Seq.tabulate(dimx) { x =>
@@ -381,7 +381,7 @@ class ManticoreFlatArray(dimx: Int, dimy: Int, debug_enable: Boolean = false)
     }
 
   controller.io.kill_clock := compute_array.io.dynamic_cycle
-  
+
   compute_array.io.config_enable := controller.io.config_enable
   compute_array.io.config_packet := bootloader.io.packet_out
 
