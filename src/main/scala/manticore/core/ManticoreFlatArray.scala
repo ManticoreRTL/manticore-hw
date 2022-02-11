@@ -93,7 +93,7 @@ class KernelControl extends Module {
   val config_enable_reg = Reg(Bool())
   config_enable_reg := true.B
   io.config_enable  := config_enable_reg // registering this signal means that
-  // the master processor can not recieve messages in the first cycle when
+  // the master processor can not receive messages in the first cycle when
   // it becomes active, but that is fine, because the pipeline depth is larger
   // than 1 by design.
 

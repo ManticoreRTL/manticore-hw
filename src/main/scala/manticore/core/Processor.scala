@@ -1,9 +1,9 @@
 package manticore.core
 
 import Chisel._
-import chisel3.{RawModule, withClockAndReset}
+
 import chisel3.experimental.ChiselEnum
-import chisel3.stage.ChiselStage
+
 import memory.{CacheConfig, CacheFrontInterface, SimpleDualPortMemory}
 import manticore.{ISA, ManticoreBaseISA}
 
