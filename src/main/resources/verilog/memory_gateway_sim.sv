@@ -1,9 +1,10 @@
-module MemoryGateWaySimImpl (
-    input wire ap_clk,
-    input wire ap_rst,
+module memory_gateway_sim (
+    input wire clock,
+    input wire reset,
     input wire ap_start,
     output wire ap_done,
     output wire ap_idle,
+    output wire ap_ready,
     input wire [63:0] memory_pointer,
     input wire [63:0] addr,
     input wire [15:0] wdata,
@@ -14,7 +15,6 @@ module MemoryGateWaySimImpl (
   localparam MEM_SIZE = 1 << 22;
   parameter READ_LATENCY = 77;
   parameter WRITE_LATENCY = 77;
-
   logic [63:0] addr_reg;
   logic [15:0] rdata;
   logic [15:0] wdata_reg;
@@ -34,9 +34,9 @@ module MemoryGateWaySimImpl (
 
   always_comb begin
     if (pstate == ReadDone) begin
-        rdata = mem[addr_reg];
+      rdata = mem[addr_reg];
     end else begin
-        rdata = 0;
+      rdata = 0;
     end
     case (pstate)
       Idle: begin
@@ -63,7 +63,7 @@ module MemoryGateWaySimImpl (
         end
       end
       ReadDone: begin
-        nastate = Idle;
+        nstate = Idle;
       end
       WriteDone: begin
         nstate = Idle;
@@ -75,33 +75,34 @@ module MemoryGateWaySimImpl (
   end
 
 
-  assign ap_done = (pstate == ReadDone || pstate == WriteDone);
-  assign ap_idle = (pstate == ap_idle);
+  assign ap_done   = (pstate == ReadDone || pstate == WriteDone);
+  assign ap_ready  = (pstate == ReadDone || pstate == WriteDone);
+  assign ap_idle   = (pstate == Idle);
   assign ap_return = rdata;
 
-  always_ff @(posedge ap_clk) begin
-    if (ap_rst) begin
+  always_ff @(posedge clock) begin
+    if (reset) begin
       pstate  <= Idle;
       counter <= 0;
     end else begin
       pstate <= nstate;
       if (pstate == Idle) begin
-        counter <= 0;
-        addr_reg <= addr;
+        counter   <= 0;
+        addr_reg  <= addr;
         wdata_reg <= wdata;
       end else begin
         counter <= counter + 1;
       end
 
       if (pstate == WriteDone) begin
-          mem[addr_reg] <= wdata_reg;
+        mem[addr_reg] <= wdata_reg;
       end
     end
   end
 
 
   initial begin
-      $readmemh("gmem.hex", mem);
+    $readmemb("exec.dat", mem);
   end
 
 endmodule

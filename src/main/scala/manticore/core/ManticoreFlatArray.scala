@@ -50,7 +50,7 @@ class KernelControl extends Module {
     val device_registers  = Output(new DeviceRegisters(ManticoreFullISA))
     val kill_clock        = Input(Bool())
     val resume_clock      = Input(Bool())
-    val exception_occured = Input(Bool())
+    val exception_occurred = Input(Bool())
     val exception_id      = Input(UInt(32.W))
     val config_enable     = Output(Bool())
     val clock_inactive    = Output(Bool())
@@ -58,7 +58,7 @@ class KernelControl extends Module {
 
   val clock_inactive = RegInit(Bool(), false.B)
   when(clock_inactive === false.B) {
-    clock_inactive := io.kill_clock | io.exception_occured
+    clock_inactive := io.kill_clock | io.exception_occurred
   } otherwise {
     // when the clock is inactive, resume the clock on command
     clock_inactive := !io.resume_clock
@@ -117,7 +117,7 @@ class KernelControl extends Module {
     is(State.VirtualCycle) {
       config_enable_reg := false.B
       when(!clock_inactive) {
-        when(io.exception_occured) {
+        when(io.exception_occurred) {
           state                   := State.SignalDone
           dev_regs.exception_id_0 := io.exception_id
         }
@@ -238,7 +238,7 @@ class ComputeArray(dimx: Int, dimy: Int, debug_enable: Boolean = false)
     val config_packet     = Input(new NoCBundle(dimx, dimy, ManticoreFullISA))
     val config_enable     = Input(Bool())
     val exception_id      = Output(UInt(32.W))
-    val exception_occured = Output(Bool())
+    val exception_occurred = Output(Bool())
     val dynamic_cycle     = Output(Bool())
   })
   val equations = Seq.fill(1 << ManticoreFullISA.FunctBits) {
@@ -324,7 +324,7 @@ class ComputeArray(dimx: Int, dimy: Int, debug_enable: Boolean = false)
     }
 
     io.exception_id      := master_core.core.io.periphery.exception.id
-    io.exception_occured := master_core.core.io.periphery.exception.error
+    io.exception_occurred := master_core.core.io.periphery.exception.error
     io.dynamic_cycle     := master_core.core.io.periphery.dynamic_cycle
   }
 
@@ -392,6 +392,7 @@ class ManticoreFlatArray(dimx: Int, dimy: Int, debug_enable: Boolean = false)
     io.memory_backend.wen              := bootloader.io.memory_backend.wen
     io.memory_backend.wdata            := bootloader.io.memory_backend.wdata
     io.memory_backend.addr             := bootloader.io.memory_backend.addr
+    io.memory_backend.start            := bootloader.io.memory_backend.start
     bootloader.io.memory_backend.done  := io.memory_backend.done
     bootloader.io.memory_backend.idle  := io.memory_backend.idle
     bootloader.io.memory_backend.rdata := io.memory_backend.rdata
@@ -404,6 +405,7 @@ class ManticoreFlatArray(dimx: Int, dimy: Int, debug_enable: Boolean = false)
     io.memory_backend.wen              := memory_intercept.io.outbound.wen
     io.memory_backend.wdata            := memory_intercept.io.outbound.wdata
     io.memory_backend.addr             := memory_intercept.io.outbound.addr
+    io.memory_backend.start            := memory_intercept.io.outbound.start
     memory_intercept.io.outbound.done  := io.memory_backend.done
     memory_intercept.io.outbound.idle  := io.memory_backend.idle
     memory_intercept.io.outbound.rdata := io.memory_backend.rdata
@@ -414,7 +416,7 @@ class ManticoreFlatArray(dimx: Int, dimy: Int, debug_enable: Boolean = false)
   }
 
   controller.io.exception_id      := compute_array.io.exception_id
-  controller.io.exception_occured := compute_array.io.exception_occured
+  controller.io.exception_occurred := compute_array.io.exception_occurred
 
 }
 

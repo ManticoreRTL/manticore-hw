@@ -60,11 +60,12 @@ class Processor(
   }
 
   def dprintf(fmt: String, data: Bits*) =
-    if (debug_enable)
+    if (debug_enable) {
       printf(
         s"[%d : ${debug_tag}] " + fmt,
         (io.periphery.debug_time +: data): _*
       )
+    }
 
   val state =
     RegInit(ProcessorPhase(), ProcessorPhase.DynamicReceiveProgramLength)

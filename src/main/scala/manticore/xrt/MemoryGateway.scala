@@ -122,37 +122,37 @@ class MemoryGatewaySim extends Module {
     val ap_idle  = Output(Bool())
     val ap_ready = Output(Bool())
 
-    val ap_return = Output(UInt(256.W))
+    val ap_return = Output(UInt(16.W))
 
     val memory_pointer = Input(UInt(64.W))
     val addr           = Input(UInt(64.W))
 
-    val wen   = Input(UInt(8.W))
+    val wen   = Input(Bool())
     val wdata = Input(UInt(16.W))
   }
-  class MemoryGatewaySimImpl extends BlackBox() with HasBlackBoxResource {
+  class memory_gateway_sim extends BlackBox() with HasBlackBoxResource {
     val io = IO(new MemoryGateWaySimInterface {
       val clock = Input(Clock())
       val reset = Input(Reset())
     })
-    addResource("/verilog/MemoryGatewaySimImpl.sv")
+    addResource("/verilog/memory_gateway_sim.sv")
   }
   val io = IO(new MemoryGateWaySimInterface())
-  val impl = Module(new MemoryGatewaySimImpl())
+  val underlying = Module(new memory_gateway_sim())
 
 
-  impl.io.ap_start := io.ap_start
-  io.ap_done := impl.io.ap_done
-  io.ap_idle := impl.io.ap_idle
-  io.ap_ready := impl.io.ap_ready
-  io.ap_return := impl.io.ap_return
-  impl.io.memory_pointer := io.memory_pointer
-  impl.io.addr           := io.addr
-  impl.io.wen   := io.wen
-  impl.io.wdata := io.wdata
+  underlying.io.ap_start := io.ap_start
+  io.ap_done := underlying.io.ap_done
+  io.ap_idle := underlying.io.ap_idle
+  io.ap_ready := underlying.io.ap_ready
+  io.ap_return := underlying.io.ap_return
+  underlying.io.memory_pointer := io.memory_pointer
+  underlying.io.addr           := io.addr
+  underlying.io.wen   := io.wen
+  underlying.io.wdata := io.wdata
 
-  impl.io.clock := clock
-  impl.io.reset := reset
+  underlying.io.clock := clock
+  underlying.io.reset := reset
 
 
 }

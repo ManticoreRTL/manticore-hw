@@ -252,7 +252,7 @@ class ManticoreFlatSimKernel(
     val idle: Bool = Output(Bool())
   })
 
-  val memif = IO(new MemoryReadWriteInterface(ManticoreFullISA))
+
 
   val clock_distribution = Module(new ClockDistribution())
 
@@ -283,8 +283,6 @@ class ManticoreFlatSimKernel(
   kernel_ctrl.done := manticore.io.done
   kernel_ctrl.idle := manticore.io.idle
 
-  manticore.io.memory_backend <> memif
-
   clock_distribution.io.compute_clock_en_n := manticore.io.clock_inactive
 
   val gateway: MemoryGatewaySim = withClockAndReset(
@@ -302,6 +300,10 @@ class ManticoreFlatSimKernel(
   gateway.io.addr := manticore.io.memory_backend.addr // short-addressable memory
   gateway.io.wdata := manticore.io.memory_backend.wdata
   gateway.io.ap_start := manticore.io.memory_backend.start
+
+  manticore.io.memory_backend.done := gateway.io.ap_done
+  manticore.io.memory_backend.rdata := gateway.io.ap_return
+  manticore.io.memory_backend.idle := gateway.io.ap_idle
 
 }
 
