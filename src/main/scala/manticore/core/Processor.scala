@@ -316,9 +316,10 @@ class Processor(
   register_file.io.rv.addr   := decode_stage.io.pipe_out.rs4
 
   carry_register_file.io.raddr := decode_stage.io.pipe_out.rs3
-  carry_register_file.io.wen := execute_stage.io.pipe_out.carry_wen
   execute_stage.io.carry_in := carry_register_file.io.dout
+  carry_register_file.io.wen := execute_stage.io.pipe_out.carry_wen
   carry_register_file.io.waddr := execute_stage.io.pipe_out.carry_rd
+  carry_register_file.io.din   := execute_stage.io.pipe_out.carry_din
 
   // exec --> memory and write back implementation
   memory_stage.io.local_memory_interface <> array_memory.io

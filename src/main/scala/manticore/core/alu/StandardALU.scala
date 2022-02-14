@@ -12,13 +12,11 @@ class ALUInterface(DATA_BITS: Int) extends Bundle {
     val x = UInt(DATA_BITS.W)
     val y = UInt(DATA_BITS.W)
     val carry = UInt(1.W)
-    val carry_en = Bool()
-    val select = UInt(1.W)
+    val select = Bool()
   })
   val out           = Output(UInt(DATA_BITS.W))
   val carry_out     = Output(UInt(1.W))
   val funct         = Input(UInt(4.W))
-  val select        = Input(Bool())
 }
 
 object StandardALU {
@@ -26,7 +24,7 @@ object StandardALU {
     type Functs = Value
     val ADD2, SUB2, MUL2, AND2, OR2, XOR2, SLL, // logical left shift
     SRL, // logical right shift (zeros padded to the right)
-    SRA, SEQ, SLTS, MUX = Value
+    SRA, SEQ, SLTS, MUX, ADDC = Value
 
   }
 
@@ -41,14 +39,18 @@ class StandardALUComb(DATA_BITS: Int) extends Module {
   val shamnt = Wire(UInt(log2Ceil(DATA_BITS).W))
 
   val sum_res = Wire(UInt((DATA_BITS + 1).W))
+  val sum_with_carry = Wire(UInt((DATA_BITS + 1).W))
+
   def widened(w: UInt): UInt = {
     val as_wider = Wire(UInt((DATA_BITS + 1).W))
     as_wider := w
     as_wider
   }
 
-  sum_res := widened(io.in.x) + widened(io.in.y) + widened(io.in.carry & io.in.carry_en)
-  io.carry_out := sum_res >> (DATA_BITS.U)
+  sum_res := widened(io.in.x) + widened(io.in.y)
+  sum_with_carry := sum_res + widened(io.in.carry)
+
+  io.carry_out := sum_with_carry >> (DATA_BITS.U)
 
   shamnt := io.in.y(log2Ceil(DATA_BITS) - 1, 0)
   switch(io.funct) {
@@ -88,11 +90,14 @@ class StandardALUComb(DATA_BITS: Int) extends Module {
       io.out := (io.in.x.asSInt < io.in.y.asSInt).asUInt
     }
     is(Functs.MUX.id.U) {
-      when(io.select) {
+      when(io.in.select) {
         io.out := io.in.y
       } otherwise {
         io.out := io.in.x
       }
+    }
+    is(Functs.ADDC.id.U) {
+      io.out := sum_with_carry(DATA_BITS - 1, 0)
     }
   }
 

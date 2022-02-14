@@ -164,16 +164,6 @@ object Assembler {
           (0, ManticoreBaseISA.IdBits) ++
           (0, ManticoreBaseISA.IdBits)
         inst.build
-      case AddCarry(rd, co, rs1, rs2, ci) =>
-        val inst = BinaryInstructionBuilder() ++
-          (ManticoreBaseISA.AddCarry.value, ManticoreBaseISA.OpcodeBits) ++
-          (rd.index, ManticoreBaseISA.IdBits) ++
-          (StandardALU.Functs.ADD2.id, ManticoreBaseISA.FunctBits) ++
-          (rs1.index, ManticoreBaseISA.IdBits) ++
-          (rs2.index, ManticoreBaseISA.IdBits) ++
-          (ci.index, ManticoreBaseISA.IdBits) ++
-          (co.index, ManticoreBaseISA.IdBits)
-        inst.build
       case _ => throw new Exception(s"${instruction} not implemented!")
     }
   }

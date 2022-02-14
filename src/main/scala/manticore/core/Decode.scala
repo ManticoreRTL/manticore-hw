@@ -42,7 +42,7 @@ object Decode {
     val gstore: Bool = Bool()
     val predicate: Bool = Bool()
     val nop: Bool = Bool()
-    val carry_en: Bool = Bool()
+    val set_carry: Bool = Bool()
   }
 
   class PipeOut(config: ISA) extends Bundle {
@@ -104,7 +104,7 @@ class Decode(config: ISA) extends Module {
   setEqual(opcode_regs.gstore, config.GlobalStore.value)
   setEqual(opcode_regs.send, config.Send.value)
   setEqual(opcode_regs.predicate, config.Predicate.value)
-  setEqual(opcode_regs.carry_en, config.AddCarry.value)
+  setEqual(opcode_regs.set_carry, config.SetCarry.value)
   opcode_regs.nop := io.instruction === 0.U
 
   io.pipe_out.opcode := opcode_regs

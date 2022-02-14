@@ -26,7 +26,6 @@ import memory.{CacheCommand, CacheConfig}
 import manticore.{ISA, ManticoreBaseISA}
 import manticore.core.ExecuteInterface.{
   GlobalMemoryInterface,
-  LocalMemoryInterface,
   PipeIn,
   PipeOut
 }
@@ -56,12 +55,12 @@ object ExecuteInterface {
     val pred      = Bool()
   }
 
-  class LocalMemoryInterface(config: ISA) extends Bundle {
-    // read interface to the local memory
-    val address = Output(UInt(11.W))
-    val dout    = Input(UInt(config.DataBits.W))
-    val we      = Output(Bool()) // should be false.B
-  }
+//  class LocalMemoryInterface(config: ISA) extends Bundle {
+//    // read interface to the local memory
+//    val address = Output(UInt(11.W))
+//    val dout    = Input(UInt(config.DataBits.W))
+//    val we      = Output(Bool()) // should be false.B
+//  }
 
   class GlobalMemoryInterface(config: ISA) extends Bundle {
     val address = UInt((config.IdBits * 3).W)
@@ -124,8 +123,8 @@ class ExecuteComb(
     standard_alu.io.in.y := io.pipe_in.immediate
   }
 
-  standard_alu.io.select := io.regs_in.u
-  standard_alu.io.in.carry_en := io.pipe_in.opcode.carry_en
+  standard_alu.io.in.select := io.regs_in.u
+
   standard_alu.io.in.carry := io.carry_in
 
   when(io.pipe_in.opcode.set || io.pipe_in.opcode.send) {
@@ -146,9 +145,21 @@ class ExecuteComb(
   pipe_out.data      := io.regs_in.y
   pipe_out.rd        := io.pipe_in.rd
   pipe_out.immediate := io.pipe_in.immediate
-  pipe_out.carry_rd  := io.pipe_in.rs4
-  pipe_out.carry_din := standard_alu.io.carry_out
-  pipe_out.carry_wen := io.pipe_in.opcode.carry_en
+  when (io.pipe_in.opcode.set_carry) {
+    pipe_out.carry_rd := io.pipe_in.rd
+  } otherwise {
+    // notice that rs4 needs to be registered before given to the output pipe
+    val rs4_reg = Reg(Bool())
+    rs4_reg := io.pipe_in.rs4
+    pipe_out.carry_rd  := rs4_reg
+  }
+  when (io.pipe_in.opcode.set_carry) {
+   pipe_out.carry_din := io.pipe_in.immediate(0)
+  } otherwise {
+    pipe_out.carry_din := standard_alu.io.carry_out
+  }
+  pipe_out.carry_wen :=
+    (io.pipe_in.opcode.arith & (io.pipe_in.funct === StandardALU.Functs.ADDC.id.U)) | (io.pipe_in.opcode.set_carry)
   io.pipe_out := pipe_out
 
   val pred_reg = Reg(Bool())

@@ -24,7 +24,7 @@ object Instruction {
   object Opcode extends Enumeration {
     type Type = Value
     val NOP, SET, CUST0, ARITH, LLOAD, LSTORE, EXPECT, GLOAD, GSTORE, SEND,
-        PREDICATE, ADDCARRY = Value
+        PREDICATE, SETCARRY = Value
   }
 
   sealed abstract class Instruction(val opcode: Opcode.Type)
@@ -142,15 +142,6 @@ object Instruction {
     override def toString: String = s"NOP"
   }
 
-  case class AddCarry(
-      target: Register,
-      co: Register,
-      rs1: Register,
-      rs2: Register,
-      ci: Register
-  ) extends Instruction(Opcode.ADDCARRY) {
-    override def toString: String =
-      s"ADDCARRY ${target}, ${co}, ${rs1}, ${rs2}, ${ci}"
-  }
+
 
 }
