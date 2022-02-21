@@ -1,4 +1,6 @@
-module memory_gateway_sim (
+module memory_gateway_sim #(
+    parameter filename = ""
+) (
     input wire clock,
     input wire reset,
     input wire ap_start,
@@ -13,8 +15,8 @@ module memory_gateway_sim (
 );
 
   localparam MEM_SIZE = 1 << 22;
-  parameter READ_LATENCY = 77;
-  parameter WRITE_LATENCY = 77;
+  parameter READ_LATENCY = 4;
+  parameter WRITE_LATENCY = 4;
   logic [63:0] addr_reg;
   logic [15:0] rdata;
   logic [15:0] wdata_reg;
@@ -102,7 +104,7 @@ module memory_gateway_sim (
 
 
   initial begin
-    $readmemb("exec.dat", mem);
+    $readmemb(filename, mem);
   end
 
 endmodule

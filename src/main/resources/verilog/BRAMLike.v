@@ -15,6 +15,11 @@ module BRAMLike #(
 );
 
 `ifdef VERILATOR
+
+
+`ifdef BRAM_EXPORT
+
+`endif
   (* ram_style = "block" *)
   reg [DATA_WIDTH - 1:0] memory[0:(1 << ADDRESS_WIDTH) - 1];
   reg [DATA_WIDTH - 1:0] dout_reg;

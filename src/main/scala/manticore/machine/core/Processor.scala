@@ -36,7 +36,7 @@ class Processor(
     equations: Seq[Seq[Int]],
     initial_registers: String = "",
     initial_array: String = "",
-    debug_tag: String = "UNTAGGED",
+    name_tag: String = "core",
     debug_enable: Boolean = false,
     debug_level: Int = 0
 ) extends Module {
@@ -60,7 +60,7 @@ class Processor(
   def dprintf(fmt: String, data: Bits*) =
     if (debug_enable) {
       printf(
-        s"[%d : ${debug_tag}] " + fmt,
+        s"[%d : ${name_tag}] " + fmt,
         (io.periphery.debug_time +: data): _*
       )
     }
@@ -97,7 +97,7 @@ class Processor(
   val fetch_stage  = Module(new Fetch(config))
   val decode_stage = Module(new Decode(config))
   val execute_stage: ExecuteBase = Module(
-    new ExecuteComb(config, equations, debug_tag + "::exec", debug_enable)
+    new ExecuteComb(config, equations, name_tag + "::exec", debug_enable)
   )
 
   if (debug_enable)

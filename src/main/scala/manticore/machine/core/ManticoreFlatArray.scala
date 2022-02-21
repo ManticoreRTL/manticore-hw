@@ -239,7 +239,7 @@ class LoadStoreIssue extends Module {
   }
 }
 
-class ComputeArray(dimx: Int, dimy: Int, debug_enable: Boolean = false)
+class ComputeArray(dimx: Int, dimy: Int, debug_enable: Boolean = false, prefix_path: String = "./")
     extends Module {
 
   val io = IO(new Bundle {
@@ -261,11 +261,6 @@ class ComputeArray(dimx: Int, dimy: Int, debug_enable: Boolean = false)
         gen(x, y)
       }
     }
-  val initial_state = new ComputeGrid.InitialState(
-    lut_configs = makeConfigData((x, y) => equations),
-    regfile_files = makeConfigData((x, y) => s"rf_${x}_${y}.dat"),
-    regarray_files = makeConfigData((x, y) => s"ra_${x}_${y}.dat")
-  )
 
   def hasMemory(x: Int, y: Int): Boolean = (x == 0) && (y == 0)
   case class FatCore(core: Processor, switch: Switch, x: Int, y: Int)
@@ -281,10 +276,10 @@ class ComputeArray(dimx: Int, dimy: Int, debug_enable: Boolean = false)
           DimX = dimx,
           DimY = dimy,
           equations = equations,
-          initial_registers = s"rf_${x}_${y}.dat",
-          initial_array = s"ra_${x}_${y}.dat",
+          initial_registers = s"${prefix_path}/rf_${x}_${y}.dat",
+          initial_array = s"${prefix_path}/ra_${x}_${y}.dat",
           debug_enable = debug_enable,
-          debug_tag = s"CoreX${x}Y${y}"
+          name_tag = s"CoreX${x}Y${y}"
         )
       )
       core.suggestName(s"core_${x}_${y}")
@@ -346,7 +341,7 @@ class ComputeArray(dimx: Int, dimy: Int, debug_enable: Boolean = false)
   }
 
 }
-class ManticoreFlatArray(dimx: Int, dimy: Int, debug_enable: Boolean = false)
+class ManticoreFlatArray(dimx: Int, dimy: Int, debug_enable: Boolean = false, prefix_path: String = "./")
     extends RawModule {
 
   val io = IO(new ManticoreFlatArrayInterface)
@@ -394,7 +389,7 @@ class ManticoreFlatArray(dimx: Int, dimy: Int, debug_enable: Boolean = false)
 
   val compute_array =
     withClockAndReset(clock = io.compute_clock, reset = io.reset) {
-      Module(new ComputeArray(dimx, dimy, debug_enable))
+      Module(new ComputeArray(dimx, dimy, debug_enable, prefix_path))
     }
 
   controller.io.kill_clock := compute_array.io.dynamic_cycle

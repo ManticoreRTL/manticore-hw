@@ -67,8 +67,6 @@ class MemoryGateway(GMemDataWidth: Int = 256) extends Module {
   )
 }
 
-
-
 class MemoryGatewaySimpleHls(cached_path: Seq[String] = Seq())
     extends MemoryGateway(GMemDataWidth = 32) {
 
@@ -115,7 +113,7 @@ class MemoryGatewaySimpleHls(cached_path: Seq[String] = Seq())
   def makeCopy() = new MemoryGatewaySimpleHls(cached_path)
 }
 
-class MemoryGatewaySim extends Module {
+class MemoryGatewaySim(init_file: String) extends Module {
   class MemoryGateWaySimInterface extends Bundle {
     val ap_start = Input(Bool())
     val ap_done  = Output(Bool())
@@ -130,35 +128,36 @@ class MemoryGatewaySim extends Module {
     val wen   = Input(Bool())
     val wdata = Input(UInt(16.W))
   }
-  class memory_gateway_sim extends BlackBox() with HasBlackBoxResource {
+  class memory_gateway_sim
+      extends BlackBox(Map("filename" -> init_file))
+      with HasBlackBoxResource {
     val io = IO(new MemoryGateWaySimInterface {
       val clock = Input(Clock())
       val reset = Input(Reset())
     })
     addResource("/verilog/memory_gateway_sim.sv")
   }
-  val io = IO(new MemoryGateWaySimInterface())
+  val io         = IO(new MemoryGateWaySimInterface())
   val underlying = Module(new memory_gateway_sim())
 
-
-  underlying.io.ap_start := io.ap_start
-  io.ap_done := underlying.io.ap_done
-  io.ap_idle := underlying.io.ap_idle
-  io.ap_ready := underlying.io.ap_ready
-  io.ap_return := underlying.io.ap_return
+  underlying.io.ap_start       := io.ap_start
+  io.ap_done                   := underlying.io.ap_done
+  io.ap_idle                   := underlying.io.ap_idle
+  io.ap_ready                  := underlying.io.ap_ready
+  io.ap_return                 := underlying.io.ap_return
   underlying.io.memory_pointer := io.memory_pointer
   underlying.io.addr           := io.addr
-  underlying.io.wen   := io.wen
-  underlying.io.wdata := io.wdata
+  underlying.io.wen            := io.wen
+  underlying.io.wdata          := io.wdata
 
   underlying.io.clock := clock
   underlying.io.reset := reset
-
 
 }
 
 object MemoryGatewaySimpleHlsGen extends App {
 
 //  new ChiselStage().emitVerilog(new MemoryGatewaySimpleHls(), Array("--target-dir", "gen-dir"))
-  new ChiselStage().emitVerilog(new MemoryGatewaySim(), Array("--target-dir", "gen-dir"))
+  new ChiselStage()
+    .emitVerilog(new MemoryGatewaySim("exec.dat"), Array("--target-dir", "gen-dir"))
 }
