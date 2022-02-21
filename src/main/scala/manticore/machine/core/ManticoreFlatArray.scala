@@ -291,6 +291,7 @@ class ComputeArray(dimx: Int, dimy: Int, debug_enable: Boolean = false, prefix_p
     }
   }
 
+
   // connect the cores via switches
   Range(0, dimx).foreach { x =>
     Range(0, dimy).foreach { y =>
@@ -307,9 +308,24 @@ class ComputeArray(dimx: Int, dimy: Int, debug_enable: Boolean = false, prefix_p
       }
 
       if (debug_enable) {
+        val switch_watcher = Module(new SwitchPacketInspector(
+          DimX = dimx, DimY = dimy, config = ManticoreBaseISA, pos = (x, y),
+          fatal = true
+        ))
         val debug_time = RegInit(UInt(64.W), 0.U)
         debug_time := debug_time + 1.U
         cores(x)(y).core.io.periphery.debug_time := debug_time
+
+        switch_watcher.io.xInput := {
+          if (x == 0) cores(dimx - 1)(y).switch.io.xOutput
+          else cores(x - 1)(y).switch.io.xOutput
+        }
+        switch_watcher.io.yInput := {
+          if (y == 0) cores(x)(dimy - 1).switch.io.yOutput
+          else cores(x)(y - 1).switch.io.yOutput
+        }
+        switch_watcher.io.lInput := cores(x)(y).core.io.packet_out
+
       } else {
         cores(x)(y).core.io.periphery.debug_time := 0.U
       }
