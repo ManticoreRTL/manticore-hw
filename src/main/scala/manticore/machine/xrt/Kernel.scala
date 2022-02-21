@@ -251,19 +251,21 @@ class ManticoreFlatSimKernel(
   clock.suggestName("ap_clk")
   reset.suggestName("ap_rst")
 
-  val io = IO(new Bundle {
+  class KernelRegisters extends Bundle {
+    val host   = Input(new HostRegisters(ManticoreFullISA))
+    val device = Output(new DeviceRegisters(ManticoreFullISA))
+  }
+  class KernelControl extends Bundle {
+    val start: Bool = Input(Bool())
+    val done: Bool  = Output(Bool())
+    val idle: Bool  = Output(Bool())
+  }
 
-    val kernel_registers = new Bundle {
-      val host   = Input(new HostRegisters(ManticoreFullISA))
-      val device = Output(new DeviceRegisters(ManticoreFullISA))
-    }
-    val kernel_ctrl = new Bundle {
-      val start: Bool = Input(Bool())
-      val done: Bool  = Output(Bool())
-      val idle: Bool  = Output(Bool())
-    }
-
-  })
+  class KernelInterface extends Bundle {
+    val kernel_registers = new KernelRegisters
+    val kernel_ctrl = new KernelControl
+  }
+  val io = IO(new KernelInterface)
 
   val clock_distribution = Module(new ClockDistribution())
 
