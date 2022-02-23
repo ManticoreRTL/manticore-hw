@@ -238,41 +238,7 @@ class Switch(DimX: Int, DimY: Int, config: ISA) extends Module {
 
 }
 
-//
-//class NoCPayload(width: Int) extends Bundle {
-//  val data: UInt = UInt(width)
-//  val valid: UInt = Bool()
-//}
-//
-//class NoCPacket(width: Int, dimx: Int, dimy: Int) extends Bundle {
-//  val payload: NoCPayload = new NoCPayload(width)
-//  val xHops: UInt = UInt(log2Ceil(dimx).W)
-//  val yHops: UInt = UInt(log2Ceil(dimy).W)
-//}
-//
-//
-//object NoCPacket {
-//
-//  def apply(width: Int, dimx: Int, dimy: Int) = new NoCPacket(width, dimx, dimy)
-//
-//  /**
-//   * Create and empty packet with valid bit set to false
-//   * @param DIMX
-//   * @param DIMY
-//   * @param config
-//   * @return
-//   */
-//  def empty(width: Int, dimx: Int, dimy: Int): NoCPacket = {
-//    val bundle = Wire(new NoCPacket(width, dimx, dimy))
-//    bundle.payload.data  := 0.U
-//    bundle.payload.valid := false.B
-//    bundle.xHops := 0.U
-//    bundle.yHops := 0.U
-//    bundle
-//  }
-//
-//  def
-//}
+
 
 class SwitchPacketInspector(
     DimX: Int,

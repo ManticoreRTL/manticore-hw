@@ -66,7 +66,7 @@ object ManticoreBaseISA extends ISA {
   val IdBits: Int = 11
   val FunctBits: Int = 5
   val WithGlobalMemory: Boolean = false
-  val CarryCount: Int = 32
+  val CarryCount: Int = 64
 
 }
 
@@ -78,5 +78,5 @@ object ManticoreFullISA extends ISA {
   val FunctBits: Int = ManticoreBaseISA.FunctBits
   val WithGlobalMemory: Boolean = true
 
-  val CarryCount: Int = 32
+  val CarryCount: Int = 64
 }

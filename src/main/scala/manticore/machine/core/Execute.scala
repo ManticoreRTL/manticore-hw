@@ -139,7 +139,7 @@ class ExecuteComb(
     pipe_out.carry_rd := io.pipe_in.rd
   } otherwise {
     // notice that rs4 needs to be registered before given to the output pipe
-    val rs4_reg = Reg(Bool())
+    val rs4_reg = Reg(UInt(log2Ceil(config.CarryCount).W))
     rs4_reg := io.pipe_in.rs4
     pipe_out.carry_rd  := rs4_reg
   }
