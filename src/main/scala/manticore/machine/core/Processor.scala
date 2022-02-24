@@ -2,7 +2,12 @@ package manticore.machine.core
 
 import Chisel._
 import chisel3.experimental.ChiselEnum
-import manticore.machine.memory.{CacheConfig, CacheFrontInterface, MemStyle, SimpleDualPortMemory}
+import manticore.machine.memory.{
+  CacheConfig,
+  CacheFrontInterface,
+  MemStyle,
+  SimpleDualPortMemory
+}
 import manticore.machine.{ISA, ManticoreBaseISA}
 
 class NamedError(nameBits: Int) extends Bundle {
@@ -12,7 +17,9 @@ class NamedError(nameBits: Int) extends Bundle {
 
 class PeripheryProcessorInterface(config: ISA) extends Bundle {
 
-  val active: Bool                    = Output(Bool()) // high if the processor is in the execution phase
+  val active: Bool = Output(
+    Bool()
+  ) // high if the processor is in the execution phase
   val cache: CacheFrontInterface      = Flipped(CacheConfig.frontInterface())
   val gmem_access_failure_error: Bool = Output(Bool())
   val exception: NamedError           = Output(new NamedError(config.DataBits))
@@ -105,7 +112,7 @@ class Processor(
 
   val memory_stage = Module(new MemoryAccess(config, DimX, DimY))
 
-  val register_file = Module(new RegisterFile(config, initial_registers))
+  val register_file       = Module(new RegisterFile(config, initial_registers))
   val carry_register_file = Module(new CarryRegisterFile(config))
 
   val array_memory = Module(
@@ -260,11 +267,6 @@ class Processor(
               config.SetValue.value.U(config.OpcodeBits.W)
             )
           )
-        dprintf(
-          "\tdata message received Set(R(%d), %d)\n",
-          io.packet_in.address,
-          io.packet_in.data
-        )
       } otherwise {
         fetch_stage.io.programmer.enable := false.B
       }
@@ -314,8 +316,8 @@ class Processor(
   register_file.io.rv.addr   := decode_stage.io.pipe_out.rs4
 
   carry_register_file.io.raddr := decode_stage.io.pipe_out.rs3
-  execute_stage.io.carry_in := carry_register_file.io.dout
-  carry_register_file.io.wen := execute_stage.io.pipe_out.carry_wen
+  execute_stage.io.carry_in    := carry_register_file.io.dout
+  carry_register_file.io.wen   := execute_stage.io.pipe_out.carry_wen
   carry_register_file.io.waddr := execute_stage.io.pipe_out.carry_rd
   carry_register_file.io.din   := execute_stage.io.pipe_out.carry_din
 
@@ -328,18 +330,11 @@ class Processor(
 
   def writeback_message(msg: String, value: UInt) = {
     when(memory_stage.io.pipe_out.write_back) {
-      when(memory_stage.io.pipe_out.rd =/= 0.U) {
-        dprintf(
-          s"\tR(%d) <= %d (${msg})\n",
-          memory_stage.io.pipe_out.rd,
-          value
-        )
-      } otherwise {
-        dprintf(
-          s"\tWARNING ignored R(0) <= %d (${msg})\n",
-          value
-        )
-      }
+      assert(
+        memory_stage.io.pipe_out.rd =/= 0.U,
+        s"\tError ignored R(0) <= %d (${msg})\n",
+        value
+      )
     }
 
   }
@@ -399,7 +394,6 @@ class Processor(
     gmem_failure       := false.B
     exception_occurred := false.B
   }
-
 
   io.periphery.dynamic_cycle := execute_stage.io.pipe_out.gmem.start
 
