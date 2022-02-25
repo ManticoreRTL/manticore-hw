@@ -149,9 +149,11 @@ class ManticoreFlatKernel(
     m_axi_path: Seq[String] =
       Seq(), // path to m_axi implementation if exits, uses simulation models otherwise
     reset_latency: Int = 16
-) extends Module {
+) extends RawModule {
 
+  val clock = IO(Input(Clock()))
   clock.suggestName("ap_clk")
+  val reset = IO(Input(Bool()))
   reset.suggestName("ap_rst")
 
   val clock_distribution = Module(new ClockDistribution())
@@ -160,7 +162,7 @@ class ManticoreFlatKernel(
 
   val reset_pipes = Seq.fill(reset_latency) {
     withClock(clock_distribution.io.control_clock) {
-      Reg(Reset())
+      Reg(Bool())
     }
   }
 
@@ -503,13 +505,13 @@ object ManticoreKernelGenerator {
     val Slave, Master, Kernel, Xml, Xo, Xclbin = Value
   }
 
-  private val platformDevice = ListMap(
+  val platformDevice = Map(
     "xilinx_u250_gen3x16_xdma_3_1_202020_1" -> "xcu250-figd2104-2l-e"
   )
 
   def apply(
       target_dir: String,
-      platform: String = platformDevice.head._1,
+      platform: String = "xilinx_u250_gen3x16_xdma_3_1_202020_1",
       target: String = "hw_emu",
       dimx: Int = 8,
       dimy: Int = 8
@@ -517,20 +519,20 @@ object ManticoreKernelGenerator {
 
     val out_dir = Paths.get(target_dir)
 
-    def deleteOrAbort(): Boolean = {
+    // def deleteOrAbort(): Boolean = {
 
-      scala.io.StdIn.readLine(
-        s"Directory already exists. Delete it [Y/n]?"
-      ) match {
-        case "Yes" | "YES" | "yes" | "Y" | "y" =>
-          // scala.reflect.io.Directory(out_dir.toFile()).deleteRecursively()
-          println("You said yes")
-          false
-        case _ =>
-          println("Aborting")
-          true
-      }
-    }
+    //   scala.io.StdIn.readLine(
+    //     s"Directory already exists. Delete it [Y/n]?"
+    //   ) match {
+    //     case "Yes" | "YES" | "yes" | "Y" | "y" =>
+    //       // scala.reflect.io.Directory(out_dir.toFile()).deleteRecursively()
+    //       println("You said yes")
+    //       false
+    //     case _ =>
+    //       println("Aborting")
+    //       true
+    //   }
+    // }
 
     val hdl_dir = Files.createDirectories(out_dir.resolve("hdl"))
 
@@ -588,15 +590,17 @@ object ManticoreKernelGenerator {
 }
 
 object KernelTest extends App {
+  val dimx = 16
+  val dimy = 16
   val out_dir =
     Paths.get(
-      "gen-dir/kernel/28x10_100MHz_to_200MHz_8KiB/hw"
+      s"gen-dir/kernel/${dimx}x${dimy}_100MHz_to_200MHz_8KiB/hw"
     )
 
   ManticoreKernelGenerator(
     target_dir = out_dir.toAbsolutePath().toString(),
-    dimx = 10,
-    dimy = 28,
+    dimx = dimx,
+    dimy = dimy,
     target = "hw"
   )
   // val master_fp = AxiMasterGenerator(
