@@ -16,6 +16,7 @@ import chisel3.util.Cat
 import manticore.machine.ISA
 
 object AxiSlave {
+
   class AxiSlaveCorenterface(
       AxiSlaveAddrWidth: Int = 8,
       AxiSlaveDataWidth: Int = 32
@@ -79,7 +80,7 @@ object AxiSlave {
     val control = new AxiSlaveControlInterface()
 
     def createUserAddressMap() = {
-     
+
       val regs = (
         host_regs.elements.toSeq ++
           pointer_regs.elements.toSeq ++
