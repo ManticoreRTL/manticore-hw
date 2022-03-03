@@ -37,6 +37,7 @@ class ClockDistribution extends BlackBox with HasBlackBoxResource {
   })
   addResource("/verilog/ClockDistribution.v")
 }
+
 class KernelControl extends Module {
   val io = IO(new Bundle {
 
@@ -49,10 +50,12 @@ class KernelControl extends Module {
     val kill_clock         = Input(Bool())
     val resume_clock       = Input(Bool())
     val exception_occurred = Input(Bool())
+    val command            = Input(UInt(8.W))
     val exception_id       = Input(UInt(32.W))
     val config_enable      = Output(Bool())
     val clock_inactive     = Output(Bool())
     val execution_active   = Input(Bool())
+    val soft_reset         = Output(Bool())
   })
 
   val clock_inactive = RegInit(Bool(), false.B)
@@ -73,7 +76,7 @@ class KernelControl extends Module {
   val dev_regs = Reg(new DeviceRegisters(ManticoreFullISA))
 
   object State extends ChiselEnum {
-    val Idle, BootLoading, VirtualCycle, SignalDone = Value
+    val Idle, SoftReset, BootLoading, VirtualCycle, SignalDone = Value
   }
 
   val state = RegInit(State.Type(), State.Idle)
@@ -103,15 +106,38 @@ class KernelControl extends Module {
   execution_active_old := io.execution_active
 
   io.boot_start := false.B
+  val ResetLatency     = 16
+  val reset_counter    = Reg(UInt(8.W))
+  val soft_rest_source = Wire(Bool())
+  soft_rest_source := false.B
+
+
+  // create a pipe of registers to allow re-timing of the reset signal
+  io.soft_reset := Seq
+    .fill(ResetLatency) { Reg(Bool()) }
+    .foldLeft(soft_rest_source) { case (prev, next) =>
+      next := prev
+      next
+    }
 
   switch(state) {
     is(State.Idle) {
       when(start_pulse) {
-        state                      := State.BootLoading
-        io.boot_start              := true.B
+        state         := State.SoftReset
+        reset_counter := 0.U
+        soft_rest_source := true.B
+        clock_inactive := false.B
+
         dev_regs.bootloader_cycles := 0.U
         dev_regs.virtual_cycles    := 0.U
         execution_active_old       := false.B
+      }
+    }
+    is(State.SoftReset) {
+      reset_counter := reset_counter + 1.U
+      when(reset_counter === ResetLatency.U) {
+        state         := State.BootLoading
+        io.boot_start := true.B
       }
     }
     is(State.BootLoading) {
@@ -124,18 +150,19 @@ class KernelControl extends Module {
       config_enable_reg := false.B
       when(!clock_inactive) {
         when(io.exception_occurred) {
-          state                   := State.SignalDone
-          dev_regs.exception_id_0 := io.exception_id
+          state                 := State.SignalDone
+          dev_regs.exception_id := io.exception_id
         }
       }
       when(execution_active_old === false.B & io.execution_active === true.B) {
         dev_regs.virtual_cycles := dev_regs.virtual_cycles + 1.U
       }
     }
-    is(State.SignalDone) {
 
+    is(State.SignalDone) {
       state := State.Idle
     }
+
 
   }
 
@@ -239,8 +266,12 @@ class LoadStoreIssue extends Module {
   }
 }
 
-class ComputeArray(dimx: Int, dimy: Int, debug_enable: Boolean = false, prefix_path: String = "./")
-    extends Module {
+class ComputeArray(
+    dimx: Int,
+    dimy: Int,
+    debug_enable: Boolean = false,
+    prefix_path: String = "./"
+) extends Module {
 
   val io = IO(new Bundle {
     val mem_access         = Flipped(CacheConfig.frontInterface())
@@ -291,7 +322,6 @@ class ComputeArray(dimx: Int, dimy: Int, debug_enable: Boolean = false, prefix_p
     }
   }
 
-
   // connect the cores via switches
   Range(0, dimx).foreach { x =>
     Range(0, dimy).foreach { y =>
@@ -308,12 +338,17 @@ class ComputeArray(dimx: Int, dimy: Int, debug_enable: Boolean = false, prefix_p
       }
 
       if (debug_enable) {
-        val switch_watcher = Module(new SwitchPacketInspector(
-          DimX = dimx, DimY = dimy, config = ManticoreBaseISA, pos = (x, y),
-          fatal = true
-        ))
+        val switch_watcher = Module(
+          new SwitchPacketInspector(
+            DimX = dimx,
+            DimY = dimy,
+            config = ManticoreBaseISA,
+            pos = (x, y),
+            fatal = true
+          )
+        )
         val debug_time = RegInit(UInt(64.W), 0.U)
-        debug_time := debug_time + 1.U
+        debug_time                               := debug_time + 1.U
         cores(x)(y).core.io.periphery.debug_time := debug_time
 
         switch_watcher.io.xInput := {
@@ -357,8 +392,12 @@ class ComputeArray(dimx: Int, dimy: Int, debug_enable: Boolean = false, prefix_p
   }
 
 }
-class ManticoreFlatArray(dimx: Int, dimy: Int, debug_enable: Boolean = false, prefix_path: String = "./")
-    extends RawModule {
+class ManticoreFlatArray(
+    dimx: Int,
+    dimy: Int,
+    debug_enable: Boolean = false,
+    prefix_path: String = "./"
+) extends RawModule {
 
   val io = IO(new ManticoreFlatArrayInterface)
 
@@ -374,7 +413,7 @@ class ManticoreFlatArray(dimx: Int, dimy: Int, debug_enable: Boolean = false, pr
   io.clock_inactive := controller.io.clock_inactive
 
   val bootloader =
-    withClockAndReset(clock = io.control_clock, reset = io.reset) {
+    withClockAndReset(clock = io.control_clock, reset = controller.io.soft_reset) {
       Module(
         new Programmer(ManticoreFullISA, dimx, dimy)
       )
@@ -404,7 +443,10 @@ class ManticoreFlatArray(dimx: Int, dimy: Int, debug_enable: Boolean = false, pr
   debug_time := debug_time + 1.U
 
   val compute_array =
-    withClockAndReset(clock = io.compute_clock, reset = io.reset) {
+    withClockAndReset(
+      clock = io.compute_clock,
+      reset = controller.io.soft_reset
+    ) {
       Module(new ComputeArray(dimx, dimy, debug_enable, prefix_path))
     }
 
@@ -446,7 +488,7 @@ class ManticoreFlatArray(dimx: Int, dimy: Int, debug_enable: Boolean = false, pr
   controller.io.exception_id       := compute_array.io.exception_id
   controller.io.exception_occurred := compute_array.io.exception_occurred
   controller.io.execution_active   := compute_array.io.execution_active
-
+  controller.io.command            := io.host_registers.schedule_config.head(8)
 }
 
 object Gentest extends App {

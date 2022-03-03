@@ -110,8 +110,7 @@ object Main {
             new ManticoreFlatSimKernel(
               DimX = cfg.dimx,
               DimY = cfg.dimy,
-              debug_enable = true,
-              reset_latency = 16
+              debug_enable = true
             ),
             Array("--target-dir", cfg.output.toPath.toString)
           )
@@ -119,6 +118,8 @@ object Main {
         sys.error("Unknown platform!")
 
     }
+
+
 
   }
 

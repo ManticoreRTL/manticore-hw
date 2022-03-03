@@ -9,6 +9,8 @@ import manticore.machine.memory.{
   SimpleDualPortMemory
 }
 import manticore.machine.{ISA, ManticoreBaseISA}
+import manticore.machine.ManticoreFullISA
+import chisel3.stage.ChiselStage
 
 class NamedError(nameBits: Int) extends Bundle {
   val error: Bool = Bool()
@@ -404,14 +406,14 @@ object ProcessorEmitter extends App {
   val equations: Seq[Seq[Int]] =
     Seq.fill(32)(Seq.fill(16)(rdgen.nextInt(1 << 16)))
 //
-//  def makeProcessor() =
-//    new Processor(config = ThyrioISA, DimX = 16, DimY = 16,
-//      equations = equations
-//    )
-//
-//  new ChiselStage().emitVerilog(
-//    makeProcessor(), Array("--target-dir", "gen-dir")
-//  )
+ def makeProcessor() =
+   new Processor(config = ManticoreFullISA, DimX = 16, DimY = 16,
+     equations = equations
+   )
+
+ new ChiselStage().emitVerilog(
+   makeProcessor(), Array("--target-dir", "gen-dir/processor/")
+ )
 
 //  new ChiselStage().emitVerilog(
 //    new ClockedProcessor(config = ThyrioISA, DimX = 2, DimY = 2,

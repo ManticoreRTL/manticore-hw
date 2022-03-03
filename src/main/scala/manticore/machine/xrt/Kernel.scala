@@ -5,7 +5,6 @@ import manticore.machine.core.{
   ClockDistribution,
   DeviceRegisters,
   HostRegisters,
-  ManticoreArray,
   ManticoreFlatArray,
   MemoryReadWriteInterface
 }
@@ -61,94 +60,12 @@ object KernelInfo {
   }
 }
 
-class ManticoreKernel(
-    DimX: Int,
-    DimY: Int,
-    debug_enable: Boolean = false,
-    m_axi_path: Seq[String] =
-      Seq() // path to m_axi implementation if exits, uses simulation models otherwise
-) extends MultiIOModule {
-
-  clock.suggestName("ap_clk")
-  reset.suggestName("ap_rst")
-  val m_axi_bank    = IO(Vec(4, new AxiMasterInterface))
-  val s_axi_control = IO(new AxiSlave.AxiSlaveCorenterface())
-  val interrupt     = IO(Output(Bool()))
-
-  val slave = Module(new AxiSlave(ManticoreFullISA))
-
-  slave.io.core.AWADDR  := s_axi_control.AWADDR
-  slave.io.core.AWVALID := s_axi_control.AWVALID
-  s_axi_control.AWREADY := slave.io.core.AWREADY
-  slave.io.core.WDATA   := s_axi_control.WDATA
-  slave.io.core.WSTRB   := s_axi_control.WSTRB
-  slave.io.core.WVALID  := s_axi_control.WVALID
-  s_axi_control.WREADY  := slave.io.core.WREADY
-  s_axi_control.BRESP   := slave.io.core.BRESP
-  s_axi_control.BVALID  := slave.io.core.BVALID
-  slave.io.core.BREADY  := s_axi_control.BREADY
-  slave.io.core.ARADDR  := s_axi_control.ARADDR
-  slave.io.core.ARVALID := s_axi_control.ARVALID
-  s_axi_control.ARREADY := slave.io.core.ARREADY
-  s_axi_control.RDATA   := slave.io.core.RDATA
-  s_axi_control.RRESP   := slave.io.core.RRESP
-  s_axi_control.RVALID  := slave.io.core.RVALID
-  slave.io.core.RREADY  := s_axi_control.RREADY
-  interrupt             := slave.io.control.interrupt
-
-  val manticore = Module(new ManticoreArray(DimX, DimY, debug_enable))
-
-  val gateways: Seq[MemoryGateway] = m_axi_path match {
-
-    // case Nil => Seq.fill(4) { Module(new MemoryGatewarySim) }
-    case _ =>
-      Seq.fill(4) {
-        Module(new MemoryGatewaySimpleHls(m_axi_path))
-      }
-  }
-
-  // connect the outer axi master interface bundles to the gateway interfaces
-  gateways.zip(m_axi_bank).foreach { case (g, io) =>
-    g.io.m_axi_gmem <> io
-  }
-
-  // connect the memory_pointer values to the gateways that comes from the host(base addresses)
-
-  gateways(0).io.memory_pointer := slave.io.pointer_regs.pointer_0
-  gateways(1).io.memory_pointer := slave.io.pointer_regs.pointer_1
-  gateways(2).io.memory_pointer := slave.io.pointer_regs.pointer_2
-  gateways(3).io.memory_pointer := slave.io.pointer_regs.pointer_3
-
-  // connect the caches to the memory gateways
-  manticore.io.memory_backend.zip(gateways).foreach { case (mio, memory) =>
-    memory.io.wen      := mio.wen
-    memory.io.addr     := (mio.addr >> 1) // memory uses half-word offset
-    memory.io.wdata    := mio.wdata
-    memory.io.ap_start := mio.start
-    mio.done           := memory.io.ap_done
-    mio.rdata          := memory.io.ap_return
-    mio.idle           := memory.io.ap_idle
-  }
-
-  manticore.io.host_registers := slave.io.host_regs
-
-  slave.io.dev_regs := manticore.io.device_registers
-
-  manticore.io.start := slave.io.control.ap_start
-
-  slave.io.control.ap_done  := manticore.io.done
-  slave.io.control.ap_idle  := manticore.io.idle
-  slave.io.control.ap_ready := manticore.io.done // is this correct?
-
-}
-
 class ManticoreFlatKernel(
     DimX: Int,
     DimY: Int,
     debug_enable: Boolean = false,
     m_axi_path: Seq[String] =
-      Seq(), // path to m_axi implementation if exits, uses simulation models otherwise
-    reset_latency: Int = 16
+      Seq() // path to m_axi implementation if exits, uses simulation models otherwise
 ) extends RawModule {
 
   val clock = IO(Input(Clock()))
@@ -160,16 +77,8 @@ class ManticoreFlatKernel(
 
   clock_distribution.io.root_clock := clock
 
-  val reset_pipes = Seq.fill(reset_latency) {
-    withClock(clock_distribution.io.control_clock) {
-      Reg(Bool())
-    }
-  }
 
-  val actual_reset = reset_pipes.foldLeft(reset) { case (prev, current) =>
-    current := prev
-    current
-  }
+
 
   val m_axi_bank_0  = IO(new AxiMasterInterface)
   val s_axi_control = IO(new AxiSlave.AxiSlaveCorenterface())
@@ -178,7 +87,7 @@ class ManticoreFlatKernel(
   val slave =
     withClockAndReset(
       clock = clock_distribution.io.control_clock,
-      reset = actual_reset
+      reset = reset
     ) {
       Module(new AxiSlave(ManticoreFullISA))
     }
@@ -205,7 +114,7 @@ class ManticoreFlatKernel(
   val manticore =
     Module(new ManticoreFlatArray(DimX, DimY, debug_enable))
 
-  manticore.io.reset         := actual_reset
+  manticore.io.reset         := reset
   manticore.io.control_clock := clock_distribution.io.control_clock
   manticore.io.compute_clock := clock_distribution.io.compute_clock
 
@@ -213,7 +122,7 @@ class ManticoreFlatKernel(
 
   val gateway: MemoryGateway = withClockAndReset(
     clock = clock_distribution.io.control_clock,
-    reset = actual_reset
+    reset = reset
   ) {
     Module(new MemoryGatewaySimpleHls(m_axi_path))
   }
@@ -246,7 +155,6 @@ class ManticoreFlatSimKernel(
     DimX: Int,
     DimY: Int,
     debug_enable: Boolean = false,
-    reset_latency: Int = 16,
     prefix_path: String = "./"
 ) extends Module {
 
@@ -267,27 +175,18 @@ class ManticoreFlatSimKernel(
     val kernel_registers = new KernelRegisters
     val kernel_ctrl = new KernelControl
   }
+
   val io = IO(new KernelInterface)
 
   val clock_distribution = Module(new ClockDistribution())
 
   clock_distribution.io.root_clock := clock
 
-  val reset_pipes = Seq.fill(reset_latency) {
-    withClock(clock_distribution.io.control_clock) {
-      Reg(Bool())
-    }
-  }
-
-  val actual_reset = reset_pipes.foldLeft(reset) { case (prev, current) =>
-    current := prev
-    current
-  }
 
   val manticore =
     Module(new ManticoreFlatArray(DimX, DimY, debug_enable, prefix_path))
 
-  manticore.io.reset         := actual_reset
+  manticore.io.reset         := reset
   manticore.io.control_clock := clock_distribution.io.control_clock
   manticore.io.compute_clock := clock_distribution.io.compute_clock
 
@@ -302,7 +201,7 @@ class ManticoreFlatSimKernel(
 
   val gateway: MemoryGatewaySim = withClockAndReset(
     clock = clock_distribution.io.control_clock,
-    reset = actual_reset
+    reset = reset
   ) {
     Module(new MemoryGatewaySim(prefix_path + "/exec.dat"))
   }
@@ -323,7 +222,7 @@ class ManticoreFlatSimKernel(
 object ManticoreFlatSimKernelGen extends App {
 
   new ChiselStage().emitVerilog(
-    new ManticoreFlatSimKernel(2, 2, true, 16, "haha"),
+    new ManticoreFlatSimKernel(2, 2, true, "haha"),
     Array("--target-dir", "gen-dir/sim2x2")
   )
 
@@ -506,7 +405,9 @@ object ManticoreKernelGenerator {
   }
 
   val platformDevice = Map(
-    "xilinx_u250_gen3x16_xdma_3_1_202020_1" -> "xcu250-figd2104-2l-e"
+    "xilinx_u250_gen3x16_xdma_3_1_202020_1" -> "xcu250-figd2104-2l-e",
+    "xilinx_u200_gen3x16_xdma_base_1" -> "xcu200-fsg2104-2-e"
+
   )
 
   def apply(

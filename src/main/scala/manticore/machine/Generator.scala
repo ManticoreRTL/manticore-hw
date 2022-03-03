@@ -16,8 +16,7 @@ object Generator {
       new ManticoreFlatSimKernel(
         DimX = dimx,
         DimY = dimy,
-        debug_enable = debug_enable,
-        reset_latency = 16
+        debug_enable = debug_enable
       ),
       Array("--target-dir", output_dir)
     )
