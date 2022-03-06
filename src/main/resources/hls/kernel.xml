@@ -1,7 +1,7 @@
 <root versionMajor="1" versionMinor="0">
     <kernel name="ManticoreKernel" language="ip_c" vlnv="vlsc.epfl.ch:ManticoreKernel:1.0" attributes="" preferredWorkGroupSizeMultiple="0" workGroupSize="1" interrupt="true">
         <ports>
-            <port name="m_axi_bank_0" portType="addressable" mode="master" base="0x0" range="0xFFFFFFFFFFFFFFFF" dataWidth="256"/>
+            <port name="m_axi_bank_0" portType="addressable" mode="master" base="0x0" range="0xFFFFFFFFFFFFFFFF" dataWidth="16"/>
             <port name="s_axi_control" portType="addressable" mode="slave" base="0x0" range="0x1000" dataWidth="32"/>
         </ports>
         <args>

@@ -67,8 +67,8 @@ module URAMLike #(
     .regceb (1'b1),
     .addrb (raddr),
     .doutb (dout),
-    .sbiterrb (1'b0),
-    .dbiterrb (1'b0)
+    .sbiterrb (),
+    .dbiterrb ()
     );
 `endif
 endmodule

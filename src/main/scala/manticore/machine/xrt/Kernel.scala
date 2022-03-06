@@ -171,9 +171,18 @@ class ManticoreFlatSimKernel(
     val idle: Bool  = Output(Bool())
   }
 
+  class DirectMemoryInterface extends Bundle {
+    val rdata: UInt = Output(UInt(16.W))
+    val wdata: UInt = Input(UInt(16.W))
+    val locked: Bool = Input(Bool())
+    val wen: Bool = Input(Bool())
+    val addr: UInt = Input(UInt(64.W))
+  }
+
   class KernelInterface extends Bundle {
     val kernel_registers = new KernelRegisters
     val kernel_ctrl = new KernelControl
+    val dmi = new DirectMemoryInterface
   }
 
   val io = IO(new KernelInterface)
@@ -208,15 +217,25 @@ class ManticoreFlatSimKernel(
 
   gateway.io.memory_pointer := 0xffff.U
 
-  gateway.io.wen := manticore.io.memory_backend.wen
-  gateway.io.addr := manticore.io.memory_backend.addr // short-addressable memory
-  gateway.io.wdata    := manticore.io.memory_backend.wdata
-  gateway.io.ap_start := manticore.io.memory_backend.start
 
+  gateway.io.locked := io.dmi.locked
+
+  when (io.dmi.locked) {
+    gateway.io.wen := io.dmi.wen
+    gateway.io.wdata := io.dmi.wdata
+    gateway.io.addr := io.dmi.addr
+  } otherwise {
+    gateway.io.wen := manticore.io.memory_backend.wen
+    gateway.io.addr := manticore.io.memory_backend.addr // short-addressable memory
+    gateway.io.wdata    := manticore.io.memory_backend.wdata
+  }
+
+  gateway.io.ap_start := manticore.io.memory_backend.start
   manticore.io.memory_backend.done  := gateway.io.ap_done
   manticore.io.memory_backend.rdata := gateway.io.ap_return
   manticore.io.memory_backend.idle  := gateway.io.ap_idle
 
+  io.dmi.rdata := gateway.io.ap_return
 }
 
 object ManticoreFlatSimKernelGen extends App {
@@ -406,7 +425,7 @@ object ManticoreKernelGenerator {
 
   val platformDevice = Map(
     "xilinx_u250_gen3x16_xdma_3_1_202020_1" -> "xcu250-figd2104-2l-e",
-    "xilinx_u200_gen3x16_xdma_base_1" -> "xcu200-fsg2104-2-e"
+    "xilinx_u200_gen3x16_xdma_base_1" -> "xcu200-fsgd2104-2-e"
 
   )
 

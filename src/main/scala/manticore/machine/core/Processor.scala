@@ -328,16 +328,16 @@ class Processor(
   memory_stage.io.local_memory_interface.dout := array_memory.io.dout
 
   memory_stage.io.pipe_in := execute_stage.io.pipe_out
-  register_file.io.w.en := memory_stage.io.pipe_out.write_back & (memory_stage.io.pipe_out.rd =/= 0.U)
+  register_file.io.w.en := memory_stage.io.pipe_out.write_back // & (memory_stage.io.pipe_out.rd =/= 0.U)
 
   def writeback_message(msg: String, value: UInt) = {
-    when(memory_stage.io.pipe_out.write_back) {
-      assert(
-        memory_stage.io.pipe_out.rd =/= 0.U,
-        s"\tError ignored R(0) <= %d (${msg})\n",
-        value
-      )
-    }
+    // when(memory_stage.io.pipe_out.write_back) {
+    //   assert(
+    //     memory_stage.io.pipe_out.rd =/= 0.U,
+    //     s"\tError ignored R(0) <= %d (${msg})\n",
+    //     value
+    //   )
+    // }
 
   }
 

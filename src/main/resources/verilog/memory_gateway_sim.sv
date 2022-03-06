@@ -11,7 +11,8 @@ module memory_gateway_sim #(
     input wire [63:0] addr,
     input wire [15:0] wdata,
     input wire wen,
-    output wire [15:0] ap_return
+    output wire [15:0] ap_return,
+    input wire locked
 );
 
   localparam MEM_SIZE = 1 << 22;
@@ -19,6 +20,7 @@ module memory_gateway_sim #(
   parameter WRITE_LATENCY = 4;
   logic [63:0] addr_reg;
   logic [15:0] rdata;
+  logic [15:0] locked_rdata;
   logic [15:0] wdata_reg;
   logic [15:0] mem[0 : MEM_SIZE - 1];
   logic [31:0] counter;
@@ -80,12 +82,14 @@ module memory_gateway_sim #(
   assign ap_done   = (pstate == ReadDone || pstate == WriteDone);
   assign ap_ready  = (pstate == ReadDone || pstate == WriteDone);
   assign ap_idle   = (pstate == Idle);
-  assign ap_return = rdata;
+  assign ap_return = (locked ? mem[addr] : rdata);
 
   always_ff @(posedge clock) begin
     if (reset) begin
       pstate  <= Idle;
       counter <= 0;
+    end else if (locked && wen) begin
+      mem[addr] <= wdata;
     end else begin
       pstate <= nstate;
       if (pstate == Idle) begin
@@ -103,8 +107,15 @@ module memory_gateway_sim #(
   end
 
 
+  integer fd;
   initial begin
-    $readmemb(filename, mem);
+    fd = $fopen(filename, "r");
+    if (fd) begin
+      $fclose(fd);
+      $readmemb(filename, mem);
+    end else begin
+      $display("Could not open %s\n", filename);
+    end
   end
 
 endmodule

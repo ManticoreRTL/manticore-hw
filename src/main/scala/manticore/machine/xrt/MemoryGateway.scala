@@ -127,6 +127,7 @@ class MemoryGatewaySim(init_file: String) extends Module {
 
     val wen   = Input(Bool())
     val wdata = Input(UInt(16.W))
+    val locked = Input(Bool())
   }
   class memory_gateway_sim
       extends BlackBox(Map("filename" -> init_file))
@@ -149,6 +150,7 @@ class MemoryGatewaySim(init_file: String) extends Module {
   underlying.io.addr           := io.addr
   underlying.io.wen            := io.wen
   underlying.io.wdata          := io.wdata
+  underlying.io.locked         := io.locked
 
   underlying.io.clock := clock
   underlying.io.reset := reset

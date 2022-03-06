@@ -38,8 +38,15 @@ module BRAMLike #(
   assign dout = dout_reg;
   //assign dout = memory[addr_reg];
 
+  integer fd;
   initial begin
-    $readmemb(filename, memory);
+    fd = $fopen(filename, "r");
+    if (fd) begin
+      $fclose(fd);
+      $readmemb(filename, memory);
+    end else begin
+      $display("Could not open %s\n", filename);
+    end
   end
 
 `else
@@ -83,8 +90,8 @@ module BRAMLike #(
       .regceb(1'b1),
       .addrb(raddr),
       .doutb(dout),
-      .sbiterrb(1'b0),
-      .dbiterrb(1'b0)
+      .sbiterrb(),
+      .dbiterrb()
   );
 `endif
 endmodule
