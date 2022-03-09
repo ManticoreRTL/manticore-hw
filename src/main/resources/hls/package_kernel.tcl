@@ -24,7 +24,7 @@ set master_interface_0 @MASTER_INTERFACE_0@
 set slave_interface @SLAVE_INTERFACE@
 
 
-create_project -force kernel_pack $path_to_tmp_project 
+create_project -force kernel_pack $path_to_tmp_project
 add_files -norecurse [glob $path_to_hdl/*.v $path_to_hdl/*.sv]
 update_compile_order -fileset sources_1
 update_compile_order -fileset sim_1
@@ -39,20 +39,7 @@ foreach up [ipx::get_user_parameters] {
   ipx::remove_user_parameter [get_property NAME $up] $core
 }
 ipx::associate_bus_interfaces -busif $master_interface_0 -clock ap_clk $core
-# ipx::associate_bus_interfaces -busif $master_interface_1 -clock ap_clk $core
-# ipx::associate_bus_interfaces -busif $master_interface_2 -clock ap_clk $core
-# ipx::associate_bus_interfaces -busif $master_interface_3 -clock ap_clk $core
 ipx::associate_bus_interfaces -busif $slave_interface -clock ap_clk $core
-
-# Specify the freq_hz parameter 
-set clkbif      [::ipx::get_bus_interfaces -of $core "ap_clk"]
-# set clkbifparam [::ipx::add_bus_parameter -quiet "FREQ_HZ" $clkbif]
-# Set desired frequency                   
-# set_property value 300000000 $clkbifparam
-# set value_resolve_type 'user' if the frequency can vary. 
-# set_property value_resolve_type user $clkbifparam
-# set value_resolve_type 'immediate' if the frequency cannot change. 
-# set_property value_resolve_type immediate $clkbifparam
 
 
 set_property xpm_libraries {XPM_CDC XPM_MEMORY XPM_FIFO} $core

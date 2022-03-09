@@ -78,7 +78,7 @@ module BRAMLike #(
       // Port A module ports
       .clka(clock),
       .ena(1'b1),
-      .wea(we),
+      .wea(wen),
       .addra(waddr),
       .dina(din),
       .injectsbiterra(1'b0),

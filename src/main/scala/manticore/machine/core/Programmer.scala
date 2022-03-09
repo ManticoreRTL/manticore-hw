@@ -5,7 +5,6 @@ import chisel3.experimental.ChiselEnum
 import manticore.machine.ISA
 import manticore.machine.memory.CacheConfig
 
-
 class ProgrammerInterface(config: ISA, DimX: Int, DimY: Int) extends Bundle {
 
   val packet_out: NoCBundle = Output(
@@ -46,22 +45,18 @@ class Programmer(config: ISA, DimX: Int, DimY: Int) extends Module {
   object Phase extends ChiselEnum {
     val Idle, StartCacheRead, StreamDest, StreamBodyLength, StreamInstruction,
         StreamEpilogueLength, StreamSleepLength, StreamCountDown,
-        // WaitForCountDownEndn states are only there to ensure io.running
-        // goes high at the same time processors become active. Notice that
-        // if more pipeline register are added on the io.packet_out path,
-        // more WaitForCountDownEndn states are needed!
-        WaitForCountDownEnd1, 
-        WaitForCountDownEnd2, 
-        WaitForCountDownEnd3,
-        Running, Paused = Value
+    // WaitForCountDownEndn states are only there to ensure io.running
+    // goes high at the same time processors become active. Notice that
+    // if more pipeline register are added on the io.packet_out path,
+    // more WaitForCountDownEndn states are needed!
+    WaitForCountDownEnd1, WaitForCountDownEnd2, WaitForCountDownEnd3, Running,
+        Paused = Value
   }
-
-
 
   val phase: Phase.Type = RegInit(Phase.Type(), Phase.Idle)
 
   val instruction_stream_addr_reg: UInt = Reg(
-    UInt(CacheConfig.UsedAddressBits.W)
+    io.instruction_stream_base.cloneType
   )
   val enable_addr_increment: Bool = Wire(Bool())
 
@@ -71,10 +66,7 @@ class Programmer(config: ISA, DimX: Int, DimY: Int) extends Module {
   val delay_value: UInt = Reg(UInt(config.DataBits.W))
 
   when(io.start) {
-    instruction_stream_addr_reg := io.instruction_stream_base(
-      CacheConfig.UsedAddressBits,
-      1
-    ) // drop the byte offset
+    instruction_stream_addr_reg := io.instruction_stream_base >> 1
   }.elsewhen(enable_addr_increment) {
     instruction_stream_addr_reg := instruction_stream_addr_reg + 1.U
   }
@@ -120,7 +112,10 @@ class Programmer(config: ISA, DimX: Int, DimY: Int) extends Module {
   mem_resp_done := io.memory_backend.done
 
   // register the output packet as well
-  val packet_out = Reg(new NoCBundle(DimX, DimY, config))
+  val packet_out = RegInit(
+    new NoCBundle(DimX, DimY, config),
+    NoCBundle.empty(DimX, DimY, config)
+  )
 
   io.packet_out := packet_out
 
@@ -134,18 +129,20 @@ class Programmer(config: ISA, DimX: Int, DimY: Int) extends Module {
 
   io.memory_backend.start := false.B
   io.memory_backend.wdata := 0.U
-  io.memory_backend.addr  := instruction_stream_addr_reg
-  io.memory_backend.wen   := false.B
+  io.memory_backend.addr :=
+    instruction_stream_addr_reg
+
+  io.memory_backend.wen := false.B
 
   enable_addr_increment := false.B
 
 //  io.global_synch := io.core_active.forall(_ === false.B)
 
   val phase_next: Phase.Type = Reg(Phase.Type(), Phase.Idle)
-  val running: Bool = Reg(Bool())
+  val running: Bool          = Reg(Bool())
   switch(phase) {
     is(Phase.Idle) {
-      
+
       when(io.start) {
         phase      := Phase.StartCacheRead
         phase_next := Phase.StreamDest
@@ -161,7 +158,7 @@ class Programmer(config: ISA, DimX: Int, DimY: Int) extends Module {
         // transitions to State.Running.
         delay_value := (DimX * DimY - (DimX + DimY - 1)).U // magic formula
         instruction_stream_addr_reg := io.instruction_stream_base
-        
+
       }
       running := false.B
     }
@@ -265,10 +262,10 @@ class Programmer(config: ISA, DimX: Int, DimY: Int) extends Module {
     }
     is(Phase.WaitForCountDownEnd2) {
       phase := Phase.WaitForCountDownEnd3
-      
+
     }
     is(Phase.WaitForCountDownEnd3) {
-      phase := Phase.Running
+      phase   := Phase.Running
       running := true.B
     }
 

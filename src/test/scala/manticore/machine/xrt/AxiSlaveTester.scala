@@ -134,7 +134,7 @@ class AxiSlaveTester extends AnyFlatSpec with ChiselScalatestTester with Matcher
 
         dut.io.control.ap_ready.poke(true.B)
         dut.io.control.ap_done.poke(true.B)
-        
+
         dut.clock.step()
         dut.io.control.ap_ready.poke(false.B)
         dut.io.control.ap_done.poke(false.B)

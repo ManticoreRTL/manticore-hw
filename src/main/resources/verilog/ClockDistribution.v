@@ -82,14 +82,14 @@ module ClockDistribution (
       .COMPENSATION        ("AUTO"),
       .STARTUP_WAIT        ("FALSE"),
       .DIVCLK_DIVIDE       (1),
-      .CLKFBOUT_MULT_F     (12.000),
+      .CLKFBOUT_MULT_F     (6.000),
       .CLKFBOUT_PHASE      (0.000),
       .CLKFBOUT_USE_FINE_PS("FALSE"),
       .CLKOUT0_DIVIDE_F    (6.000),
       .CLKOUT0_PHASE       (0.000),
       .CLKOUT0_DUTY_CYCLE  (0.500),
       .CLKOUT0_USE_FINE_PS ("FALSE"),
-      .CLKIN1_PERIOD       (10.000)        // input clock is 100 MHz output is 250 MHz
+      .CLKIN1_PERIOD       (5.000)        // input clock is 100 MHz output is 250 MHz
   ) mmcme4_adv_inst
   // Output clocks
   (
@@ -173,7 +173,7 @@ module ClockDistribution (
       .I (clk_out1_clock_regen)
   );
 
-  
+
 `endif
 
 endmodule

@@ -63,24 +63,23 @@ object KernelInfo {
 class ManticoreFlatKernel(
     DimX: Int,
     DimY: Int,
-    debug_enable: Boolean = false,
-    m_axi_path: Seq[String] =
-      Seq() // path to m_axi implementation if exits, uses simulation models otherwise
+    debug_enable: Boolean = false
+    // m_axi_path: Seq[String] =
+    //   Seq() // path to m_axi implementation if exits, uses simulation models otherwise
 ) extends RawModule {
 
   val clock = IO(Input(Clock()))
   clock.suggestName("ap_clk")
-  val reset = IO(Input(Bool()))
-  reset.suggestName("ap_rst")
+  val reset_n = IO(Input(Bool()))
+  reset_n.suggestName("ap_rst_n")
+  val reset = Wire(Bool())
+  reset := ~reset_n
 
   val clock_distribution = Module(new ClockDistribution())
 
   clock_distribution.io.root_clock := clock
 
-
-
-
-  val m_axi_bank_0  = IO(new AxiMasterInterface)
+  val m_axi_bank_0  = IO(new AxiMasterIF)
   val s_axi_control = IO(new AxiSlave.AxiSlaveCorenterface())
   val interrupt     = IO(Output(Bool()))
 
@@ -120,26 +119,39 @@ class ManticoreFlatKernel(
 
   clock_distribution.io.compute_clock_en_n := manticore.io.clock_inactive
 
-  val gateway: MemoryGateway = withClockAndReset(
+  // val gateway: MemoryGateway = withClockAndReset(
+  //   clock = clock_distribution.io.control_clock,
+  //   reset = reset
+  // ) {
+  //   Module(new MemoryGatewaySimpleHls(m_axi_path))
+  // }
+
+  val axi_mreader = withClockAndReset(
     clock = clock_distribution.io.control_clock,
     reset = reset
   ) {
-    Module(new MemoryGatewaySimpleHls(m_axi_path))
+    Module(new AxiMasterReader)
   }
 
-  gateway.io.m_axi_gmem <> m_axi_bank_0
+  axi_mreader.io.bus <> m_axi_bank_0
 
-  gateway.io.memory_pointer := slave.io.pointer_regs.pointer_0
+  axi_mreader.io.user.base_addr := slave.io.pointer_regs.pointer_0
 
-  gateway.io.wen := manticore.io.memory_backend.wen
-  gateway.io.addr := manticore.io.memory_backend.addr // memory uses short offset (short-addressable)
-  gateway.io.wdata                  := manticore.io.memory_backend.wdata
-  gateway.io.ap_start               := manticore.io.memory_backend.start
-  manticore.io.memory_backend.done  := gateway.io.ap_done
-  manticore.io.memory_backend.rdata := gateway.io.ap_return
-  manticore.io.memory_backend.idle  := gateway.io.ap_idle
+  // gateway.io.wen := manticore.io.memory_backend.wen
+  // gateway.io.addr := manticore.io.memory_backend.addr // memory uses short offset (short-addressable)
+  // gateway.io.wdata                  := manticore.io.memory_backend.wdata
+  // gateway.io.ap_start               := manticore.io.memory_backend.start
+  // manticore.io.memory_backend.done  := gateway.io.ap_done
+  // manticore.io.memory_backend.rdata := gateway.io.ap_return
+  // manticore.io.memory_backend.idle  := gateway.io.ap_idle
 
-  manticore.io.host_registers := slave.io.host_regs
+  axi_mreader.io.user.read_start := manticore.io.memory_backend.start & (~manticore.io.memory_backend.wen)
+  axi_mreader.io.user.raddr := manticore.io.memory_backend.addr // we address the memory using short addresse
+
+  manticore.io.memory_backend.done  := axi_mreader.io.user.read_done
+  manticore.io.memory_backend.rdata := axi_mreader.io.user.rdata
+  manticore.io.memory_backend.idle  := axi_mreader.io.user.read_idle
+  manticore.io.host_registers       := slave.io.host_regs
 
   slave.io.dev_regs := manticore.io.device_registers
 
@@ -172,17 +184,17 @@ class ManticoreFlatSimKernel(
   }
 
   class DirectMemoryInterface extends Bundle {
-    val rdata: UInt = Output(UInt(16.W))
-    val wdata: UInt = Input(UInt(16.W))
+    val rdata: UInt  = Output(UInt(16.W))
+    val wdata: UInt  = Input(UInt(16.W))
     val locked: Bool = Input(Bool())
-    val wen: Bool = Input(Bool())
-    val addr: UInt = Input(UInt(64.W))
+    val wen: Bool    = Input(Bool())
+    val addr: UInt   = Input(UInt(64.W))
   }
 
   class KernelInterface extends Bundle {
     val kernel_registers = new KernelRegisters
-    val kernel_ctrl = new KernelControl
-    val dmi = new DirectMemoryInterface
+    val kernel_ctrl      = new KernelControl
+    val dmi              = new DirectMemoryInterface
   }
 
   val io = IO(new KernelInterface)
@@ -190,7 +202,6 @@ class ManticoreFlatSimKernel(
   val clock_distribution = Module(new ClockDistribution())
 
   clock_distribution.io.root_clock := clock
-
 
   val manticore =
     Module(new ManticoreFlatArray(DimX, DimY, debug_enable, prefix_path))
@@ -217,20 +228,19 @@ class ManticoreFlatSimKernel(
 
   gateway.io.memory_pointer := 0xffff.U
 
-
   gateway.io.locked := io.dmi.locked
 
-  when (io.dmi.locked) {
-    gateway.io.wen := io.dmi.wen
+  when(io.dmi.locked) {
+    gateway.io.wen   := io.dmi.wen
     gateway.io.wdata := io.dmi.wdata
-    gateway.io.addr := io.dmi.addr
+    gateway.io.addr  := io.dmi.addr
   } otherwise {
     gateway.io.wen := manticore.io.memory_backend.wen
     gateway.io.addr := manticore.io.memory_backend.addr // short-addressable memory
-    gateway.io.wdata    := manticore.io.memory_backend.wdata
+    gateway.io.wdata := manticore.io.memory_backend.wdata
   }
 
-  gateway.io.ap_start := manticore.io.memory_backend.start
+  gateway.io.ap_start               := manticore.io.memory_backend.start
   manticore.io.memory_backend.done  := gateway.io.ap_done
   manticore.io.memory_backend.rdata := gateway.io.ap_return
   manticore.io.memory_backend.idle  := gateway.io.ap_idle
@@ -363,7 +373,6 @@ object BuildXclbin {
   def apply(
       bin_dir: Path,
       xo_path: Path,
-      mem_if: Seq[KernelInfo.KernelMemoryInterface],
       top_name: String = "ManticoreKernel",
       target: String = "hw",
       platform: String = "xilinx_u250_gen3x16_xdma_3_1_202020_1"
@@ -393,7 +402,7 @@ object BuildXclbin {
     // clock is defaulted to 250MHz with 200MHz tolernace, i.e., it can go
     // as high as 450MHz and as low as 50MHz
     val clock_constraint =
-      "--clock.defaultFreqHz 100000000 " +
+      "--clock.defaultFreqHz 200000000 " +
         "--clock.defaultTolerance 0.1 "
     val xclbin_path =
       bin_dir.resolve(s"${top_name}.${target}.${platform}.xclbin")
@@ -425,8 +434,7 @@ object ManticoreKernelGenerator {
 
   val platformDevice = Map(
     "xilinx_u250_gen3x16_xdma_3_1_202020_1" -> "xcu250-figd2104-2l-e",
-    "xilinx_u200_gen3x16_xdma_base_1" -> "xcu200-fsgd2104-2-e"
-
+    "xilinx_u200_gen3x16_xdma_base_1"       -> "xcu200-fsgd2104-2-e"
   )
 
   def apply(
@@ -457,24 +465,19 @@ object ManticoreKernelGenerator {
     val hdl_dir = Files.createDirectories(out_dir.resolve("hdl"))
 
     // generate axi master module
-    val master_fp = AxiMasterGenerator(
-      name = "memory_gateway",
-      // out_dir = Some(hdl_dir),
-      part_num = platformDevice(platform)
-    )
-    println("Created axi master module")
-
-    val mem_if = Seq.tabulate(4) { i =>
-      KernelInfo.KernelMemoryInterface("m_axi", "bank_" + i, 256)
-    }
+    // val master_fp = AxiMasterGenerator(
+    //   name = "memory_gateway",
+    //   // out_dir = Some(hdl_dir),
+    //   part_num = platformDevice(platform)
+    // )
+    // println("Created axi master module")
 
     println("generating top module")
     new ChiselStage().emitVerilog(
       new ManticoreFlatKernel(
         DimX = dimx,
         DimY = dimy,
-        debug_enable = true,
-        m_axi_path = master_fp.map(_.toAbsolutePath().toString())
+        debug_enable = true
       ),
       Array("--target-dir", hdl_dir.toAbsolutePath().toString())
     )
@@ -497,10 +500,7 @@ object ManticoreKernelGenerator {
     BuildXclbin(
       bin_dir = out_dir.resolve("bin"),
       xo_path = xo_file,
-      target = target,
-      mem_if = Seq.tabulate(4) { i =>
-        KernelInfo.KernelMemoryInterface("m_axi", "bank_" + i, 256)
-      }
+      target = target
     )
 
   }

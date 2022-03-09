@@ -27,7 +27,7 @@ class ManticoreFlatArrayInterface extends Bundle {
   val reset          = Input(Reset())
 }
 
-class ClockDistribution extends BlackBox with HasBlackBoxResource {
+class ClockDistribution(freqMhz: Double = 200.0) extends BlackBox with HasBlackBoxResource {
 
   val io = IO(new Bundle {
     val root_clock         = Input(Clock())
@@ -59,12 +59,6 @@ class KernelControl extends Module {
   })
 
   val clock_inactive = RegInit(Bool(), false.B)
-  when(clock_inactive === false.B) {
-    clock_inactive := io.kill_clock | io.exception_occurred
-  } otherwise {
-    // when the clock is inactive, resume the clock on command
-    clock_inactive := !io.resume_clock
-  }
 
   io.clock_inactive := clock_inactive
 
@@ -111,7 +105,6 @@ class KernelControl extends Module {
   val soft_rest_source = Wire(Bool())
   soft_rest_source := false.B
 
-
   // create a pipe of registers to allow re-timing of the reset signal
   io.soft_reset := Seq
     .fill(ResetLatency) { Reg(Bool()) }
@@ -123,10 +116,10 @@ class KernelControl extends Module {
   switch(state) {
     is(State.Idle) {
       when(start_pulse) {
-        state         := State.SoftReset
-        reset_counter := 0.U
+        state            := State.SoftReset
+        reset_counter    := 0.U
         soft_rest_source := true.B
-        clock_inactive := false.B
+        clock_inactive   := false.B
 
         dev_regs.bootloader_cycles := 0.U
         dev_regs.virtual_cycles    := 0.U
@@ -134,19 +127,40 @@ class KernelControl extends Module {
       }
     }
     is(State.SoftReset) {
-      reset_counter := reset_counter + 1.U
+      reset_counter  := reset_counter + 1.U
+      clock_inactive := false.B
+      // since the reset takes many cycles, we have to keep the clock active.
+      // Note that it is possible that while the reset is taking place some
+      // programming is running on the master core and triggers an exception
+      // which should normally kill the clock. To avoid this, we only let the
+      // master core issue any clock kill request if the controller is in the
+      // VirtualCycle state. This could easily happen when we are running
+      // initialization programs with very few initialization instructions.
+      // In other words, while we are trying to reset the manticore array to
+      // start the actual program, the initializer runs again and tries to kill
+      // the clock before reset reaches the processor and hence the processor
+      // may not properly reset!
       when(reset_counter === ResetLatency.U) {
         state         := State.BootLoading
         io.boot_start := true.B
       }
     }
     is(State.BootLoading) {
+      clock_inactive             := false.B
       dev_regs.bootloader_cycles := dev_regs.bootloader_cycles + 1.U
       when(io.boot_finished) {
         state := State.VirtualCycle
       }
     }
     is(State.VirtualCycle) {
+      // a program could only kill the clock if the controller is in the virtual
+      // cycle state.
+      when(clock_inactive === false.B) {
+        clock_inactive := io.kill_clock | io.exception_occurred
+      } otherwise {
+        // when the clock is inactive, resume the clock on command
+        clock_inactive := !io.resume_clock
+      }
       config_enable_reg := false.B
       when(!clock_inactive) {
         when(io.exception_occurred) {
@@ -162,7 +176,6 @@ class KernelControl extends Module {
     is(State.SignalDone) {
       state := State.Idle
     }
-
 
   }
 
@@ -413,7 +426,10 @@ class ManticoreFlatArray(
   io.clock_inactive := controller.io.clock_inactive
 
   val bootloader =
-    withClockAndReset(clock = io.control_clock, reset = controller.io.soft_reset) {
+    withClockAndReset(
+      clock = io.control_clock,
+      reset = controller.io.soft_reset
+    ) {
       Module(
         new Programmer(ManticoreFullISA, dimx, dimy)
       )
@@ -427,6 +443,7 @@ class ManticoreFlatArray(
   controller.io.boot_finished := bootloader.io.running
   bootloader.io.start         := controller.io.boot_start
   bootloader.io.instruction_stream_base := io.host_registers.global_memory_instruction_base
+    .pad(bootloader.io.instruction_stream_base.getWidth)
   bootloader.io.finish := false.B
   val memory_intercept =
     withClockAndReset(clock = io.control_clock, reset = io.reset) {

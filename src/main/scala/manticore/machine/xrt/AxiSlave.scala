@@ -165,6 +165,9 @@ class AxiSlave(config: ISA) extends Module {
 
   val io = IO(new AxiSlaveManticoreInterface(config))
 
+  val AddressBits = io.AxiSlaveAddrWidth
+
+
   case class BitRange(high: Int, low: Int)
   case class AddressMapEntry(
       offset: Int,
@@ -185,6 +188,7 @@ class AxiSlave(config: ISA) extends Module {
     val Idle, Data, Resp = Value
   }
 
+
   // read and write channel states
   val wstate = RegInit(ChannelState.Type(), ChannelState.Idle)
   val rstate = RegInit(ChannelState.Type(), ChannelState.Idle)
@@ -203,22 +207,22 @@ class AxiSlave(config: ISA) extends Module {
     bit := io.core.WSTRB(i / 8)
   }
 
-  val aw_hs = Wire(Bool())
-  aw_hs := io.core.AWVALID & io.core.AWREADY
+
+  val waddr = Reg(UInt(AddressBits.W))
   val w_hs = Wire(Bool())
-  w_hs := io.core.WVALID & io.core.WREADY
-
   // write channel state machine
+  w_hs := false.B
   switch(wstate) {
-
     is(ChannelState.Idle) {
       when(io.core.AWVALID) {
         wstate := ChannelState.Data
+        waddr := io.core.AWADDR(AddressBits - 1, 0)
       }
     }
     is(ChannelState.Data) {
       when(io.core.WVALID) {
         wstate := ChannelState.Resp
+        w_hs := true.B
       }
     }
     is(ChannelState.Resp) {
@@ -228,13 +232,11 @@ class AxiSlave(config: ISA) extends Module {
     }
   }
 
-  val AddressBits = io.AxiSlaveAddrWidth
+
 
   // register the write address when both AWVALID and AWREADY are high
-  val waddr = Reg(UInt(AddressBits.W))
-  when(aw_hs) {
-    waddr := io.core.AWADDR(AddressBits - 1, 0)
-  }
+
+
 
   //--- axi read fsm
 
@@ -271,12 +273,12 @@ class AxiSlave(config: ISA) extends Module {
 
   val int_ap_idle  = Reg(Bool())
   val int_ap_ready = Reg(Bool())
-  val int_ap_done  = Reg(Bool())
-  val int_ap_start = Reg(Bool())
+  val int_ap_done  = RegInit(Bool(), false.B)
+  val int_ap_start = RegInit(Bool(), false.B)
 
-  val int_gie = Reg(Bool())
-  val int_ier = Reg(Vec(2, Bool()))
-  val int_isr = Reg(Vec(2, Bool()))
+  val int_gie = RegInit(Bool(), false.B)
+  val int_ier = RegInit(Vec(2, Bool()), VecInit(false.B, false.B))
+  val int_isr = RegInit(Vec(2, Bool()), VecInit(false.B, false.B))
 
   io.control.interrupt := int_gie & (int_isr.reduce(_ | _))
   io.control.ap_start  := int_ap_start

@@ -92,13 +92,17 @@ class MemoryGatewaySimpleHls(cached_path: Seq[String] = Seq())
 
   impl.io.ap_rst_n := !(reset.asBool())
 
-  def pipeConnect[T <: Data](target: T, source: T) = {
-    val preg = Reg(source.cloneType)
+  def pipeConnect[T <: Data](target: T, source: T, init: Option[T] = None) = {
+    val preg = init match {
+      case Some(i) => RegInit(source.cloneType, i)
+      case _       => Reg(source.cloneType)
+    }
     preg   := source
     target := preg
   }
 
-  pipeConnect(impl.io.ap_start, io.ap_start)
+
+  pipeConnect(impl.io.ap_start, io.ap_start, Some(false.B))
   pipeConnect(impl.io.memory_pointer, io.memory_pointer)
   pipeConnect(impl.io.addr, io.addr)
   pipeConnect(impl.io.wen, io.wen)
@@ -125,8 +129,8 @@ class MemoryGatewaySim(init_file: String) extends Module {
     val memory_pointer = Input(UInt(64.W))
     val addr           = Input(UInt(64.W))
 
-    val wen   = Input(Bool())
-    val wdata = Input(UInt(16.W))
+    val wen    = Input(Bool())
+    val wdata  = Input(UInt(16.W))
     val locked = Input(Bool())
   }
   class memory_gateway_sim
@@ -161,5 +165,8 @@ object MemoryGatewaySimpleHlsGen extends App {
 
 //  new ChiselStage().emitVerilog(new MemoryGatewaySimpleHls(), Array("--target-dir", "gen-dir"))
   new ChiselStage()
-    .emitVerilog(new MemoryGatewaySim("exec.dat"), Array("--target-dir", "gen-dir"))
+    .emitVerilog(
+      new MemoryGatewaySim("exec.dat"),
+      Array("--target-dir", "gen-dir")
+    )
 }
