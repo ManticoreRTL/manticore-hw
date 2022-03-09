@@ -9,6 +9,7 @@ import manticore.machine.ManticoreFullISA
 import manticore.machine.ManticoreBaseISA
 
 import manticore.machine.memory.{CacheCommand, CacheConfig}
+import scala.annotation.tailrec
 
 class ManticoreFlatArrayInterface extends Bundle {
 
@@ -27,8 +28,71 @@ class ManticoreFlatArrayInterface extends Bundle {
   val reset          = Input(Reset())
 }
 
-class ClockDistribution(freqMhz: Double = 200.0) extends BlackBox with HasBlackBoxResource {
+object ClockDistribution {
 
+  /** Give a frequency in MHz, compute the MMCM_ADV parameter
+    *
+    * @param freqMhz
+    * @return
+    */
+  def frequencyToParam(freqMhz: Double): Double = {
+
+    require(freqMhz >= 10.0, "Minimum frequency is 10MHz")
+    require(freqMhz <= 775.0, "Maximum frequency is 775MHz")
+    // we need to compute the CLKFBOUT_MULT_F (M) parameter of the MMCM_ADV (see
+    // ug572, UltraScale Architecture Clocking resources) according to (Fin =
+    // FreqMhz):
+    // * Fvco = Fin * M / D
+    // * Fout = Fin * M / (D * O)
+    // where D is set to 1.0 and Fin = Fout and M = O is a multiple of 0.125 and also 2 <= M <= 128
+    // therefore we have:
+    // Fvco = Fin * M = Fin * 0.125 * n, where n is an integer 16 <= n <= 1024
+    // based on "75237 - What are the allowed MMCM input frequencies for secondary clock CLKIN2?"
+    // we know that 800Mhz <= Fvco <= 1600MHz
+
+    @tailrec
+    def findSolutions(
+        n: Int = 16,
+        sols: Seq[Int] = Seq.empty[Int]
+    ): Seq[Int] = {
+      // check if a solution exists
+      val vco = n.toDouble * 0.125 * freqMhz
+      if (n > 1024) {
+        sols
+      } else {
+        val next_sols = if (vco <= 1600.0 && vco >= 800.0) {
+          sols :+ n
+        } else {
+          sols
+        }
+        findSolutions(n + 1, next_sols)
+      }
+    }
+    val sols = findSolutions()
+    // println(sols.map { _.toDouble * 0.125 })
+
+    sols match {
+      case x +: _ =>
+        val len = sols.length
+        // we take the midway solution to basically have a "balanced" jitter
+        // similar to the "balanced" option in the Vivado clocking wizard see AR75237
+        sols(len / 2) * 0.125
+      case _ =>
+        throw new UnsupportedOperationException(
+          s"Invalid frequency ${freqMhz} MHz"
+        )
+    }
+  }
+
+}
+class ClockDistribution(freqMhz: Double = 200.0)
+    extends BlackBox(
+      Map(
+        "M"            -> ClockDistribution.frequencyToParam(freqMhz),
+        "CLOCK_PERIOD" -> 1000.0 / freqMhz
+      )
+    )
+    with HasBlackBoxResource {
   val io = IO(new Bundle {
     val root_clock         = Input(Clock())
     val compute_clock      = Output(Clock())

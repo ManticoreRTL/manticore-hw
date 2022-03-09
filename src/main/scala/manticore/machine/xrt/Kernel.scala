@@ -63,7 +63,8 @@ object KernelInfo {
 class ManticoreFlatKernel(
     DimX: Int,
     DimY: Int,
-    debug_enable: Boolean = false
+    debug_enable: Boolean = false,
+    freqMhz: Double = 200.0,
     // m_axi_path: Seq[String] =
     //   Seq() // path to m_axi implementation if exits, uses simulation models otherwise
 ) extends RawModule {
@@ -75,7 +76,7 @@ class ManticoreFlatKernel(
   val reset = Wire(Bool())
   reset := ~reset_n
 
-  val clock_distribution = Module(new ClockDistribution())
+  val clock_distribution = Module(new ClockDistribution(freqMhz))
 
   clock_distribution.io.root_clock := clock
 
@@ -248,14 +249,14 @@ class ManticoreFlatSimKernel(
   io.dmi.rdata := gateway.io.ap_return
 }
 
-object ManticoreFlatSimKernelGen extends App {
+// object ManticoreFlatSimKernelGen extends App {
 
-  new ChiselStage().emitVerilog(
-    new ManticoreFlatSimKernel(2, 2, true, "haha"),
-    Array("--target-dir", "gen-dir/sim2x2")
-  )
+//   new ChiselStage().emitVerilog(
+//     new ManticoreFlatSimKernel(2, 2, true, "haha"),
+//     Array("--target-dir", "gen-dir/sim2x2")
+//   )
 
-}
+// }
 
 object PackageKernel {
 
@@ -375,7 +376,8 @@ object BuildXclbin {
       xo_path: Path,
       top_name: String = "ManticoreKernel",
       target: String = "hw",
-      platform: String = "xilinx_u250_gen3x16_xdma_3_1_202020_1"
+      platform: String = "xilinx_u250_gen3x16_xdma_3_1_202020_1",
+      freqMhz: Double
   ) = {
 
     import scala.sys.process._
@@ -399,10 +401,9 @@ object BuildXclbin {
     //   }
     //   .mkString(" ")
     val mem_bank_config = " "
-    // clock is defaulted to 250MHz with 200MHz tolernace, i.e., it can go
-    // as high as 450MHz and as low as 50MHz
+
     val clock_constraint =
-      "--clock.defaultFreqHz 200000000 " +
+      s"--clock.defaultFreqHz ${(freqMhz * 1e6).toInt} " +
         "--clock.defaultTolerance 0.1 "
     val xclbin_path =
       bin_dir.resolve(s"${top_name}.${target}.${platform}.xclbin")
@@ -442,42 +443,23 @@ object ManticoreKernelGenerator {
       platform: String = "xilinx_u250_gen3x16_xdma_3_1_202020_1",
       target: String = "hw_emu",
       dimx: Int = 8,
-      dimy: Int = 8
+      dimy: Int = 8,
+      freqMhz: Double = 200.0
   ) = {
 
     val out_dir = Paths.get(target_dir)
 
-    // def deleteOrAbort(): Boolean = {
 
-    //   scala.io.StdIn.readLine(
-    //     s"Directory already exists. Delete it [Y/n]?"
-    //   ) match {
-    //     case "Yes" | "YES" | "yes" | "Y" | "y" =>
-    //       // scala.reflect.io.Directory(out_dir.toFile()).deleteRecursively()
-    //       println("You said yes")
-    //       false
-    //     case _ =>
-    //       println("Aborting")
-    //       true
-    //   }
-    // }
 
     val hdl_dir = Files.createDirectories(out_dir.resolve("hdl"))
-
-    // generate axi master module
-    // val master_fp = AxiMasterGenerator(
-    //   name = "memory_gateway",
-    //   // out_dir = Some(hdl_dir),
-    //   part_num = platformDevice(platform)
-    // )
-    // println("Created axi master module")
 
     println("generating top module")
     new ChiselStage().emitVerilog(
       new ManticoreFlatKernel(
         DimX = dimx,
         DimY = dimy,
-        debug_enable = true
+        debug_enable = false,
+        freqMhz = freqMhz
       ),
       Array("--target-dir", hdl_dir.toAbsolutePath().toString())
     )
@@ -500,41 +482,40 @@ object ManticoreKernelGenerator {
     BuildXclbin(
       bin_dir = out_dir.resolve("bin"),
       xo_path = xo_file,
-      target = target
+      target = target,
+      freqMhz = freqMhz
     )
 
   }
 
-  // private def makeAxiSlaveRegisters() = AxiRegisterBuilder.apply()
-
 }
 
-object KernelTest extends App {
-  val dimx = 16
-  val dimy = 16
-  val out_dir =
-    Paths.get(
-      s"gen-dir/kernel/${dimx}x${dimy}_100MHz_to_200MHz_8KiB/hw"
-    )
+// object KernelTest extends App {
+//   val dimx = 16
+//   val dimy = 16
+//   val out_dir =
+//     Paths.get(
+//       s"gen-dir/kernel/${dimx}x${dimy}_100MHz_to_200MHz_8KiB/hw"
+//     )
 
-  ManticoreKernelGenerator(
-    target_dir = out_dir.toAbsolutePath().toString(),
-    dimx = dimx,
-    dimy = dimy,
-    target = "hw"
-  )
-  // val master_fp = AxiMasterGenerator(
-  //   name = "memory_gateway"
-  //   // out_dir = Some(hdl_dir),
-  // )
-  // new ChiselStage().emitVerilog(
-  //   new ManticoreKernel(
-  //     4,
-  //     4,
-  //     true,
-  //     master_fp.map(_.toAbsolutePath().toString())
-  //   ),
-  //   Array("-td", "gen-dir/sim/hdl")
-  // )
+//   ManticoreKernelGenerator(
+//     target_dir = out_dir.toAbsolutePath().toString(),
+//     dimx = dimx,
+//     dimy = dimy,
+//     target = "hw"
+//   )
+//   // val master_fp = AxiMasterGenerator(
+//   //   name = "memory_gateway"
+//   //   // out_dir = Some(hdl_dir),
+//   // )
+//   // new ChiselStage().emitVerilog(
+//   //   new ManticoreKernel(
+//   //     4,
+//   //     4,
+//   //     true,
+//   //     master_fp.map(_.toAbsolutePath().toString())
+//   //   ),
+//   //   Array("-td", "gen-dir/sim/hdl")
+//   // )
 
-}
+// }

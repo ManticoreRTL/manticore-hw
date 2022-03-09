@@ -14,7 +14,8 @@ object Main {
       target: String = "<INV>",
       output: File = new File("."),
       platform: String = "",
-      list_platforms: Boolean = false
+      list_platforms: Boolean = false,
+      freq: Double = 200.0
   )
   def parseArgs(args: Seq[String]): CliConfig = {
     val project_version = getClass.getPackage.getImplementationVersion
@@ -45,6 +46,11 @@ object Main {
           .text(
             "build platform (use --list to see a list of available ones), only affects hw and hw_emu"
           ),
+        opt[Double]('f', "freq")
+          .action { case (p, c) => c.copy(freq = p) }
+          .text(
+            "desired operating frequency, default = 200"
+          ),
         opt[Unit]("list")
           .action { case (b, c) => c.copy(list_platforms = true) }
           .text("print a list of available platforms"),
@@ -66,16 +72,13 @@ object Main {
     }
   }
 
-
-
   def listPlatforms(): Unit = {
 
     Console.println("Available platforms: \n")
     ManticoreKernelGenerator.platformDevice.foreach { case (p, _) =>
-        println(s"\t${p}")
+      println(s"\t${p}")
     }
   }
-
 
   def main(args: Array[String]): Unit = {
 
@@ -89,37 +92,38 @@ object Main {
 
       case t @ ("hw" | "hw_emu") =>
         if (cfg.platform.isEmpty) {
-            sys.error("the selected target requires a platform.")
+          sys.error("the selected target requires a platform.")
         }
 
         ManticoreKernelGenerator.platformDevice.get(cfg.platform) match {
-            case None => sys.error(s"Unknown platform ${cfg.platform}")
-            case _ => // ok
+          case None => sys.error(s"Unknown platform ${cfg.platform}")
+          case _    => // ok
         }
-        Console.println(s"Starting code generation for ${cfg.platform}.${cfg.target}")
+        Console.println(
+          s"Starting code generation for ${cfg.platform}.${cfg.target}"
+        )
         ManticoreKernelGenerator(
           target_dir = cfg.output.toPath.toAbsolutePath.toString,
           platform = cfg.platform,
           dimx = cfg.dimx,
           dimy = cfg.dimy,
-          target = t
+          target = t,
+          freqMhz = cfg.freq
         )
 
       case "sim" =>
-          new ChiselStage().emitVerilog(
-            new ManticoreFlatSimKernel(
-              DimX = cfg.dimx,
-              DimY = cfg.dimy,
-              debug_enable = true
-            ),
-            Array("--target-dir", cfg.output.toPath.toString)
-          )
+        new ChiselStage().emitVerilog(
+          new ManticoreFlatSimKernel(
+            DimX = cfg.dimx,
+            DimY = cfg.dimy,
+            debug_enable = true
+          ),
+          Array("--target-dir", cfg.output.toPath.toString)
+        )
       case _ =>
         sys.error("Unknown platform!")
 
     }
-
-
 
   }
 

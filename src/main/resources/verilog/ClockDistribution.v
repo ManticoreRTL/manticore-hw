@@ -1,7 +1,7 @@
 /**
 * Wrapper for Xilinx BUFCE (glitchless clock gating cell)
 */
-module ClockDistribution (
+module ClockDistribution #(M = 6.0, CLOCK_PERIOD = 5.0)(
     input wire root_clock,  // from shell
     output wire compute_clock,  // to the compute cores
     output wire control_clock,  // to the control units
@@ -75,21 +75,20 @@ module ClockDistribution (
   // Auto Instantiation//
 
 
-
   MMCME4_ADV #(
       .BANDWIDTH           ("OPTIMIZED"),
       .CLKOUT4_CASCADE     ("FALSE"),
       .COMPENSATION        ("AUTO"),
       .STARTUP_WAIT        ("FALSE"),
-      .DIVCLK_DIVIDE       (1),
-      .CLKFBOUT_MULT_F     (6.000),
+      .DIVCLK_DIVIDE       (1.0),
+      .CLKFBOUT_MULT_F     (M),
       .CLKFBOUT_PHASE      (0.000),
       .CLKFBOUT_USE_FINE_PS("FALSE"),
-      .CLKOUT0_DIVIDE_F    (6.000),
+      .CLKOUT0_DIVIDE_F    (M),
       .CLKOUT0_PHASE       (0.000),
       .CLKOUT0_DUTY_CYCLE  (0.500),
       .CLKOUT0_USE_FINE_PS ("FALSE"),
-      .CLKIN1_PERIOD       (5.000)        // input clock is 100 MHz output is 250 MHz
+      .CLKIN1_PERIOD       (CLOCK_PERIOD)
   ) mmcme4_adv_inst
   // Output clocks
   (
