@@ -374,10 +374,10 @@ object BuildXclbin {
   def apply(
       bin_dir: Path,
       xo_path: Path,
-      top_name: String = "ManticoreKernel",
-      target: String = "hw",
-      platform: String = "xilinx_u250_gen3x16_xdma_3_1_202020_1",
-      freqMhz: Double
+      target: String,
+      platform: String,
+      freqMhz: Double,
+      top_name: String = "ManticoreKernel"
   ) = {
 
     import scala.sys.process._
@@ -394,35 +394,57 @@ object BuildXclbin {
 
     Files.createDirectories(bin_dir)
 
-    // connect each axi port to a single DDR bank.
-    // val mem_bank_config = mem_if.zipWithIndex
-    //   .map { case (m, ix) =>
-    //     s"--connectivity.sp ${top_name}_1.${m.portName}:DDR[${ix}]"
-    //   }
-    //   .mkString(" ")
-    val mem_bank_config = " "
+
+    def getSystemInfo(): Int = {
+      val lscpu = "lscpu"
+      val cpu_matcher = raw"CPU\(s\):\s*(\d+)".r
+      val thread_matcher = raw"Thread\(s\) per core:\s*(\d+)".r
+      val stdout = new StringBuilder
+      var cpus = 0
+      var thread_per_core = 0
+      Process("lscpu").! {
+        ProcessLogger{ ln =>
+          ln match {
+            case cpu_matcher(x) =>
+              cpus = x.toInt
+            case _ => // nothing
+          }
+          ln match {
+            case thread_matcher(x) => thread_per_core = x.toInt
+            case _ => // nothing
+          }
+        }
+      }
+      if (cpus == 0) {
+        throw new Exception("Could not determine the number of CPUs")
+      }
+      if (thread_per_core == 0) {
+        throw new Exception("Could not determine the number of CPUs threads")
+      }
+      cpus / thread_per_core
+    }
 
     val clock_constraint =
       s"--clock.defaultFreqHz ${(freqMhz * 1e6).toInt} " +
         "--clock.defaultTolerance 0.1 "
     val xclbin_path =
       bin_dir.resolve(s"${top_name}.${target}.${platform}.xclbin")
-    // val command =
-    //   s"v++ --link -g -t ${target} --platform ${platform} --save-temps " +
-    //     " --to_step vpl.impl  --vivado.synth.jobs 20 --vivado.impl.jobs 16 " +
-    //     s"${mem_bank_config} ${clock_constraint} -o ${xclbin_path.toAbsolutePath.toString} " +
-    //     s"${xo_path.toAbsolutePath.toString}"
+    val max_threads = Runtime.getRuntime().availableProcessors()
+
+    val cpus = getSystemInfo() max 12
     val command =
       s"v++ --link -g -t ${target} --platform ${platform} --save-temps " +
-        "--vivado.synth.jobs 20 --vivado.impl.jobs 16 " +
-        s"${mem_bank_config} ${clock_constraint} -o ${xclbin_path.toAbsolutePath.toString} " +
+        s"--vivado.synth.jobs ${cpus} --vivado.impl.jobs ${cpus} " +
+        s"${clock_constraint} -o ${xclbin_path.toAbsolutePath.toString} " +
         s"${xo_path.toAbsolutePath.toString}"
 
     println(s"Executing:\n${command}")
     val success = Process(command = command, cwd = bin_dir.toFile())
       .!(ProcessLogger(println(_))) == 0
-    if (!success)
+    if (!success) {
       println("v++ failed!")
+      throw new Exception("Could not build the xclbin!")
+    }
   }
 }
 
@@ -483,7 +505,8 @@ object ManticoreKernelGenerator {
       bin_dir = out_dir.resolve("bin"),
       xo_path = xo_file,
       target = target,
-      freqMhz = freqMhz
+      freqMhz = freqMhz,
+      platform = platform
     )
 
   }
