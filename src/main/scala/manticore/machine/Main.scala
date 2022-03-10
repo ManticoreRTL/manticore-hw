@@ -110,9 +110,7 @@ object Main {
           target = t,
           freqMhz = cfg.freq
         )
-level0_i/level1/level1_i/ulp/ManticoreKernel_1/inst/manticore/controller/clock_inactive_reg
-level0_i/level1/level1_i/ulp/ManticoreKernel_1/inst/clock_distribution/compute_clock_impl/CE
-level0_i/level1/level1_i/ulp/ManticoreKernel_1/inst/clock_distrib
+
       case "sim" =>
         new ChiselStage().emitVerilog(
           new ManticoreFlatSimKernel(
