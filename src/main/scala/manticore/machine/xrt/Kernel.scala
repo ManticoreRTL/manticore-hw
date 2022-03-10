@@ -457,7 +457,7 @@ object ManticoreKernelGenerator {
 
   val platformDevice = Map(
     "xilinx_u250_gen3x16_xdma_3_1_202020_1" -> "xcu250-figd2104-2l-e",
-    "xilinx_u200_gen3x16_xdma_base_1"       -> "xcu200-fsgd2104-2-e"
+    "xilinx_u200_gen3x16_xdma_1_202110_1"       -> "xcu200-fsgd2104-2-e"
   )
 
   def apply(
