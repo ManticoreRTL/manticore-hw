@@ -24,6 +24,7 @@ import Chisel._
 import firrtl.ir.Width
 
 import manticore.machine.ISA
+import chisel3.DontCare
 
 class BareNoCBundle(val config: ISA) extends Bundle {
   val data: UInt    = UInt(config.DataBits.W)
@@ -61,11 +62,16 @@ object NoCBundle {
     */
   def empty(DIMX: Int, DIMY: Int, config: ISA): NoCBundle = {
     val bundle = Wire(new NoCBundle(DIMX, DIMY, config))
-    bundle.data    := 0.U
-    bundle.address := 0.U
     bundle.valid   := false.B
-    bundle.xHops   := 0.U
-    bundle.yHops   := 0.U
+    /** we set the others to DontCare since we really don't care
+     * this way we can use [[empty]] as initial value to [[RegInit]]
+     * in an optimized manner. Because Chisel will not include the signals
+     * that are [[DontCare]] in the actual reset circuit.
+     */
+    bundle.data    := DontCare
+    bundle.address := DontCare
+    bundle.xHops   := DontCare
+    bundle.yHops   := DontCare
     bundle
   }
 
@@ -169,10 +175,16 @@ class Switch(DimX: Int, DimY: Int, config: ISA) extends Module {
   val io = IO(new SwitchInterface(DimX, DimY, config))
 
   val empty = Wire(NoCBundle(DimX, DimY, config))
-
-  val x_reg: NoCBundle   = Reg(NoCBundle(DimX, DimY, config))
-  val y_reg: NoCBundle   = Reg(NoCBundle(DimX, DimY, config))
-  val terminal_reg: Bool = Reg(Bool())
+  def mkPacketRegInit(): NoCBundle = {
+    val pkt = RegInit(
+      NoCBundle(DimX, DimY, config),
+      NoCBundle.empty(DimX, DimY, config)
+    )
+    pkt
+  }
+  val x_reg: NoCBundle   = mkPacketRegInit()
+  val y_reg: NoCBundle   = mkPacketRegInit()
+  val terminal_reg: Bool = RegInit(Bool(), false.B)
 
   // default values of the outputs
   x_reg        := empty
@@ -238,14 +250,12 @@ class Switch(DimX: Int, DimY: Int, config: ISA) extends Module {
 
 }
 
-
-
 class SwitchPacketInspector(
     DimX: Int,
     DimY: Int,
     config: ISA,
     pos: (Int, Int),
-    fatal: Boolean = false,
+    fatal: Boolean = false
 ) extends Module {
   val io            = IO(new SwitchInterface(DimX, DimY, config))
   val clock_counter = RegInit(UInt(64.W), 0.U)

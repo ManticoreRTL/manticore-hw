@@ -113,7 +113,7 @@ class Programmer(config: ISA, DimX: Int, DimY: Int) extends Module {
 
   // register the output packet as well
   val packet_out = RegInit(
-    new NoCBundle(DimX, DimY, config),
+    NoCBundle(DimX, DimY, config),
     NoCBundle.empty(DimX, DimY, config)
   )
 
