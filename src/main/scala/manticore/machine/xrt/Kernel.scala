@@ -267,9 +267,9 @@ object PackageKernel {
       scripts_path: Path,
       kernel_xml_path: Path,
       xo_dir: Path,
+      target: String ,
+      platform: String,
       top_name: String = "ManticoreKernel",
-      target: String = "hw",
-      platform: String = "xilinx_u250_gen3x16_xdma_3_1_202020_1",
       slave_interface: String = "s_axi_control",
       master_interface: Seq[String] = Seq.tabulate(4) { i =>
         "m_axi_bank_" + i
@@ -424,9 +424,9 @@ object BuildXclbin {
       cpus / thread_per_core
     }
 
-    val clock_constraint =
-      s"--clock.defaultFreqHz ${(freqMhz * 1e6).toInt} " +
-        "--clock.defaultTolerance 0.1 "
+    val clock_constraint = "" +
+      s"--kernel_frequency 0:${freqMhz} "
+        // "--clock.defaultTolerance 0.1 "
     val xclbin_path =
       bin_dir.resolve(s"${top_name}.${target}.${platform}.xclbin")
     val max_threads = Runtime.getRuntime().availableProcessors()
@@ -497,6 +497,8 @@ object ManticoreKernelGenerator {
       temp_kernel_package_path = out_dir.resolve("temp_packaged"),
       scripts_path = out_dir.resolve("scripts"),
       kernel_xml_path = xml_path,
+      platform = platform,
+      target = target,
       xo_dir = out_dir.resolve("bin")
     )
     println("Created Xilinx Object")
