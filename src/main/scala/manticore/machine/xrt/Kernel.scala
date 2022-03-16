@@ -117,6 +117,7 @@ class ManticoreFlatKernel(
   manticore.io.reset         := reset
   manticore.io.control_clock := clock_distribution.io.control_clock
   manticore.io.compute_clock := clock_distribution.io.compute_clock
+  manticore.io.clock_stabled := clock_distribution.io.locked
 
   clock_distribution.io.compute_clock_en_n := manticore.io.clock_inactive
 
@@ -206,6 +207,7 @@ class ManticoreFlatSimKernel(
 
   val manticore =
     Module(new ManticoreFlatArray(DimX, DimY, debug_enable, prefix_path))
+  manticore.io.clock_stabled := clock_distribution.io.locked
 
   manticore.io.reset         := reset
   manticore.io.control_clock := clock_distribution.io.control_clock

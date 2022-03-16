@@ -12,12 +12,12 @@ class HostRegisters(config: ISA) extends Bundle {
   val global_memory_instruction_base: UInt = UInt(64.W)
   val value_change_symbol_table_base: UInt = UInt(64.W)
   val value_change_log_base: UInt          = UInt(64.W)
-  val schedule_config: UInt                = UInt(32.W)
+  val schedule_config: UInt                = UInt(64.W)
   // |               schedule_config                  |
   // +------------------------------------------------+
-  // |31            24|23                             |
+  // |63            56|55                            0|
   // +----------------+-------------------------------+
-  // |command         |       schedule length         |
+  // |      CMD       |           CMD DATA            |
   // -----------------+--------------------------------
 
 }
@@ -27,8 +27,8 @@ class DeviceRegisters(config: ISA) extends Bundle {
   val virtual_cycles: UInt = UInt(64.W)
   val bootloader_cycles: UInt = UInt(32.W) // for profiling
   // val exception_id: Vec[UInt] = Vec(4, UInt(config.DataBits.W))
-  val exception_id: UInt = UInt(32.W)
-  val status: UInt         = UInt(32.W)
+  val exception_id: UInt         = UInt(32.W)
+  val execution_cycles: UInt     = UInt(64.W)
 }
 
 class ComputeGridOrchestratorInterface(DimX: Int, DimY: Int, config: ISA)

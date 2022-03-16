@@ -25,6 +25,7 @@ class ManticoreFlatArrayInterface extends Bundle {
   val clock_inactive = Output(Bool())
   val compute_clock  = Input(Clock())
   val control_clock  = Input(Clock())
+  val clock_stabled  = Input(Bool())
   val reset          = Input(Reset())
 }
 
@@ -98,6 +99,7 @@ class ClockDistribution(freqMhz: Double = 200.0)
     val compute_clock      = Output(Clock())
     val control_clock      = Output(Clock())
     val compute_clock_en_n = Input(Bool())
+    val locked             = Output(Bool())
   })
   addResource("/verilog/ClockDistribution.v")
 }
@@ -114,12 +116,14 @@ class KernelControl extends Module {
     val kill_clock         = Input(Bool())
     val resume_clock       = Input(Bool())
     val exception_occurred = Input(Bool())
-    val command            = Input(UInt(8.W))
+    val schedule_config    = Input(UInt(64.W))
     val exception_id       = Input(UInt(32.W))
     val config_enable      = Output(Bool())
     val clock_inactive     = Output(Bool())
     val execution_active   = Input(Bool())
     val soft_reset         = Output(Bool())
+
+    val clock_stabled     = Input(Bool())
   })
 
   val clock_inactive = RegInit(Bool(), false.B)
@@ -132,6 +136,14 @@ class KernelControl extends Module {
   start_pulse := (!start_reg) & io.start
 
   val dev_regs = Reg(new DeviceRegisters(ManticoreFullISA))
+
+  val command = Wire(UInt(8.W))
+  val command_data = Wire(UInt(56.W))
+
+  command := io.schedule_config.head(8)
+  command_data := io.schedule_config.tail(8)
+
+
 
   object State extends ChiselEnum {
     val Idle, SoftReset, BootLoading, VirtualCycle, SignalDone = Value
@@ -179,7 +191,7 @@ class KernelControl extends Module {
 
   switch(state) {
     is(State.Idle) {
-      when(start_pulse) {
+      when(start_pulse && io.clock_stabled) {
         state            := State.SoftReset
         reset_counter    := 0.U
         soft_rest_source := true.B
@@ -187,7 +199,10 @@ class KernelControl extends Module {
 
         dev_regs.bootloader_cycles := 0.U
         dev_regs.virtual_cycles    := 0.U
+        dev_regs.execution_cycles  := 0.U
         execution_active_old       := false.B
+
+
       }
     }
     is(State.SoftReset) {
@@ -217,6 +232,7 @@ class KernelControl extends Module {
       }
     }
     is(State.VirtualCycle) {
+      dev_regs.execution_cycles := dev_regs.execution_cycles + 1.U
       // a program could only kill the clock if the controller is in the virtual
       // cycle state.
       when(clock_inactive === false.B) {
@@ -227,9 +243,16 @@ class KernelControl extends Module {
       }
       config_enable_reg := false.B
       when(!clock_inactive) {
+        // either the application has finished
         when(io.exception_occurred) {
           state                 := State.SignalDone
           dev_regs.exception_id := io.exception_id
+        } .elsewhen(command === 1.U && dev_regs.virtual_cycles === command_data) {
+          // or we have run out of time
+          state                 := State.SignalDone
+          dev_regs.exception_id := 0x10000.U // give some id that users can not
+          // make (they are restricted to 16 bits, i.e., up to 0xFFFF)
+          // NOTE: max time out  is 1 << 56 (more than enough)
         }
       }
       when(execution_active_old === false.B & io.execution_active === true.B) {
@@ -569,7 +592,9 @@ class ManticoreFlatArray(
   controller.io.exception_id       := compute_array.io.exception_id
   controller.io.exception_occurred := compute_array.io.exception_occurred
   controller.io.execution_active   := compute_array.io.execution_active
-  controller.io.command            := io.host_registers.schedule_config.head(8)
+  controller.io.schedule_config    := io.host_registers.schedule_config
+  controller.io.clock_stabled      := io.clock_stabled
+
 }
 
 object Gentest extends App {

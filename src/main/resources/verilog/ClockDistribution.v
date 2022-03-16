@@ -5,7 +5,8 @@ module ClockDistribution #(M = 6.0, CLOCK_PERIOD = 5.0)(
     input wire root_clock,  // from shell
     output wire compute_clock,  // to the compute cores
     output wire control_clock,  // to the control units
-    input wire compute_clock_en_n  // from the control units
+    input wire compute_clock_en_n,  // from the control units
+    output wire locked // to the controller
 );
   // assign O = I;
 `ifdef VERILATOR
@@ -20,6 +21,7 @@ module ClockDistribution #(M = 6.0, CLOCK_PERIOD = 5.0)(
     end
   end
   assign compute_clock = output_clk;
+  assign locked = 1'b1;
 `else
 
 
@@ -171,7 +173,7 @@ module ClockDistribution #(M = 6.0, CLOCK_PERIOD = 5.0)(
       .CLR(1'b0),
       .I (clk_out1_clock_regen)
   );
-
+  assign locked = locked_int;
 
 `endif
 

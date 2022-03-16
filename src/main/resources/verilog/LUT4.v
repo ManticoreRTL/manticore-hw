@@ -1,7 +1,7 @@
 module LUT4
 #(parameter INIT = 16'h800 // defaults to x & y & u & v
 )(
-    input wire x, 
+    input wire x,
     input wire y,
     input wire u,
     input wire v,
@@ -10,22 +10,19 @@ module LUT4
 
 `ifdef VERILATOR
     assign out = INIT >> {x, y, u, v};
-`else 
+`else
     (* DONT_TOUCH = "yes" *)
-    RAM64X1S #(
-        .INIT({48'h0, INIT})
+    LUT6 #(
+        .INIT(INIT)
     ) lut_inst(
         .O(out),
-        .A0(v),
-        .A1(u),
-        .A2(y),
-        .A3(x),
-        .A4(0),
-        .A5(0),
-        .D(),
-        .WCLK(0),
-        .WE(0)
+        .I0(v),
+        .I1(u),
+        .I2(y),
+        .I3(x),
+        .I4(0),
+        .I5(0)
     );
 `endif
 
-endmodule 
+endmodule
