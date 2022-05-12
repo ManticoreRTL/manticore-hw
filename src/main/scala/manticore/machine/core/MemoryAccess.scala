@@ -10,12 +10,10 @@ object MemoryAccess {
   type PipeIn = ExecuteInterface.PipeOut
 
   class PipeOut(config: ISA, DimX: Int, DimY: Int) extends Bundle {
-    val gmem_data: UInt   = UInt(config.DataBits.W)
-    val lmem_data: UInt   = UInt(config.DataBits.W)
     val result: UInt      = UInt(config.DataBits.W)
     val packet: NoCBundle = new NoCBundle(DimX, DimY, config)
     val write_back: Bool  = Bool()
-    val rd: UInt          = UInt(config.DataBits.W)
+    val rd: UInt          = UInt(config.IdBits.W)
     val lload: Bool       = Bool()
     val gload: Bool       = Bool()
     val send: Bool        = Bool()
@@ -77,12 +75,6 @@ class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
 
   io.pipe_out.packet := packet_reg
 
-  if (config.WithGlobalMemory) {
-    io.pipe_out.gmem_data := io.global_memory_interface.rdata
-  }
-
-  io.pipe_out.lmem_data := io.local_memory_interface.dout
-
   def pipeIt[T <: Data](dest: T)(source: T): Unit = {
     val pipereg = Reg(chisel3.chiselTypeOf(source))
     pipereg := source
@@ -108,8 +100,22 @@ class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
     io.pipe_in.opcode.nop
   }
 
-  pipeIt(io.pipe_out.result) {
-    io.pipe_in.result
+  if (config.WithGlobalMemory) {
+    when(io.pipe_in.opcode.lload) {
+      io.pipe_out.result := io.local_memory_interface.dout
+
+    }.elsewhen(io.pipe_in.opcode.gload) {
+      io.pipe_out.result := io.global_memory_interface.rdata
+
+    } otherwise {
+      pipeIt(io.pipe_out.result) { io.pipe_in.result }
+    }
+  } else {
+    when(io.pipe_in.opcode.lload) {
+      io.pipe_out.result := io.local_memory_interface.dout
+    } otherwise {
+      pipeIt(io.pipe_out.result) { io.pipe_in.result }
+    }
   }
 
   pipeIt(io.pipe_out.gload) {

@@ -303,25 +303,77 @@ class Processor(
   //     )
   // )
 
+  class RegisterWriteByPass extends Bundle {
+    val value   = UInt(config.DataBits.W)
+    val address = UInt(config.IdBits.W)
+    val en      = Bool()
+  }
+  val register_bypass = Reg(new RegisterWriteByPass)
+  register_bypass.value   := memory_stage.io.pipe_out.result
+  register_bypass.address := memory_stage.io.pipe_out.rd
+  register_bypass.en      := memory_stage.io.pipe_out.write_back
+  val forwarding_signals =
+    if (config.forwarding) {
+      Seq(
+        ForwardingTuple(
+          execute_stage.io.pipe_out.result,
+          execute_stage.io.pipe_out.rd,
+          execute_stage.io.pipe_out.opcode.arith || execute_stage.io.pipe_out.opcode.cust0
+        ),
+        ForwardingTuple(
+          memory_stage.io.pipe_out.result,
+          memory_stage.io.pipe_out.rd,
+          memory_stage.io.pipe_out.write_back
+        ),
+        ForwardingTuple(
+          register_bypass.value,
+          register_bypass.address,
+          register_bypass.en
+        )
+      )
+    } else {
+      Seq.empty
+    }
   // fetch --> decode
   decode_stage.io.instruction := fetch_stage.io.instruction
 
   // decode --> exec
-  execute_stage.io.pipe_in   := decode_stage.io.pipe_out
-  execute_stage.io.regs_in.x := register_file.io.rx.dout
-  execute_stage.io.regs_in.y := register_file.io.ry.dout
-  execute_stage.io.regs_in.u := register_file.io.ru.dout
-  execute_stage.io.regs_in.v := register_file.io.rv.dout
+  execute_stage.io.pipe_in := decode_stage.io.pipe_out
+
+  execute_stage.io.regs_in.x := ForwardPath(
+    register_file.io.rx.dout,
+    decode_stage.io.pipe_out.rs1,
+    forwarding_signals
+  )
+  execute_stage.io.regs_in.y := ForwardPath(
+    register_file.io.ry.dout,
+    decode_stage.io.pipe_out.rs2,
+    forwarding_signals
+  )
+  execute_stage.io.regs_in.u := ForwardPath(
+    register_file.io.ru.dout,
+    decode_stage.io.pipe_out.rs3,
+    forwarding_signals
+  )
+  execute_stage.io.regs_in.v := ForwardPath(
+    register_file.io.rv.dout,
+    decode_stage.io.pipe_out.rs4,
+    forwarding_signals
+  )
   register_file.io.rx.addr   := decode_stage.io.pipe_out.rs1
   register_file.io.ry.addr   := decode_stage.io.pipe_out.rs2
   register_file.io.ru.addr   := decode_stage.io.pipe_out.rs3
   register_file.io.rv.addr   := decode_stage.io.pipe_out.rs4
 
+  register_file.io.w.addr    := memory_stage.io.pipe_out.rd
+  register_file.io.w.din     := memory_stage.io.pipe_out.result
+  register_file.io.w.en      := memory_stage.io.pipe_out.write_back
+
   carry_register_file.io.raddr := decode_stage.io.pipe_out.rs3
   execute_stage.io.carry_in    := carry_register_file.io.dout
-  carry_register_file.io.wen   := execute_stage.io.pipe_out.carry_wen
-  carry_register_file.io.waddr := execute_stage.io.pipe_out.carry_rd
-  carry_register_file.io.din   := execute_stage.io.pipe_out.carry_din
+  carry_register_file.io.wen   := execute_stage.io.carry_wen
+  carry_register_file.io.waddr := execute_stage.io.carry_rd
+  carry_register_file.io.din   := execute_stage.io.carry_din
 
   // exec --> memory and write back implementation
   memory_stage.io.local_memory_interface <> array_memory.io
@@ -330,37 +382,6 @@ class Processor(
   memory_stage.io.pipe_in := execute_stage.io.pipe_out
   register_file.io.w.en := memory_stage.io.pipe_out.write_back // & (memory_stage.io.pipe_out.rd =/= 0.U)
 
-  def writeback_message(msg: String, value: UInt) = {
-    // when(memory_stage.io.pipe_out.write_back) {
-    //   assert(
-    //     memory_stage.io.pipe_out.rd =/= 0.U,
-    //     s"\tError ignored R(0) <= %d (${msg})\n",
-    //     value
-    //   )
-    // }
-
-  }
-
-  if (config.WithGlobalMemory) {
-    when(memory_stage.io.pipe_out.lload) {
-      register_file.io.w.din := memory_stage.io.pipe_out.lmem_data
-      writeback_message("LocalLoad", memory_stage.io.pipe_out.lmem_data)
-    }.elsewhen(memory_stage.io.pipe_out.gload) {
-      register_file.io.w.din := memory_stage.io.pipe_out.gmem_data
-      writeback_message("GlobalLoad", memory_stage.io.pipe_out.gmem_data)
-    } otherwise {
-      writeback_message("WB", memory_stage.io.pipe_out.gmem_data)
-      register_file.io.w.din := memory_stage.io.pipe_out.result
-    }
-  } else {
-    when(memory_stage.io.pipe_out.lload) {
-      register_file.io.w.din := memory_stage.io.pipe_out.lmem_data
-      writeback_message("LocalLoad", memory_stage.io.pipe_out.lmem_data)
-    } otherwise {
-      register_file.io.w.din := memory_stage.io.pipe_out.result
-      writeback_message("WB", memory_stage.io.pipe_out.lmem_data)
-    }
-  }
 
   register_file.io.w.addr := memory_stage.io.pipe_out.rd
 
@@ -401,19 +422,24 @@ class Processor(
 
 }
 
+
 object ProcessorEmitter extends App {
   val rdgen = new scala.util.Random(0)
   val equations: Seq[Seq[Int]] =
     Seq.fill(32)(Seq.fill(16)(rdgen.nextInt(1 << 16)))
 //
- def makeProcessor() =
-   new Processor(config = ManticoreFullISA, DimX = 16, DimY = 16,
-     equations = equations
-   )
+  def makeProcessor() =
+    new Processor(
+      config = ManticoreFullISA,
+      DimX = 16,
+      DimY = 16,
+      equations = equations
+    )
 
- new ChiselStage().emitVerilog(
-   makeProcessor(), Array("--target-dir", "gen-dir/processor/")
- )
+  new ChiselStage().emitVerilog(
+    makeProcessor(),
+    Array("--target-dir", "gen-dir/processor/")
+  )
 
 //  new ChiselStage().emitVerilog(
 //    new ClockedProcessor(config = ThyrioISA, DimX = 2, DimY = 2,

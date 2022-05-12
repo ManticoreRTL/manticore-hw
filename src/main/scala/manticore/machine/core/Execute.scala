@@ -23,11 +23,52 @@ package manticore.machine.core
 import Chisel._
 import chisel3.stage.ChiselStage
 import manticore.machine.{ISA, ManticoreBaseISA}
-import manticore.machine.core.ExecuteInterface.{GlobalMemoryInterface, PipeIn, PipeOut}
-import manticore.machine.core.alu.{ALUInput, CustomALU, CustomALUComb, StandardALU, StandardALUComb}
+import manticore.machine.core.ExecuteInterface.{
+  GlobalMemoryInterface,
+  PipeIn,
+  PipeOut
+}
+import manticore.machine.core.alu.{
+  ALUInput,
+  CustomALU,
+  CustomALUComb,
+  StandardALU,
+  StandardALUComb
+}
 import manticore.machine.memory.{CacheCommand, CacheConfig}
 
 import scala.util.Random
+
+// class ForwardBundle(dataWidth: Int, addressWidth: Int) extends Bundle {
+//   val value   = UInt(dataWidth.W)
+//   val address = UInt(addressWidth.W)
+//   val en      = Bool()
+// }
+case class ForwardingTuple(value: UInt, address: UInt, en: Bool)
+
+object ForwardPath {
+  def apply(
+      value: UInt,
+      address: UInt,
+      paths: Seq[ForwardingTuple]
+  ): UInt = {
+
+    require(paths.forall(_.value.getWidth == value.getWidth))
+    require(paths.forall(_.address.getWidth == address.getWidth))
+    if (paths.isEmpty) {
+      // no forwarding
+      value
+    } else {
+      paths.reverse.foldLeft(value) { case (prev, fpath) =>
+        val temp = Wire(value.cloneType)
+        temp := Mux(fpath.address === address && fpath.en, fpath.value, prev)
+        temp
+
+      }
+    }
+  }
+}
+
 
 object ExecuteInterface {
   type OpcodePipe = Decode.OpcodePipe
@@ -37,20 +78,13 @@ object ExecuteInterface {
     val data      = UInt(config.DataBits.W)
     val result    = UInt(config.DataBits.W)
     val rd        = UInt(config.IdBits.W)
-    val carry_rd  = UInt(log2Ceil(config.CarryCount).W)
-    val carry_wen = Bool()
-    val carry_din = UInt(1.W)
+    // val carry_rd  = UInt(log2Ceil(config.CarryCount).W)
+    // val carry_wen = Bool()
+    // val carry_din = UInt(1.W)
     val immediate = UInt(config.DataBits.W)
     val gmem      = new GlobalMemoryInterface(config)
     val pred      = Bool()
   }
-
-//  class LocalMemoryInterface(config: ISA) extends Bundle {
-//    // read interface to the local memory
-//    val address = Output(UInt(11.W))
-//    val dout    = Input(UInt(config.DataBits.W))
-//    val we      = Output(Bool()) // should be false.B
-//  }
 
   class GlobalMemoryInterface(config: ISA) extends Bundle {
     val address = UInt((config.IdBits * 3).W)
@@ -62,12 +96,18 @@ object ExecuteInterface {
 
 }
 
+
+
 class ExecuteInterface(config: ISA) extends Bundle {
   val pipe_in: PipeIn = Input(new PipeIn(config))
   val regs_in         = Input(new ALUInput(config.DataBits))
   val carry_in        = Input(UInt(1.W))
   val pipe_out        = Output(new PipeOut(config))
   val debug_time      = Input(UInt(64.W))
+
+  val carry_rd  = UInt(log2Ceil(config.CarryCount).W)
+  val carry_wen = Bool()
+  val carry_din = UInt(1.W)
 }
 
 class ExecuteBase(
@@ -78,7 +118,6 @@ class ExecuteBase(
 ) extends Module {
   val io = IO(new ExecuteInterface(config))
 }
-
 
 class ExecuteComb(
     config: ISA,
@@ -99,11 +138,12 @@ class ExecuteComb(
   custom_alu.io.funct := io.pipe_in.funct
 
   when(io.pipe_in.opcode.arith | io.pipe_in.opcode.expect) {
+    // standard_alu.io.in.y := io.regs_in.y
     standard_alu.io.in.y := io.regs_in.y
     when(io.pipe_in.opcode.expect) {
-      standard_alu.io.funct         := StandardALU.Functs.SEQ.id.U
+      standard_alu.io.funct := StandardALU.Functs.SEQ.id.U
     } otherwise {
-      standard_alu.io.funct         := io.pipe_in.funct
+      standard_alu.io.funct := io.pipe_in.funct
     }
   } otherwise {
     standard_alu.io.funct := StandardALU.Functs.ADD2.id.U
@@ -135,20 +175,20 @@ class ExecuteComb(
   pipe_out.data      := io.regs_in.y
   pipe_out.rd        := io.pipe_in.rd
   pipe_out.immediate := io.pipe_in.immediate
-  when (io.pipe_in.opcode.set_carry) {
-    pipe_out.carry_rd := io.pipe_in.rd
+  when(io.pipe_in.opcode.set_carry) {
+    io.carry_rd := io.pipe_in.rd
   } otherwise {
     // notice that rs4 needs to be registered before given to the output pipe
     val rs4_reg = Reg(UInt(log2Ceil(config.CarryCount).W))
-    rs4_reg := io.pipe_in.rs4
-    pipe_out.carry_rd  := rs4_reg
+    rs4_reg           := io.pipe_in.rs4
+    io.carry_rd       := rs4_reg
   }
-  when (io.pipe_in.opcode.set_carry) {
-   pipe_out.carry_din := io.pipe_in.immediate(0)
+  when(io.pipe_in.opcode.set_carry) {
+    io.carry_din := io.pipe_in.immediate(0)
   } otherwise {
-    pipe_out.carry_din := standard_alu.io.carry_out
+    io.carry_din := standard_alu.io.carry_out
   }
-  pipe_out.carry_wen :=
+  io.carry_wen :=
     (io.pipe_in.opcode.arith & (io.pipe_in.funct === StandardALU.Functs.ADDC.id.U)) | (io.pipe_in.opcode.set_carry)
   io.pipe_out := pipe_out
 
@@ -198,7 +238,6 @@ class ExecuteComb(
     when(num_decoded > 1.U) {
       dprintf("\tERROR multiple decoded operations (%d)!\n", num_decoded)
     }
-
 
   }
 

@@ -27,6 +27,7 @@ trait ISA {
   def OpcodeBits:  Int = NumBits - 5 * IdBits - FunctBits
   def WithGlobalMemory: Boolean
   def CarryCount: Int
+  def forwarding: Boolean = true
 
 
   sealed class Opcode(val value: Int) extends InstructionField(0, OpcodeBits)
@@ -79,4 +80,5 @@ object ManticoreFullISA extends ISA {
   val WithGlobalMemory: Boolean = true
 
   val CarryCount: Int = 64
+
 }
