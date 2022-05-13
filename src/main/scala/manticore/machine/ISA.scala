@@ -27,7 +27,7 @@ trait ISA {
   def OpcodeBits:  Int = NumBits - 5 * IdBits - FunctBits
   def WithGlobalMemory: Boolean
   def CarryCount: Int
-  def forwarding: Boolean = true
+  def forwarding: Boolean = false
 
 
   sealed class Opcode(val value: Int) extends InstructionField(0, OpcodeBits)
