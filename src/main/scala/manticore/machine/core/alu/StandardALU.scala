@@ -24,7 +24,7 @@ object StandardALU {
     type Functs = Value
     val ADD2, SUB2, MUL2, AND2, OR2, XOR2, SLL, // logical left shift
     SRL, // logical right shift (zeros padded to the right)
-    SRA, SEQ, SLTS, MUX, ADDC = Value
+    SRA, SEQ, SLT, SLTS, MUX, ADDC = Value
 
   }
 
@@ -85,6 +85,9 @@ class StandardALUComb(DATA_BITS: Int) extends Module {
     }
     is(Functs.SEQ.id.U) {
       io.out := (io.in.x === io.in.y).asUInt
+    }
+    is(Functs.SLT.id.U) {
+      io.out := (io.in.x < io.in.y).asUInt
     }
     is(Functs.SLTS.id.U) {
       io.out := (io.in.x.asSInt < io.in.y.asSInt).asUInt
