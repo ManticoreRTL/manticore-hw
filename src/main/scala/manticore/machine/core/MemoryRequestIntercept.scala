@@ -2,11 +2,13 @@ package manticore.machine.core
 
 import chisel3._
 import chisel3.experimental.ChiselEnum
-import manticore.machine.ISA
-import chisel3.util.switch
 import chisel3.util.is
+import chisel3.util.switch
 import manticore.machine.ISA
-import manticore.machine.memory.{CacheBackendCommand, CacheCommand, CacheConfig, CacheFrontInterface}
+import manticore.machine.memory.CacheBackendCommand
+import manticore.machine.memory.CacheCommand
+import manticore.machine.memory.CacheConfig
+import manticore.machine.memory.CacheFrontInterface
 
 class MemoryReadWriteInterface(config: ISA) extends Bundle {
   val addr  = Output(UInt(64.W))

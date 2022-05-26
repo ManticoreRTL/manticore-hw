@@ -24,14 +24,16 @@ package manticore.machine.core
 
 import Chisel._
 import chisel3.stage.ChiselStage
-import manticore.machine.{ISA, InstructionField, ManticoreBaseISA}
+import manticore.machine.ISA
+import manticore.machine.InstructionField
+import manticore.machine.ManticoreBaseISA
 
 
 
 object Decode {
 
   class OpcodePipe extends Bundle {
-    val cust0: Bool = Bool()
+    val cust: Bool = Bool()
     val arith: Bool = Bool()
     val lload: Bool = Bool()
     val lstore: Bool = Bool()
@@ -94,7 +96,7 @@ class Decode(config: ISA) extends Module {
 
 
 
-  setEqual(opcode_regs.cust0, config.Custom0.value)
+  setEqual(opcode_regs.cust, config.Custom.value)
   setEqual(opcode_regs.arith, config.Arithmetic.value)
   setEqual(opcode_regs.lload, config.LocalLoad.value)
   setEqual(opcode_regs.lstore, config.LocalStore.value)

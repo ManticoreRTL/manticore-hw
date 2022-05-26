@@ -3,8 +3,6 @@ package manticore.machine.pipeline
 import Chisel._
 import chisel3._
 import chiseltest.ChiselScalatestTester
-
-
 import manticore.machine.ManticoreBaseISA
 import manticore.machine.core.alu.StandardALU
 import manticore.machine.core.alu.StandardALU.Functs

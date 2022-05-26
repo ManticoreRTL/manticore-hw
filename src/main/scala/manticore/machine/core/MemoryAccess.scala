@@ -3,7 +3,8 @@ package manticore.machine.core
 import Chisel._
 import chisel3.experimental.IO
 import manticore.machine.ISA
-import manticore.machine.memory.{CacheConfig, SimpleDualPortMemoryInterface}
+import manticore.machine.memory.CacheConfig
+import manticore.machine.memory.SimpleDualPortMemoryInterface
 
 object MemoryAccess {
 
@@ -83,7 +84,7 @@ class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
 
   pipeIt(io.pipe_out.write_back) {
     io.pipe_in.opcode.lload ||
-    io.pipe_in.opcode.cust0 ||
+    io.pipe_in.opcode.cust ||
     io.pipe_in.opcode.arith || {
       if (config.WithGlobalMemory) io.pipe_in.opcode.gload else false.B
     } ||

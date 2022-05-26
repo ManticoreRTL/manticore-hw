@@ -1,24 +1,22 @@
 package manticore.machine.processor
 
 import chisel3._
-
-
-
-import chiseltest._
 import chisel3.experimental.BundleLiterals._
-import manticore.machine.assembly.Instruction.{Instruction, Register}
-import manticore.machine.assembly.{Assembler, Interpreter}
-import manticore.machine.core.{BareNoCBundle, Processor}
-import manticore.machine.ManticoreBaseISA
+import chiseltest._
 import manticore.machine.ManticoreBaseISA
 import manticore.machine.assembly.Assembler
-import manticore.machine.assembly.Instruction.{Instruction, Register}
+import manticore.machine.assembly.Instruction.Instruction
+import manticore.machine.assembly.Instruction.Register
+import manticore.machine.assembly.Interpreter
+import manticore.machine.core.BareNoCBundle
 import manticore.machine.core.Processor
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import java.io.{File, PrintWriter}
-import java.nio.file.{Files, Paths}
+import java.io.File
+import java.io.PrintWriter
+import java.nio.file.Files
+import java.nio.file.Paths
 import scala.annotation.tailrec
 import scala.language.postfixOps
 
@@ -265,7 +263,7 @@ class UniProcessorFirFilterTester extends AnyFlatSpec with Matchers with ChiselS
       def executeChecked(unchecked: Seq[Int]): Unit = {
         if (unchecked.nonEmpty) {
           dut.clock.step()
-          
+
           if (dut.io.packet_out.valid.peek().litToBoolean) {
             dut.io.packet_out.data.expect(unchecked.head.U)
             dut.io.packet_out.address.expect(vars("y_value").index.U)

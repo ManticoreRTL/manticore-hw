@@ -1,10 +1,11 @@
 package manticore.machine
 
 import chisel3.stage.ChiselStage
+import manticore.machine.xrt.ManticoreFlatSimKernel
+import manticore.machine.xrt.ManticoreKernelGenerator
+import scopt.OParser
 
 import java.io.File
-import scopt.OParser
-import manticore.machine.xrt.{ManticoreFlatSimKernel, ManticoreKernelGenerator}
 
 object Main {
 

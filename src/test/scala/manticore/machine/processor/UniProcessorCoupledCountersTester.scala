@@ -1,17 +1,16 @@
 package manticore.machine.processor
 
 import Chisel._
-
-
-
 import chiseltest._
-import manticore.machine.assembly.Instruction.{Instruction, Nop, R, Register, Send}
-import manticore.machine.assembly.{Assembler, Interpreter}
-import manticore.machine.core.Processor
-import manticore.machine.ManticoreBaseISA
 import manticore.machine.ManticoreBaseISA
 import manticore.machine.assembly.Assembler
-import manticore.machine.assembly.Instruction.{Instruction, Register}
+import manticore.machine.assembly.Instruction.Instruction
+import manticore.machine.assembly.Instruction.Nop
+import manticore.machine.assembly.Instruction.R
+import manticore.machine.assembly.Instruction.Register
+import manticore.machine.assembly.Instruction.Send
+import manticore.machine.assembly.Interpreter
+import manticore.machine.core.Processor
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 

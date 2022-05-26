@@ -1,22 +1,17 @@
 package manticore.machine
 
 import Chisel.fromIntToWidth
-import chisel3.internal.firrtl.{IntervalRange, Width}
+import chisel3.internal.firrtl.IntervalRange
+import chisel3.internal.firrtl.Width
 import manticore.machine.assembly.Instruction
 import manticore.machine.assembly.Instruction.Opcode
 
 import scala.language.implicitConversions
 
-
 sealed abstract class InstructionField(val fromIndex: Int, val length: Int) {
   val toIndex = fromIndex + length - 1
   def W = length.W
 }
-
-
-
-
-
 
 trait ISA {
   def NumPcBits: Int
@@ -37,7 +32,7 @@ trait ISA {
    */
   object Nop extends Opcode(Opcode.NOP.id)
   object SetValue extends Opcode(Instruction.Opcode.SET.id)
-  object Custom0 extends Opcode(Instruction.Opcode.CUST0.id)
+  object Custom extends Opcode(Instruction.Opcode.CUST.id)
   object Arithmetic extends Opcode (Instruction.Opcode.ARITH.id)
   object LocalLoad extends Opcode (Instruction.Opcode.LLOAD.id)
   object LocalStore extends Opcode (Instruction.Opcode.LSTORE.id)
@@ -56,8 +51,6 @@ trait ISA {
 //  object ImmediateLow extends InstructionField(OPCODE_BITS, ID_BITS)
 //  object ImmediateHigh extends InstructionField(SourceReg2.toIndex + 1, 2 * ID_BITS)
   object Immediate extends  InstructionField(SourceReg1.toIndex + 1, 3 * IdBits)
-
-
 }
 
 object ManticoreBaseISA extends ISA {
@@ -68,7 +61,6 @@ object ManticoreBaseISA extends ISA {
   val FunctBits: Int = 5
   val WithGlobalMemory: Boolean = false
   val CarryCount: Int = 64
-
 }
 
 object ManticoreFullISA extends ISA {
@@ -78,7 +70,5 @@ object ManticoreFullISA extends ISA {
   val IdBits: Int = ManticoreBaseISA.IdBits
   val FunctBits: Int = ManticoreBaseISA.FunctBits
   val WithGlobalMemory: Boolean = true
-
   val CarryCount: Int = 64
-
 }

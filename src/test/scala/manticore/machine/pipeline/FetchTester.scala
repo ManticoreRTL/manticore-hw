@@ -1,15 +1,14 @@
 package manticore.machine.pipeline
 
 
-import chisel3.experimental.BundleLiterals._
-
 import chisel3._
+import chisel3.experimental.BundleLiterals._
 import chiseltest._
-
 import manticore.machine.ManticoreBaseISA
-import manticore.machine.core.{BareNoCBundle, Fetch}
-import manticore.machine.ManticoreBaseISA
-import org.scalatest.{FlatSpec, Matchers}
+import manticore.machine.core.BareNoCBundle
+import manticore.machine.core.Fetch
+import org.scalatest.FlatSpec
+import org.scalatest.Matchers
 
 import scala.annotation.tailrec
 

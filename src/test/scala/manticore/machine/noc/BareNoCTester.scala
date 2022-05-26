@@ -1,21 +1,17 @@
 package manticore.machine.noc
 
 import Chisel._
-
-
-
+import chisel3.experimental.BundleLiterals._
 import chiseltest._
 import manticore.machine.ManticoreBaseISA
 import manticore.machine.TestsCommon.RequiresVerilator
-import manticore.machine.core.{BareNoC, NoCBundle}
-
+import manticore.machine.core.BareNoC
+import manticore.machine.core.NoCBundle
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import scala.annotation.tailrec
 import scala.util.Random
-
-import chisel3.experimental.BundleLiterals._
 
 class BareNoCTester extends AnyFlatSpec with ChiselScalatestTester with Matchers {
 
@@ -155,7 +151,7 @@ class BareNoCTester extends AnyFlatSpec with ChiselScalatestTester with Matchers
 
   it should "always deliver packets in absence of congestion" taggedAs RequiresVerilator in {
 
-    
+
     test(new BareNoC(6, 7, ManticoreBaseISA))
       .withAnnotations(Seq(VerilatorBackendAnnotation)) { implicit dut =>
         checkRoutable

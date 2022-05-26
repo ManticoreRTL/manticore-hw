@@ -2,15 +2,14 @@ package manticore.machine.core
 
 import Chisel._
 import chisel3.experimental.ChiselEnum
-import manticore.machine.memory.{
-  CacheConfig,
-  CacheFrontInterface,
-  MemStyle,
-  SimpleDualPortMemory
-}
-import manticore.machine.{ISA, ManticoreBaseISA}
-import manticore.machine.ManticoreFullISA
 import chisel3.stage.ChiselStage
+import manticore.machine.ISA
+import manticore.machine.ManticoreBaseISA
+import manticore.machine.ManticoreFullISA
+import manticore.machine.memory.CacheConfig
+import manticore.machine.memory.CacheFrontInterface
+import manticore.machine.memory.MemStyle
+import manticore.machine.memory.SimpleDualPortMemory
 
 class NamedError(nameBits: Int) extends Bundle {
   val error: Bool = Bool()
@@ -318,7 +317,7 @@ class Processor(
         ForwardingTuple(
           execute_stage.io.pipe_out.result,
           execute_stage.io.pipe_out.rd,
-          execute_stage.io.pipe_out.opcode.arith || execute_stage.io.pipe_out.opcode.cust0
+          execute_stage.io.pipe_out.opcode.arith || execute_stage.io.pipe_out.opcode.cust
         ),
         ForwardingTuple(
           memory_stage.io.pipe_out.result,

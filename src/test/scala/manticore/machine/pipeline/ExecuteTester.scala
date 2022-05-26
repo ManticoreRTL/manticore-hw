@@ -3,13 +3,15 @@ package manticore.machine.pipeline
 import Chisel._
 import chisel3.experimental.BundleLiterals.AddBundleLiteralConstructor
 import chisel3.tester._
-import chiseltest.{ChiselScalatestTester, VerilatorBackendAnnotation}
+import chiseltest.ChiselScalatestTester
+import chiseltest.VerilatorBackendAnnotation
 import manticore.machine.ManticoreBaseISA
 import manticore.machine.assembly.Instruction.Opcode
+import manticore.machine.core.ExecuteBase
+import manticore.machine.core.ExecuteComb
 import manticore.machine.core.ExecuteInterface.OpcodePipe
 import manticore.machine.core.alu.StandardALU.Functs
 import manticore.machine.core.alu.StandardALU.Functs.Functs
-import manticore.machine.core.{ExecuteBase, ExecuteComb}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -48,7 +50,7 @@ class ExecuteTester extends AnyFlatSpec with ChiselScalatestTester with Matchers
   def randomOpcode = {
     val which = Opcode(rdgen.nextInt(9))
     (new OpcodePipe().Lit(
-      _.cust0 -> (which == Opcode.CUST0).B,
+      _.cust -> (which == Opcode.CUST).B,
       _.arith -> (which == Opcode.ARITH).B,
       _.lload -> (which == Opcode.LLOAD).B,
       _.lstore -> (which == Opcode.LSTORE).B,
@@ -86,7 +88,7 @@ class ExecuteTester extends AnyFlatSpec with ChiselScalatestTester with Matchers
 
     // pre compute the data and result
     val e = opcode match {
-      case Opcode.CUST0 =>
+      case Opcode.CUST =>
         val funct = rdgen.nextInt(32)
         val res = computeCustom(x, y, u, v) {
           equations(funct)

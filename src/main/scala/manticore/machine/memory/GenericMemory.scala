@@ -3,7 +3,8 @@ package manticore.machine.memory
 import chisel3._
 import chisel3.experimental.Param
 import chisel3.stage.ChiselStage
-import chisel3.util.{HasBlackBoxInline, HasBlackBoxResource}
+import chisel3.util.HasBlackBoxInline
+import chisel3.util.HasBlackBoxResource
 
 
 class GenericMemoryInterface(val ADDRESS_WIDTH: Int, val DATA_WIDTH: Int)

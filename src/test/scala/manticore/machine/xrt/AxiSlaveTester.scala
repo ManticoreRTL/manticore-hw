@@ -2,10 +2,7 @@ package manticore.machine.xrt
 
 import chisel3._
 import chiseltest._
-
-
 import manticore.machine.ManticoreFullISA
-
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 

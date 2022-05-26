@@ -1,7 +1,8 @@
 package manticore.machine
 
-import org.scalatest.{FlatSpec, Matchers}
 import manticore.machine.assembly._
+import org.scalatest.FlatSpec
+import org.scalatest.Matchers
 
 
 

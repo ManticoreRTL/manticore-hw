@@ -52,7 +52,7 @@ object Assembler {
     instruction match {
       case Custom0(rd, func, rs1, rs2, rs3, rs4) =>
         val inst = BinaryInstructionBuilder() ++
-          (ManticoreBaseISA.Custom0.value, ManticoreBaseISA.OpcodeBits) ++
+          (ManticoreBaseISA.Custom.value, ManticoreBaseISA.OpcodeBits) ++
           (rd.index, ManticoreBaseISA.IdBits) ++
           (equation.indexOf(func), ManticoreBaseISA.FunctBits) ++
           (rs1.index, ManticoreBaseISA.IdBits) ++

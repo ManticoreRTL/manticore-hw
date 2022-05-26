@@ -1,26 +1,28 @@
 package manticore.machine.processor
 
+import Chisel._
 import chiseltest._
-
-
-
+import manticore.machine.ManticoreBaseISA
+import manticore.machine.ManticoreFullISA
+import manticore.machine.TestsCommon.RequiresVerilator
+import manticore.machine.assembly
 import manticore.machine.assembly.Assembler
-import manticore.machine.{ManticoreBaseISA, ManticoreFullISA}
-import manticore.machine.assembly.Instruction.{Expect, Instruction, LocalLoad, LocalStore, Nop, R, SetEqual, Predicate}
-
+import manticore.machine.assembly.Instruction.Expect
+import manticore.machine.assembly.Instruction.Instruction
+import manticore.machine.assembly.Instruction.LocalLoad
+import manticore.machine.assembly.Instruction.LocalStore
+import manticore.machine.assembly.Instruction.Nop
+import manticore.machine.assembly.Instruction.Predicate
+import manticore.machine.assembly.Instruction.R
+import manticore.machine.assembly.Instruction.SetEqual
 import manticore.machine.processor.UniProcessorTestUtils.ClockedProcessor
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import java.io.File
 import java.nio.file.Paths
-import scala.util.Random
-import Chisel._
-import manticore.machine.TestsCommon.RequiresVerilator
-
 import scala.annotation.tailrec
-
-import manticore.machine.assembly
+import scala.util.Random
 
 
 class UniProcessorExceptionTester extends AnyFlatSpec with Matchers
@@ -139,7 +141,7 @@ class UniProcessorExceptionTester extends AnyFlatSpec with Matchers
       catchIfAny(exceptions_to_catch).isEmpty should be(true)
       waitForStart()
       catchIfAny(exceptions_to_catch).isEmpty should be(true)
-      
+
     }
 
   }

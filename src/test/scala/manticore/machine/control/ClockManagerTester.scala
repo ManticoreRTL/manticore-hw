@@ -4,7 +4,9 @@ import Chisel._
 import chiseltest._
 import chiseltest.testableData
 import manticore.machine.TestsCommon.RequiresVerilator
-import manticore.machine.core.{CacheRequestIntercept, ClockManager, ExceptionHandler}
+import manticore.machine.core.CacheRequestIntercept
+import manticore.machine.core.ClockManager
+import manticore.machine.core.ExceptionHandler
 import org.scalatest.flatspec.AnyFlatSpec
 
 

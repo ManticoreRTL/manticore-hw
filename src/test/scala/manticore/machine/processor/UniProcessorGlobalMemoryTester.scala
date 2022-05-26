@@ -1,26 +1,30 @@
 package manticore.machine.processor
 
 import chisel3._
-
 import chiseltest._
-
-
+import manticore.machine.ISA
+import manticore.machine.ManticoreBaseISA
+import manticore.machine.ManticoreFullISA
+import manticore.machine.assembly
 import manticore.machine.assembly.Assembler
-import manticore.machine.assembly.Instruction.{Add2, GlobalLoad, GlobalStore, Instruction, Nop, Predicate, R}
-import manticore.machine.core.{ClockBuffer, Processor, ProcessorInterface}
+import manticore.machine.assembly.Instruction.Add2
+import manticore.machine.assembly.Instruction.GlobalLoad
+import manticore.machine.assembly.Instruction.GlobalStore
+import manticore.machine.assembly.Instruction.Instruction
+import manticore.machine.assembly.Instruction.Nop
+import manticore.machine.assembly.Instruction.Predicate
+import manticore.machine.assembly.Instruction.R
+import manticore.machine.core.ClockBuffer
+import manticore.machine.core.Processor
+import manticore.machine.core.ProcessorInterface
+import manticore.machine.memory.CacheCommand
 import manticore.machine.processor.UniProcessorTestUtils.ClockedProcessor
-import manticore.machine.{ISA, ManticoreBaseISA, ManticoreFullISA}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import java.io.File
 import java.nio.file.Paths
 import scala.annotation.tailrec
-import manticore.machine.assembly
-import manticore.machine.assembly.Assembler
-import manticore.machine.{ManticoreBaseISA, ManticoreFullISA}
-import manticore.machine.assembly.Instruction.Instruction
-import manticore.machine.memory.CacheCommand
 
 
 

@@ -1,14 +1,13 @@
 package manticore.machine.core
 
 import chisel3._
-
 import chisel3.experimental.ChiselEnum
 import chisel3.util._
-
-import manticore.machine.ManticoreFullISA
 import manticore.machine.ManticoreBaseISA
+import manticore.machine.ManticoreFullISA
+import manticore.machine.memory.CacheCommand
+import manticore.machine.memory.CacheConfig
 
-import manticore.machine.memory.{CacheCommand, CacheConfig}
 import scala.annotation.tailrec
 
 class ManticoreFlatArrayInterface extends Bundle {

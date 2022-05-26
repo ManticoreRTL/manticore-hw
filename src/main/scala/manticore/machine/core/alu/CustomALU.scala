@@ -22,9 +22,9 @@ package manticore.machine.core.alu
 
 import Chisel._
 import chisel3.stage.ChiselStage
+import chisel3.util.HasBlackBoxResource
 
 import scala.util.Random
-import chisel3.util.HasBlackBoxResource
 
 class ALUInput(DATA_BITS: Int) extends Bundle {
   val x = UInt(DATA_BITS.W)

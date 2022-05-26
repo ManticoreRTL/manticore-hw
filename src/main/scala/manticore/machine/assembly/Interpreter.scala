@@ -1,6 +1,7 @@
 package manticore.machine.assembly
 
 import manticore.machine.assembly.Instruction._
+
 import scala.language.implicitConversions
 
 case class Environment(

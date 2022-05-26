@@ -23,7 +23,7 @@ object Instruction {
 
   object Opcode extends Enumeration {
     type Type = Value
-    val NOP, SET, CUST0, ARITH, LLOAD, LSTORE, EXPECT, GLOAD, GSTORE, SEND,
+    val NOP, SET, CUST, ARITH, LLOAD, LSTORE, EXPECT, GLOAD, GSTORE, SEND,
         PREDICATE, SETCARRY = Value
   }
 
@@ -48,7 +48,7 @@ object Instruction {
       rs2: Register,
       rs3: Register,
       rs4: Register
-  ) extends Instruction(Opcode.CUST0)
+  ) extends Instruction(Opcode.CUST)
 
   sealed abstract class ArithmeticInstruction extends Instruction(Opcode.ARITH)
 

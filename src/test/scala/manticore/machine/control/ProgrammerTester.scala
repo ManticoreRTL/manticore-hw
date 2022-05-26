@@ -1,21 +1,18 @@
 package manticore.machine.control
 
 import Chisel._
-
+import chisel3.VecInit
+import chisel3.experimental.ChiselEnum
 import chiseltest._
-
 import manticore.machine.ManticoreBaseISA
+import manticore.machine.ManticoreFullISA
+import manticore.machine.core.MemoryReadWriteInterface
+import manticore.machine.core.NoCBundle
 import manticore.machine.core.Programmer
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import scala.annotation.tailrec
-
-import manticore.machine.core.MemoryReadWriteInterface
-import manticore.machine.ManticoreFullISA
-import chisel3.VecInit
-import chisel3.experimental.ChiselEnum
-import manticore.machine.core.NoCBundle
 class ProgrammerTester
     extends AnyFlatSpec
     with ChiselScalatestTester
@@ -32,7 +29,7 @@ class ProgrammerTester
     val io    = IO(Flipped(new MemoryReadWriteInterface(ManticoreFullISA)))
     val error = IO(Output(new MemoryError))
 
-    
+
 
     def stickySet(err: Bool, cond: => Bool) {
       val r = RegInit(Bool(), false.B)
@@ -157,7 +154,7 @@ class ProgrammerTester
               validateStream(expected_stream)
             }
           }
-          
+
         }
 
         dut.io.start.poke(true.B)

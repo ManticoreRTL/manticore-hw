@@ -1,7 +1,6 @@
 package manticore.machine.control
 
 import manticore.machine.ISA
-import manticore.machine.ISA
 
 object ProgrammerTestUtils {
 

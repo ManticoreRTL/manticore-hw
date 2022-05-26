@@ -1,22 +1,27 @@
 package manticore.machine.control
 
 
-import chiseltest._
-
 import Chisel._
 import chisel3.VecInit
 import chisel3.experimental.ChiselEnum
-
+import chiseltest._
+import manticore.machine.ManticoreBaseISA
+import manticore.machine.ManticoreFullISA
+import manticore.machine.core.BareNoC
+import manticore.machine.core.BareNoCInterface
+import manticore.machine.core.MemoryReadWriteInterface
+import manticore.machine.core.NamedError
+import manticore.machine.core.NoCBundle
+import manticore.machine.core.Processor
+import manticore.machine.core.Programmer
+import manticore.machine.core.ProgrammerInterface
+import manticore.machine.processor.UniProcessorTestUtils
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import manticore.machine.{ManticoreBaseISA, ManticoreFullISA}
-import manticore.machine.core.{BareNoC, BareNoCInterface, NamedError, NoCBundle, Processor, Programmer, ProgrammerInterface}
-import manticore.machine.processor.UniProcessorTestUtils
 
 import java.io.File
 import java.nio.file.Paths
 import scala.annotation.tailrec
-import manticore.machine.core.MemoryReadWriteInterface
 
 
 class ProgrammerNoCTester

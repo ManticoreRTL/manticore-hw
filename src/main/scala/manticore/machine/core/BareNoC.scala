@@ -1,7 +1,6 @@
 package manticore.machine.core
 
 import Chisel._
-
 import manticore.machine.ISA
 
 

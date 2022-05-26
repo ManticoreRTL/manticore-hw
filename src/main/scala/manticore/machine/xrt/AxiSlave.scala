@@ -1,19 +1,18 @@
 package manticore.machine.xrt
 
 import chisel3._
-import manticore.machine.core.HostRegisters
-import manticore.machine.core.DeviceRegisters
-import manticore.machine.ISA
+import chisel3.experimental.ChiselEnum
+import chisel3.stage.ChiselStage
+import chisel3.util.Cat
+import chisel3.util.is
 import chisel3.util.log2Ceil
+import chisel3.util.switch
+import manticore.machine.ISA
+import manticore.machine.ManticoreFullISA
+import manticore.machine.core.DeviceRegisters
+import manticore.machine.core.HostRegisters
 
 import scala.annotation.tailrec
-import chisel3.stage.ChiselStage
-import manticore.machine.ManticoreFullISA
-import chisel3.experimental.ChiselEnum
-import chisel3.util.switch
-import chisel3.util.is
-import chisel3.util.Cat
-import manticore.machine.ISA
 
 object AxiSlave {
 

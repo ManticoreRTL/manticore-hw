@@ -24,16 +24,14 @@
 package manticore.machine.noc
 
 import Chisel._
-
-
-
+import chisel3.experimental.BundleLiterals._
 import chiseltest._
 import manticore.machine.ManticoreBaseISA
-import manticore.machine.core.{NoCBundle, Switch}
-
+import manticore.machine.core.NoCBundle
+import manticore.machine.core.Switch
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import chisel3.experimental.BundleLiterals._
+
 import scala.util.Random
 
 

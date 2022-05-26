@@ -21,10 +21,9 @@
 package manticore.machine.core
 
 import Chisel._
-import firrtl.ir.Width
-
-import manticore.machine.ISA
 import chisel3.DontCare
+import firrtl.ir.Width
+import manticore.machine.ISA
 
 class BareNoCBundle(val config: ISA) extends Bundle {
   val data: UInt    = UInt(config.DataBits.W)

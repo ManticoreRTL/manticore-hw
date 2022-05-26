@@ -24,10 +24,12 @@ package manticore.machine.core
 
 import chisel3._
 import chisel3.stage.ChiselStage
-import manticore.machine.{ISA, ManticoreBaseISA}
 import chisel3.util.log2Ceil
-import manticore.machine.memory.{GenericMemoryInterface, SimpleDualPortMemory, SimpleDualPortMemoryInterface}
-import manticore.machine.{ISA, ManticoreBaseISA}
+import manticore.machine.ISA
+import manticore.machine.ManticoreBaseISA
+import manticore.machine.memory.GenericMemoryInterface
+import manticore.machine.memory.SimpleDualPortMemory
+import manticore.machine.memory.SimpleDualPortMemoryInterface
 
 class RegisterFileInterface(config: ISA) extends Bundle {
   def makeAddr = Input(UInt(config.IdBits.W))

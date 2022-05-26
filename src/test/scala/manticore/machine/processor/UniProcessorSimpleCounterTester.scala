@@ -1,15 +1,13 @@
 package manticore.machine.processor
 
 import chisel3._
-
 import chiseltest._
-
-
-import manticore.machine.assembly.Assembler
-import manticore.machine.assembly.Instruction.{Add2, R, Send}
-import manticore.machine.core.Processor
 import manticore.machine.ManticoreBaseISA
-
+import manticore.machine.assembly.Assembler
+import manticore.machine.assembly.Instruction.Add2
+import manticore.machine.assembly.Instruction.R
+import manticore.machine.assembly.Instruction.Send
+import manticore.machine.core.Processor
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 

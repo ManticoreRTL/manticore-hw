@@ -1,8 +1,11 @@
 package manticore.machine.memory
 
 import Chisel._
-import chisel3.tester.{testableClock, testableData}
-import chiseltest.{ChiselScalatestTester, VerilatorBackendAnnotation, WriteVcdAnnotation}
+import chisel3.tester.testableClock
+import chisel3.tester.testableData
+import chiseltest.ChiselScalatestTester
+import chiseltest.VerilatorBackendAnnotation
+import chiseltest.WriteVcdAnnotation
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -292,7 +295,7 @@ class CacheTester extends AnyFlatSpec with ChiselScalatestTester with Matchers {
       // an address to every half-word in the cache
       val whit_addr = hit_addr.flatMap{ addr => Range(0, 1 << 4).map(addr + _)}
       val whit_val = whit_addr.map(_ => rdgen.nextInt(1 << 16))
-      
+
       checkReadAfterWrite(whit_addr.zip(whit_val))
       // all the cache line are dirty now, any read miss should result in a write back
       println("Testing capacity read miss and write-back")

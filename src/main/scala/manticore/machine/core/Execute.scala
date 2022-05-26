@@ -22,20 +22,18 @@ package manticore.machine.core
 
 import Chisel._
 import chisel3.stage.ChiselStage
-import manticore.machine.{ISA, ManticoreBaseISA}
-import manticore.machine.core.ExecuteInterface.{
-  GlobalMemoryInterface,
-  PipeIn,
-  PipeOut
-}
-import manticore.machine.core.alu.{
-  ALUInput,
-  CustomALU,
-  CustomALUComb,
-  StandardALU,
-  StandardALUComb
-}
-import manticore.machine.memory.{CacheCommand, CacheConfig}
+import manticore.machine.ISA
+import manticore.machine.ManticoreBaseISA
+import manticore.machine.core.ExecuteInterface.GlobalMemoryInterface
+import manticore.machine.core.ExecuteInterface.PipeIn
+import manticore.machine.core.ExecuteInterface.PipeOut
+import manticore.machine.core.alu.ALUInput
+import manticore.machine.core.alu.CustomALU
+import manticore.machine.core.alu.CustomALUComb
+import manticore.machine.core.alu.StandardALU
+import manticore.machine.core.alu.StandardALUComb
+import manticore.machine.memory.CacheCommand
+import manticore.machine.memory.CacheConfig
 
 import scala.util.Random
 
@@ -165,7 +163,7 @@ class ExecuteComb(
 
   val pipe_out = Reg(new PipeOut(config))
 
-  when(io.pipe_in.opcode.cust0) {
+  when(io.pipe_in.opcode.cust) {
     pipe_out.result := custom_alu.io.out
   } otherwise {
     pipe_out.result := standard_alu.io.out
@@ -224,7 +222,7 @@ class ExecuteComb(
     val num_decoded = Wire(UInt(32.W))
     num_decoded :=
       io.pipe_in.opcode.arith.toUInt +
-        io.pipe_in.opcode.cust0.toUInt +
+        io.pipe_in.opcode.cust.toUInt +
         io.pipe_in.opcode.expect.toUInt +
         io.pipe_in.opcode.gload.toUInt +
         io.pipe_in.opcode.gstore.toUInt +

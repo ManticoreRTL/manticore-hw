@@ -1,28 +1,26 @@
 package manticore.machine.xrt
 
 import chisel3._
-import manticore.machine.core.{
-  ClockDistribution,
-  DeviceRegisters,
-  HostRegisters,
-  ManticoreFlatArray,
-  MemoryReadWriteInterface
-}
-import manticore.machine.ManticoreFullISA
+import chisel3.experimental.ChiselEnum
 import chisel3.stage.ChiselStage
+import chisel3.util.Cat
+import chisel3.util.is
+import chisel3.util.log2Ceil
+import chisel3.util.switch
+import manticore.machine.ManticoreFullISA
+import manticore.machine.core.ClockDistribution
+import manticore.machine.core.DeviceRegisters
+import manticore.machine.core.HostRegisters
+import manticore.machine.core.ManticoreFlatArray
+import manticore.machine.core.MemoryReadWriteInterface
+import manticore.machine.memory.CacheConfig
 
+import java.io.File
+import java.io.PrintWriter
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
-import java.io.File
-import java.io.PrintWriter
 import scala.collection.immutable.ListMap
-import chisel3.util.log2Ceil
-import chisel3.experimental.ChiselEnum
-import chisel3.util.switch
-import chisel3.util.is
-import chisel3.util.Cat
-import manticore.machine.memory.CacheConfig
 
 class MemoryPointers extends Bundle {
   val pointer_0: UInt = UInt(64.W)

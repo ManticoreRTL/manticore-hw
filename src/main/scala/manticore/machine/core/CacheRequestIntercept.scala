@@ -2,7 +2,8 @@ package manticore.machine.core
 
 import Chisel._
 import chisel3.experimental.ChiselEnum
-import manticore.machine.memory.{CacheConfig, CacheFrontInterface}
+import manticore.machine.memory.CacheConfig
+import manticore.machine.memory.CacheFrontInterface
 
 
 
