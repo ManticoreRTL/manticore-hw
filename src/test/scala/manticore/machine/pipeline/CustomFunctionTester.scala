@@ -2,10 +2,9 @@ package manticore.machine.pipeline
 
 
 import chisel3._
-
 import chiseltest._
-
-import manticore.machine.core.alu.{CustomALU, CustomFunction}
+import manticore.machine.core.alu.CustomALUComb
+import manticore.machine.core.alu.CustomFunctionComb
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -41,7 +40,7 @@ class CustomFunctionTester
 
     val ref_module = Module(new Mux2to1)
     val custom_module = Module(
-      new CustomFunction(
+      new CustomFunctionComb(
         DATA_BITS = 16,
         EQUATIONS = Seq.fill(16) { 0xca }
       )
@@ -79,7 +78,7 @@ class CustomFunctionTester
     }
 
     test(
-      new CustomFunction(
+      new CustomFunctionComb(
         DATA_BITS = 16,
         EQUATIONS = Seq.fill(16) {
           0xca
@@ -110,7 +109,7 @@ class CustomFunctionTester
   behavior of "CustomALU"
   it should "implement a Mux(x, y) and Mux(y, x) based on the value of funct" in {
     test(
-      new CustomALU(
+      new CustomALUComb(
         DATA_BITS = 16,
         EQUATIONS = Seq(
           Seq.fill(16) { 0xca },

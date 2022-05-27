@@ -28,7 +28,6 @@ import manticore.machine.core.ExecuteInterface.GlobalMemoryInterface
 import manticore.machine.core.ExecuteInterface.PipeIn
 import manticore.machine.core.ExecuteInterface.PipeOut
 import manticore.machine.core.alu.ALUInput
-import manticore.machine.core.alu.CustomALU
 import manticore.machine.core.alu.CustomALUComb
 import manticore.machine.core.alu.StandardALU
 import manticore.machine.core.alu.StandardALUComb

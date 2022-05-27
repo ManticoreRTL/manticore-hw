@@ -24,6 +24,7 @@ trait ISA {
   def CarryCount: Int
   def forwarding: Boolean = false
 
+  def numFuncts = 1 << FunctBits
 
   sealed class Opcode(val value: Int) extends InstructionField(0, OpcodeBits)
   type OpcodeType = Opcode
@@ -70,5 +71,5 @@ object ManticoreFullISA extends ISA {
   val IdBits: Int = ManticoreBaseISA.IdBits
   val FunctBits: Int = ManticoreBaseISA.FunctBits
   val WithGlobalMemory: Boolean = true
-  val CarryCount: Int = 64
+  val CarryCount: Int = ManticoreBaseISA.CarryCount
 }
