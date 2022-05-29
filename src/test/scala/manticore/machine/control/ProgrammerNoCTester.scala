@@ -39,7 +39,7 @@ class ProgrammerNoCTester
 
   val equations = Seq.fill(1 << ManticoreFullISA.FunctBits) {
     Seq.fill(ManticoreFullISA.DataBits) {
-      rdgen.nextInt(1 << 16)
+      BigInt(rdgen.nextInt(1 << 16))
     }
   }
 

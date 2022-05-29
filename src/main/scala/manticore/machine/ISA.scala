@@ -13,6 +13,13 @@ sealed abstract class InstructionField(val fromIndex: Int, val length: Int) {
   def W = length.W
 }
 
+// The instruction format is as follows:
+//
+// |  opcode |          rd          |  funct  |          rs1         |          rs2         |          rs3         |          rs4         |
+// | <- 4 -> | <------- 11 -------> | <- 5 -> | <------- 11 -------> | <------- 11 -------> | <------- 11 -------> | <------- 11 -------> |
+//                                                                                                    | <------------- 16 --------------> |
+//                                                                                                    |                imm                |
+
 trait ISA {
   def NumPcBits: Int
   def NumBits: Int
@@ -23,6 +30,7 @@ trait ISA {
   def WithGlobalMemory: Boolean
   def CarryCount: Int
   def forwarding: Boolean = false
+  def LutArity: Int = 4
 
   def numFuncts = 1 << FunctBits
 
@@ -43,15 +51,14 @@ trait ISA {
   object Send extends Opcode(Instruction.Opcode.SEND.id)
   object Predicate extends Opcode(Instruction.Opcode.PREDICATE.id)
   object SetCarry extends Opcode(Instruction.Opcode.SETCARRY.id)
+  object SetLutData extends Opcode(Instruction.Opcode.SETLUTDATA.id)
+  object ConfigureLut extends Opcode(Instruction.Opcode.CONFIGURELUT.id)
   object DestReg extends  InstructionField(OpcodeBits, IdBits)
   object Funct extends InstructionField(DestReg.toIndex + 1, FunctBits)
   object SourceReg1 extends InstructionField(Funct.toIndex + 1, IdBits)
   object SourceReg2 extends InstructionField(SourceReg1.toIndex + 1, IdBits)
   object SourceReg3 extends InstructionField(SourceReg2.toIndex + 1, IdBits)
   object SourceReg4 extends InstructionField(SourceReg3.toIndex + 1, IdBits)
-//  object ImmediateLow extends InstructionField(OPCODE_BITS, ID_BITS)
-//  object ImmediateHigh extends InstructionField(SourceReg2.toIndex + 1, 2 * ID_BITS)
-  object Immediate extends  InstructionField(SourceReg1.toIndex + 1, 3 * IdBits)
 }
 
 object ManticoreBaseISA extends ISA {

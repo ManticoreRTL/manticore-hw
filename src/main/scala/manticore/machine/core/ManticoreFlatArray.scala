@@ -381,8 +381,9 @@ class ComputeArray(
     val dynamic_cycle      = Output(Bool())
     val execution_active   = Output(Bool())
   })
-  val equations = Seq.fill(1 << ManticoreFullISA.FunctBits) {
-    Seq.tabulate(ManticoreFullISA.DataBits) { i => (1 << i) }
+
+  val equations = Seq.fill(1 << ManticoreBaseISA.FunctBits) {
+    Seq.tabulate(ManticoreBaseISA.DataBits) { i => BigInt(1) << i }
   }
 
   def makeConfigData[T](gen: (Int, Int) => T): Seq[Seq[T]] =

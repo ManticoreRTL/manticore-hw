@@ -10,6 +10,7 @@ import manticore.machine.memory.CacheConfig
 import manticore.machine.memory.CacheFrontInterface
 import manticore.machine.memory.MemStyle
 import manticore.machine.memory.SimpleDualPortMemory
+import scala.util.Random
 
 class NamedError(nameBits: Int) extends Bundle {
   val error: Bool = Bool()
@@ -41,15 +42,13 @@ class Processor(
     config: ISA,
     DimX: Int,
     DimY: Int,
-    equations: Seq[Seq[Int]],
+    equations: Seq[Seq[BigInt]],
     initial_registers: String = "",
     initial_array: String = "",
     name_tag: String = "core",
     debug_enable: Boolean = false,
     debug_level: Int = 0
 ) extends Module {
-  //  val EQUATIONS = Seq.fill(1 << config.FUNCT_BITS)(Seq.fill(config.DATA_BITS)(rdgen.nextInt(16)))
-
   val io: ProcessorInterface = IO(new ProcessorInterface(config, DimX, DimY))
 
   object ProcessorPhase extends ChiselEnum {
@@ -115,6 +114,8 @@ class Processor(
 
   val register_file       = Module(new RegisterFile(config, initial_registers))
   val carry_register_file = Module(new CarryRegisterFile(config))
+
+  val lut_load_regs = Module(new LutLoadDataRegisterFile(config))
 
   val array_memory = Module(
     new SimpleDualPortMemory(
@@ -292,15 +293,7 @@ class Processor(
   }
 
   fetch_stage.io.execution_enable := (state === ProcessorPhase.StaticExecutionPhase)
-  io.periphery.active := (state === ProcessorPhase.StaticExecutionPhase) // || (
-  //   state === ProcessorPhase.StaticSleepPhase &&
-  //     (
-  //       decode_stage.io.instruction =/= 0.U ||
-  //         execute_stage.io.pipe_in.opcode.nop === false.B ||
-  //         memory_stage.io.pipe_in.opcode.nop === false.B ||
-  //         memory_stage.io.pipe_out.nop === false.B
-  //     )
-  // )
+  io.periphery.active := (state === ProcessorPhase.StaticExecutionPhase)
 
   class RegisterWriteByPass extends Bundle {
     val value   = UInt(config.DataBits.W)
@@ -333,36 +326,37 @@ class Processor(
     } else {
       Seq.empty
     }
+
   // fetch --> decode
   decode_stage.io.instruction := fetch_stage.io.instruction
 
   // decode --> exec
   execute_stage.io.pipe_in := decode_stage.io.pipe_out
 
-  execute_stage.io.regs_in.x := ForwardPath(
-    register_file.io.rx.dout,
+  execute_stage.io.regs_in.rs1 := ForwardPath(
+    register_file.io.rs1.dout,
     decode_stage.io.pipe_out.rs1,
     forwarding_signals
   )
-  execute_stage.io.regs_in.y := ForwardPath(
-    register_file.io.ry.dout,
+  execute_stage.io.regs_in.rs2 := ForwardPath(
+    register_file.io.rs2.dout,
     decode_stage.io.pipe_out.rs2,
     forwarding_signals
   )
-  execute_stage.io.regs_in.u := ForwardPath(
-    register_file.io.ru.dout,
+  execute_stage.io.regs_in.rs3 := ForwardPath(
+    register_file.io.rs3.dout,
     decode_stage.io.pipe_out.rs3,
     forwarding_signals
   )
-  execute_stage.io.regs_in.v := ForwardPath(
-    register_file.io.rv.dout,
+  execute_stage.io.regs_in.rs4 := ForwardPath(
+    register_file.io.rs4.dout,
     decode_stage.io.pipe_out.rs4,
     forwarding_signals
   )
-  register_file.io.rx.addr   := decode_stage.io.pipe_out.rs1
-  register_file.io.ry.addr   := decode_stage.io.pipe_out.rs2
-  register_file.io.ru.addr   := decode_stage.io.pipe_out.rs3
-  register_file.io.rv.addr   := decode_stage.io.pipe_out.rs4
+  register_file.io.rs1.addr   := decode_stage.io.pipe_out.rs1
+  register_file.io.rs2.addr   := decode_stage.io.pipe_out.rs2
+  register_file.io.rs3.addr   := decode_stage.io.pipe_out.rs3
+  register_file.io.rs4.addr   := decode_stage.io.pipe_out.rs4
 
   register_file.io.w.addr    := memory_stage.io.pipe_out.rd
   register_file.io.w.din     := memory_stage.io.pipe_out.result
@@ -374,13 +368,17 @@ class Processor(
   carry_register_file.io.waddr := execute_stage.io.carry_rd
   carry_register_file.io.din   := execute_stage.io.carry_din
 
+  lut_load_regs.io.din := execute_stage.io.pipe_out.immediate
+  lut_load_regs.io.waddr := execute_stage.io.lutdata_waddr
+  lut_load_regs.io.wen := execute_stage.io.lutdata_wen
+  execute_stage.io.lutdata_din := lut_load_regs.io.dout
+
   // exec --> memory and write back implementation
   memory_stage.io.local_memory_interface <> array_memory.io
   memory_stage.io.local_memory_interface.dout := array_memory.io.dout
 
   memory_stage.io.pipe_in := execute_stage.io.pipe_out
   register_file.io.w.en := memory_stage.io.pipe_out.write_back // & (memory_stage.io.pipe_out.rd =/= 0.U)
-
 
   register_file.io.w.addr := memory_stage.io.pipe_out.rd
 
@@ -423,16 +421,19 @@ class Processor(
 
 
 object ProcessorEmitter extends App {
-  val rdgen = new scala.util.Random(0)
-  val equations: Seq[Seq[Int]] =
-    Seq.fill(32)(Seq.fill(16)(rdgen.nextInt(1 << 16)))
-//
+
+  val rgen = Random
+
+  val equations = Seq.fill(1 << ManticoreFullISA.FunctBits) {
+    Seq.fill(ManticoreFullISA.DataBits) { BigInt(rgen.nextInt(1 << 16)) }
+  }
+
   def makeProcessor() =
     new Processor(
       config = ManticoreFullISA,
+      equations = equations,
       DimX = 16,
-      DimY = 16,
-      equations = equations
+      DimY = 16
     )
 
   new ChiselStage().emitVerilog(
@@ -440,9 +441,4 @@ object ProcessorEmitter extends App {
     Array("--target-dir", "gen-dir/processor/")
   )
 
-//  new ChiselStage().emitVerilog(
-//    new ClockedProcessor(config = ThyrioISA, DimX = 2, DimY = 2,
-//      equations = equations, "rf.dat", "ra.dat"
-//    ), Array("--target-dir", "gen-dir")
-//  )
 }

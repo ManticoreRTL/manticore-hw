@@ -23,12 +23,12 @@ class ExecuteTester extends AnyFlatSpec with ChiselScalatestTester with Matchers
 
 
   // create random LUT equations
-  val equations = Seq.fill(32)(Seq.fill(16)(rdgen.nextInt(1 << 16)))
+  val equations = Seq.fill(32)(Seq.fill(16)(BigInt(rdgen.nextInt(1 << 16))))
 
   behavior of "Execute stage"
 
-  def computeCustom(x: Int, y: Int, u: Int, v: Int)(equ: Seq[Int]): Int = {
-    import manticore.machine.assembly.Instruction.{Custom0, CustomFunction, R, SetValue}
+  def computeCustom(x: Int, y: Int, u: Int, v: Int)(equ: Seq[BigInt]): Int = {
+    import manticore.machine.assembly.Instruction.{Custom, CustomFunction, R, SetValue}
     import manticore.machine.assembly._
     val interpreter = new Interpreter
     interpreter.run(
@@ -37,7 +37,7 @@ class ExecuteTester extends AnyFlatSpec with ChiselScalatestTester with Matchers
         SetValue(R(2), y),
         SetValue(R(3), u),
         SetValue(R(4), v),
-        Custom0(R(5), CustomFunction(equ), R(1), R(2), R(3), R(4))
+        Custom(R(5), CustomFunction(equ), R(1), R(2), R(3), R(4))
       )
     )
     interpreter.env.register_file(5)
@@ -49,7 +49,7 @@ class ExecuteTester extends AnyFlatSpec with ChiselScalatestTester with Matchers
 
   def randomOpcode = {
     val which = Opcode(rdgen.nextInt(9))
-    (new OpcodePipe().Lit(
+    (new OpcodePipe(32).Lit(
       _.cust -> (which == Opcode.CUST).B,
       _.arith -> (which == Opcode.ARITH).B,
       _.lload -> (which == Opcode.LLOAD).B,
@@ -77,10 +77,10 @@ class ExecuteTester extends AnyFlatSpec with ChiselScalatestTester with Matchers
     val x, y, u, v = randomValue
     val imm = randomValue
     val rd = rdgen.nextInt(1 << ManticoreBaseISA.IdBits)
-    dut.io.regs_in.x.poke(x.U)
-    dut.io.regs_in.y.poke(y.U)
-    dut.io.regs_in.u.poke(u.U)
-    dut.io.regs_in.v.poke(v.U)
+    dut.io.regs_in.rs1.poke(x.U)
+    dut.io.regs_in.rs2.poke(y.U)
+    dut.io.regs_in.rs3.poke(u.U)
+    dut.io.regs_in.rs4.poke(v.U)
 
     dut.io.pipe_in.opcode.poke(opcode_pipe)
     dut.io.pipe_in.immediate.poke(imm.U)
@@ -99,7 +99,7 @@ class ExecuteTester extends AnyFlatSpec with ChiselScalatestTester with Matchers
       case Opcode.ARITH =>
         val funct = rdgen.nextInt(Functs.maxId - 1)
         val yy = if (Functs(funct) == Functs.SLL || Functs(funct) == Functs.SRL) rdgen.nextInt(16) else y
-        dut.io.regs_in.y.poke(yy.U)
+        dut.io.regs_in.rs2.poke(yy.U)
         val res = computeStandard(x, yy, Functs(funct))
         require(res >= 0)
         dut.io.pipe_in.funct.poke(funct.U)
@@ -146,7 +146,7 @@ class ExecuteTester extends AnyFlatSpec with ChiselScalatestTester with Matchers
   }
 
   it should "correctly handle computation and send out data and result in a single cycle" in
-    test(new ExecuteComb(ManticoreBaseISA, equation = equations)).withAnnotations(Seq(VerilatorBackendAnnotation)) { dut =>
+    test(new ExecuteComb(ManticoreBaseISA, equations = equations)).withAnnotations(Seq(VerilatorBackendAnnotation)) { dut =>
       drainAfter(3000)(Seq.fill(1) {
         setPipeIn(dut)
       })(dut)

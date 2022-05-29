@@ -25,15 +25,11 @@ object StandardALU {
     val ADD2, SUB2, MUL2, AND2, OR2, XOR2, SLL, // logical left shift
     SRL, // logical right shift (zeros padded to the right)
     SRA, SEQ, SLT, SLTS, MUX, ADDC = Value
-
   }
-
 }
 
 class StandardALUComb(DATA_BITS: Int) extends Module {
   val io = IO(new ALUInterface(DATA_BITS = DATA_BITS))
-
-
 
   val Functs = StandardALU.Functs
   val shamnt = Wire(UInt(log2Ceil(DATA_BITS).W))

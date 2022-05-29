@@ -146,7 +146,7 @@ object UniProcessorTestUtils {
   class ClockedProcessor(config: ISA,
                          DimX: Int,
                          DimY: Int,
-                         equations: Seq[Seq[Int]],
+                         equations: Seq[Seq[BigInt]],
                          initial_registers: String = "",
                          initial_array: String = "") extends Module {
     val io = IO(new ProcessorInterface(config, DimX, DimY) {

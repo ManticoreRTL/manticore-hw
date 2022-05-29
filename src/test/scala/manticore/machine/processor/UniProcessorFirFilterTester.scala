@@ -194,7 +194,7 @@ class UniProcessorFirFilterTester extends AnyFlatSpec with Matchers with ChiselS
   }
 
   // create MUX LUT equations
-  val equations: Seq[Seq[Int]] = Seq.fill(32)(Seq.fill(16)(0xcaca))
+  val equations: Seq[Seq[BigInt]] = Seq.fill(32)(Seq.fill(16)(BigInt(0xcaca)))
 
   def createMemoryDataFiles(name: String)(data: => Seq[Int]): String = {
     val filepath = Paths.get("test_data_dir" + File.separator +

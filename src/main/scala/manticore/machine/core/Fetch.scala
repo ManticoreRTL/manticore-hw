@@ -163,7 +163,6 @@ class FetchCore(config: ISA) extends Module {
 //}
 
 object FetchGenerator extends App {
-  println(ManticoreBaseISA.Immediate.length)
   println(ManticoreBaseISA.IdBits)
   println(ManticoreBaseISA.FunctBits)
   println(ManticoreBaseISA.DataBits)

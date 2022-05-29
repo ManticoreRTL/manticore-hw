@@ -65,7 +65,7 @@ class RegisterFileInterface(config: ISA) extends Bundle {
       mem_if.wen := en
     }
   }
-  val rx, ry, ru, rv = new ReadIf
+  val rs1, rs2, rs3, rs4 = new ReadIf
   val w = new WriteIf
 
 }
@@ -76,17 +76,17 @@ class RegisterFile(config: ISA, INIT: String = "") extends Module {
 
   def makeBank = new SimpleDualPortMemory(ADDRESS_WIDTH = config.IdBits,
     DATA_WIDTH = config.DataBits, INIT = INIT)
-  val xbank, ybank, ubank, vbank = Module(makeBank)
+  val rs1bank, rs2bank, rs3bank, rs4bank = Module(makeBank)
 
-  io.w <-> xbank.io
-  io.w <-> ybank.io
-  io.w <-> ubank.io
-  io.w <-> vbank.io
+  io.w <-> rs1bank.io
+  io.w <-> rs2bank.io
+  io.w <-> rs3bank.io
+  io.w <-> rs4bank.io
 
-  io.rx <-> xbank.io
-  io.ry <-> ybank.io
-  io.ru <-> ubank.io
-  io.rv <-> vbank.io
+  io.rs1 <-> rs1bank.io
+  io.rs2 <-> rs2bank.io
+  io.rs3 <-> rs3bank.io
+  io.rs4 <-> rs4bank.io
 
 }
 
@@ -110,8 +110,26 @@ class CarryRegisterFile(config: ISA) extends Module {
   io.dout := storage(io.raddr)
 }
 
-object RegisterFileGen extends App {
+// This is not really a "register file" as it doesn't have a raddr port. All
+// outputs are available in parallel (i.e., it is an array of registers). Only
+// one register can be updated at a time though.
+class LutLoadDataRegisterFileInterface(config: ISA) extends Bundle {
+  val waddr = Input(UInt(config.FunctBits.W))
+  val din = Input(UInt(config.DataBits.W))
+  val dout = Output(Vec(config.numFuncts, UInt(config.DataBits.W)))
+  val wen = Input(Bool())
+}
 
+class LutLoadDataRegisterFile(config: ISA) extends Module {
+  val io = IO(new LutLoadDataRegisterFileInterface(config))
+  val storage = Reg(Vec(config.numFuncts, UInt(config.DataBits.W)))
+  when(io.wen) {
+    storage(io.waddr) := io.din
+  }
+  io.dout := storage
+}
+
+object RegisterFileGen extends App {
 
   // new ChiselStage().emitVerilog(new RegisterFile(ManticoreBaseISA), Array("--help"))
   new ChiselStage()

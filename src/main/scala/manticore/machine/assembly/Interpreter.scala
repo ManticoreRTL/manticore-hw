@@ -35,10 +35,10 @@ class Interpreter {
   def eval(instruction: Instruction): Unit = {
 
     instruction match {
-      case Custom0(rd, func, rs1, rs2, rs3, rs4) =>
+      case Custom(rd, func, rs1, rs2, rs3, rs4) =>
         def asBitSeq(v: Int): Seq[Int] = {
           for (i <- 0 to 15) yield {
-            val mask: Int = 0x00000001
+            val mask: Int = 0x0001
             (v & (mask << i)) >> i
           }
         }
@@ -52,7 +52,7 @@ class Interpreter {
             val o = (func.equation(i) >> (
               (x(i) << 3) | (y(i) << 2) | (u(i) << 1) | v(i)
             ) & 0x01) << i
-            o
+            o.toInt
           }
         }.reduce(_ | _)
 

@@ -24,12 +24,12 @@ object Instruction {
   object Opcode extends Enumeration {
     type Type = Value
     val NOP, SET, CUST, ARITH, LLOAD, LSTORE, EXPECT, GLOAD, GSTORE, SEND,
-        PREDICATE, SETCARRY = Value
+        PREDICATE, SETCARRY, SETLUTDATA, CONFIGURELUT = Value
   }
 
   sealed abstract class Instruction(val opcode: Opcode.Type)
 
-  type Equation = Seq[Int]
+  type Equation = Seq[BigInt]
   case class CustomFunction(equation: Equation) {
     def ==(other: CustomFunction): Boolean = {
       (equation.size == other.equation.size) &&
@@ -41,7 +41,7 @@ object Instruction {
 
   }
 
-  case class Custom0(
+  case class Custom(
       rd: Register,
       function: CustomFunction,
       rs1: Register,

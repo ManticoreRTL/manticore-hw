@@ -37,9 +37,9 @@ class UniProcessorExceptionTester extends AnyFlatSpec with Matchers
 
     val config = ManticoreBaseISA
 
-    val equations = Seq.fill(1 << config.FunctBits) {
+    val equations = Seq.fill(config.numFuncts) {
       Seq.fill(config.DataBits) {
-        rdgen.nextInt(1 << 16)
+        BigInt(rdgen.nextInt(1 << 16))
       }
     }
     val initial_reg_values = Seq.tabulate(1 << config.IdBits) {

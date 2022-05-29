@@ -119,7 +119,7 @@ class UniProcessorCoupledCountersTester extends AnyFlatSpec with Matchers with C
       Mux2(x_ptr_next, x_ptr_next_0, const_0),
       Add2(reset_ptr, reset_ptr, const_1),
       Nop(),
-      Custom0(y_ptr_next_0, mux_eq, const_0, cond_y_as_sel, y_ptr_plus_1, y_ptr), // muxing with custom function requires a fanout operation
+      Custom(y_ptr_next_0, mux_eq, const_0, cond_y_as_sel, y_ptr_plus_1, y_ptr), // muxing with custom function requires a fanout operation
       Nop(),
       Add2(x_ptr, x_ptr_next, const_0),
       Nop(),
@@ -135,7 +135,7 @@ class UniProcessorCoupledCountersTester extends AnyFlatSpec with Matchers with C
 
 
   // create MUX LUT equations
-  val equations: Seq[Seq[Int]] = Seq.fill(32)(Seq.fill(16)(0xcaca))
+  val equations: Seq[Seq[BigInt]] = Seq.fill(32)(Seq.fill(16)(BigInt(0xcaca)))
 
 
 
@@ -147,7 +147,7 @@ class UniProcessorCoupledCountersTester extends AnyFlatSpec with Matchers with C
     def transformInst[T](inst: Instruction)(transform: Register => T): T = {
       import manticore.machine.assembly.Instruction._
       inst match {
-        case Custom0(rd, func, rs1, rs2, rs3, rs4) =>
+        case Custom(rd, func, rs1, rs2, rs3, rs4) =>
           transform(rd)
         case Add2(rd, rs1, rs2) =>
           transform(rd)

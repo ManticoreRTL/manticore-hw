@@ -31,7 +31,7 @@ class UniProcessorSimpleCounterTester extends AnyFlatSpec with Matchers with Chi
   )
 
   // create random LUT equations
-  val equations: Seq[Seq[Int]] = Seq.fill(32)(Seq.fill(16)(rdgen.nextInt(1 << 16)))
+  val equations: Seq[Seq[BigInt]] = Seq.fill(32)(Seq.fill(16)(BigInt(rdgen.nextInt(1 << 16))))
 
   def makeProcessor =
     new Processor(config = ManticoreBaseISA,
