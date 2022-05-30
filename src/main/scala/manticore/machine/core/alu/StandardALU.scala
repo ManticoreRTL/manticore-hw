@@ -59,7 +59,7 @@ class StandardALUComb(DATA_BITS: Int) extends Module {
     }
     is(Functs.MUL2.id.U) {
       //TODO: change back to mul!
-      io.out := io.in.x * io.in.y
+      io.out := io.in.x + io.in.y
     }
     is(Functs.AND2.id.U) {
       io.out := io.in.x & io.in.y
