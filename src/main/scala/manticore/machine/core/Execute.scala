@@ -115,13 +115,13 @@ class ExecuteComb(
     debug_enable: Boolean = false
 ) extends ExecuteBase(config, debug_tag, debug_enable) {
 
-  val custom_alu = Module(new CustomAlu(config.DataBits, config.FunctBits, config.LutArity, equations))
+  val custom_alu = Module(new CustomAlu(config.DataBits, config.FunctBits - 1, config.LutArity, equations))
 
   val standard_alu = Module(new StandardALUComb(config.DataBits))
 
   // Custom ALU inputs
   custom_alu.io.rsx := Vec(io.regs_in.rs1, io.regs_in.rs2, io.regs_in.rs3, io.regs_in.rs4)
-  for (i <- Range(0, config.numFuncts)) {
+  for (i <- Range(0, config.numFuncts / 2)) {
     // ALL luts are configured in parallel. It is not possible to configure them one by one.
     // This avoids the use of (conf.FunctBits * config.DataBits) LUTs to perform an AND on this
     // large fan-out path.
