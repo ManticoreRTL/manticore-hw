@@ -27,7 +27,7 @@ object Instruction {
   object Opcode extends Enumeration {
     type Type = Value
     val NOP, SET, CUST, ARITH, LLOAD, LSTORE, EXPECT, GLOAD, GSTORE, SEND,
-        PREDICATE, SETCARRY, SETLUTDATA, CONFIGURELUTS = Value
+        PREDICATE, SETCARRY, SETLUTDATA, CONFIGURELUTS, SLICE = Value
   }
 
   sealed abstract class Instruction(val opcode: Opcode.Type)
@@ -218,6 +218,14 @@ object Instruction {
     override def toString: String = s"NOP"
   }
 
+  case class Slice(
+    rd: Register,
+    rs: Register,
+    offset: Int,
+    length: Int
+  ) extends Instruction(Opcode.SLICE) {
+    override def toString: String = s"SLICE ${rd}, ${rs}[${offset} +: ${length}]"
+  }
 
 
 }

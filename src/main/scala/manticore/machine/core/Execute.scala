@@ -125,7 +125,7 @@ class ExecuteComb(
     // ALL luts are configured in parallel. It is not possible to configure them one by one.
     // This avoids the use of (conf.FunctBits * config.DataBits) LUTs to perform an AND on this
     // large fan-out path.
-    custom_alu.io.config(i).writeEnable := io.pipe_in.opcode.configure_lut(i)
+    custom_alu.io.config(i).writeEnable := io.pipe_in.opcode.configure_luts(i)
     custom_alu.io.config(i).loadData := io.lutdata_din(i)
   }
   custom_alu.io.selector := io.pipe_in.funct
@@ -138,10 +138,17 @@ class ExecuteComb(
       standard_alu.io.funct := io.pipe_in.funct
     }
   } otherwise {
-    standard_alu.io.funct := StandardALU.Functs.ADD2.id.U
-    // with non-arith instructions, funct can be any value, including the
-    // funct for Mux (which is stateful) so we should set it to zero to
-    // ensure no stateful ALU operations are performed.
+    when(io.pipe_in.opcode.slice) {
+      standard_alu.io.funct := StandardALU.Functs.SLICE.id.U
+    } otherwise {
+      // TODO (skashani): This comment from Mahyar seems wrong as MUX is assembled
+      // as an ARITH instruction. To check with him later.
+      //
+      // with non-arith instructions, funct can be any value, including the
+      // funct for Mux (which is stateful) so we should set it to zero to
+      // ensure no stateful ALU operations are performed.
+      standard_alu.io.funct := StandardALU.Functs.ADD2.id.U
+    }
     standard_alu.io.in.y := io.pipe_in.immediate
   }
 
@@ -227,7 +234,7 @@ class ExecuteComb(
         io.pipe_in.opcode.send.toUInt +
         io.pipe_in.opcode.set.toUInt +
         io.pipe_in.opcode.set_lut_data.toUInt +
-        io.pipe_in.opcode.configure_lut(0) // This is a replicated signal, so just 1 of them suffices.
+        io.pipe_in.opcode.configure_luts(0) // This is a replicated signal, so just 1 of them suffices.
 
     when(num_decoded > 1.U) {
       dprintf("\tERROR multiple decoded operations (%d)!\n", num_decoded)

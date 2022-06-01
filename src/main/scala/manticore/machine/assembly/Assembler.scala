@@ -2,6 +2,7 @@ package manticore.machine.assembly
 
 import manticore.machine.ManticoreBaseISA
 import manticore.machine.core.alu.StandardALU
+import chisel3.util.log2Ceil
 
 object Assembler {
 
@@ -80,6 +81,17 @@ object Assembler {
           (rs2.index, ManticoreBaseISA.IdBits) ++
           (rs3.index, ManticoreBaseISA.IdBits) ++
           (rs4.index, ManticoreBaseISA.IdBits)
+        inst.build
+
+      case Slice(rd, rs, offset, length) =>
+        val inst = BinaryInstructionBuilder() ++
+          (ManticoreBaseISA.Slice.value, ManticoreBaseISA.OpcodeBits) ++
+          (rd.index, ManticoreBaseISA.IdBits) ++
+          (StandardALU.Functs.SRL.id, ManticoreBaseISA.FunctBits) ++
+          (rs.index, ManticoreBaseISA.IdBits) ++
+          (0, 3 * ManticoreBaseISA.IdBits - 2 * log2Ceil(ManticoreBaseISA.DataBits)) ++
+          (offset.toInt, log2Ceil(ManticoreBaseISA.DataBits)) ++
+          (length.toInt, log2Ceil(ManticoreBaseISA.DataBits))
         inst.build
 
       case Add2(rd, rs1, rs2) =>

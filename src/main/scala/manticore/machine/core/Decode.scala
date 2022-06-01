@@ -46,7 +46,12 @@ object Decode {
     val nop: Bool = Bool()
     val set_carry: Bool = Bool()
     val set_lut_data: Bool = Bool()
-    val configure_lut: Vec[Bool] = Vec(numFuncts, Bool())
+    // We intentionally use a vector of bool here instead of a simple bool
+    // as we want to force the FPGA tools to create a dedicated register
+    // for every LUT vector. Otherwise it will fan-out a single signal to
+    // many LUTs and it may not achieve the same frequency scaling.
+    val configure_luts: Vec[Bool] = Vec(numFuncts, Bool())
+    val slice: Bool = Bool()
   }
 
   class PipeOut(config: ISA) extends Bundle {
@@ -96,12 +101,13 @@ class Decode(config: ISA) extends Module {
   setEqual(opcode_regs.send, config.Send.value)
   setEqual(opcode_regs.predicate, config.Predicate.value)
   setEqual(opcode_regs.set_carry, config.SetCarry.value)
+  setEqual(opcode_regs.slice, config.Slice.value)
   setEqual(opcode_regs.set_lut_data, config.SetLutData.value)
 
   when (opcode === config.ConfigureLuts.value.U) {
-    opcode_regs.configure_lut := Vec.fill(config.numFuncts)(1.B)
+    opcode_regs.configure_luts := Vec.fill(config.numFuncts)(1.B)
   } otherwise {
-    opcode_regs.configure_lut := Vec.fill(config.numFuncts)(0.B)
+    opcode_regs.configure_luts := Vec.fill(config.numFuncts)(0.B)
   }
 
   // Whole instruction must be 0, not just the opcode. This is just a sanity check.

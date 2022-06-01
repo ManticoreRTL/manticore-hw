@@ -137,6 +137,7 @@ class Interpreter {
       case Nop()                                    =>
       case SetLutData(rd, value) => ???
       case ConfigureLuts(rs1, rs2, rs3, rs4) => ???
+      case Slice(rd, rs, offset, length) => ???
     }
   }
 

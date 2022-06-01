@@ -24,7 +24,8 @@ object StandardALU {
     type Functs = Value
     val ADD2, SUB2, MUL2, AND2, OR2, XOR2, SLL, // logical left shift
     SRL, // logical right shift (zeros padded to the right)
-    SRA, SEQ, SLT, SLTS, MUX, ADDC = Value
+    SRA, SEQ, SLT, SLTS, MUX, ADDC,
+    SLICE = Value
   }
 }
 
@@ -33,6 +34,11 @@ class StandardALUComb(DATA_BITS: Int) extends Module {
 
   val Functs = StandardALU.Functs
   val shamnt = Wire(UInt(log2Ceil(DATA_BITS).W))
+
+  val slice_srlamt = Wire(UInt(log2Ceil(DATA_BITS).W))
+  val slice_length = Wire(UInt(log2Ceil(DATA_BITS).W))
+  val slice_shifted = Wire(UInt(DATA_BITS.W))
+  val slice_mask = Wire(UInt(DATA_BITS.W))
 
   val sum_res = Wire(UInt((DATA_BITS + 1).W))
   val sum_with_carry = Wire(UInt((DATA_BITS + 1).W))
@@ -43,14 +49,19 @@ class StandardALUComb(DATA_BITS: Int) extends Module {
     as_wider
   }
 
+  slice_srlamt := io.in.y(2 * log2Ceil(DATA_BITS) - 1, log2Ceil(DATA_BITS))
+  slice_length := io.in.y(log2Ceil(DATA_BITS) - 1, 0)
+  slice_shifted := io.in.x >> slice_srlamt
+  slice_mask := (widened(1.U) << slice_length) - 1.U
+
   sum_res := widened(io.in.x) + widened(io.in.y)
   sum_with_carry := sum_res + widened(io.in.carry)
 
   io.carry_out := sum_with_carry >> (DATA_BITS.U)
 
   shamnt := io.in.y(log2Ceil(DATA_BITS) - 1, 0)
-  switch(io.funct) {
 
+  switch(io.funct) {
     is(Functs.ADD2.id.U) {
       io.out := sum_res(DATA_BITS - 1, 0)
     }
@@ -97,6 +108,9 @@ class StandardALUComb(DATA_BITS: Int) extends Module {
     }
     is(Functs.ADDC.id.U) {
       io.out := sum_with_carry(DATA_BITS - 1, 0)
+    }
+    is(Functs.SLICE.id.U) {
+      io.out := slice_shifted & slice_mask
     }
   }
 
