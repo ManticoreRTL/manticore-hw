@@ -98,14 +98,14 @@ class BareNoCTester extends AnyFlatSpec with ChiselScalatestTester with Matchers
 
       val target =
         Position(
-          (packet.xHops.litValue().toInt + source.x) % DimX,
-          (packet.yHops.litValue().toInt + source.y) % DimY)
+          (packet.xHops.litValue.toInt + source.x) % DimX,
+          (packet.yHops.litValue.toInt + source.y) % DimY)
 
       if (!coverage.contains(TestCase(source, target))) {
-        val latency = (packet.xHops.litValue().toInt + packet.yHops.litValue().toInt)
+        val latency = (packet.xHops.litValue.toInt + packet.yHops.litValue.toInt)
         val expected = ExpectedPacket(
-          data = packet.data.litValue().toInt,
-          address = packet.data.litValue().toInt,
+          data = packet.data.litValue.toInt,
+          address = packet.data.litValue.toInt,
           target = target,
           latency = latency
         )

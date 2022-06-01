@@ -208,7 +208,7 @@ class UniProcessorCoupledCountersTester extends AnyFlatSpec with Matchers with C
     )}.withAnnotations(Seq(VerilatorBackendAnnotation)) { implicit dut =>
 
       UniProcessorTestUtils.programProcessor(
-        non_piped_program.flatten.map(inst => Assembler.assemble(inst)(equations)),
+        non_piped_program.flatten.map(inst => Assembler.assemble(inst)(equations)).toIndexedSeq,
         4, 30, 20, dut
       ){
         rdgen.nextInt(2) == 0
@@ -230,8 +230,8 @@ class UniProcessorCoupledCountersTester extends AnyFlatSpec with Matchers with C
         if (gold.nonEmpty) {
           dut.clock.step(1)
           if (dut.io.packet_out.valid.peek().litToBoolean) {
-            val reg = (dut.io.packet_out.address.peek().litValue().toInt)
-            val value = dut.io.packet_out.data.peek().litValue().toInt
+            val reg = (dut.io.packet_out.address.peek().litValue.toInt)
+            val value = dut.io.packet_out.data.peek().litValue.toInt
             println(s"Finished ${gold.head._3}")
             println(s"expected ${gold.head._1} = ${gold.head._2}")
             println(s"got ${R(reg)} = ${value}")
@@ -291,7 +291,7 @@ class UniProcessorCoupledCountersTester extends AnyFlatSpec with Matchers with C
       dut.clock.setTimeout((program_with_send.length + 30) * num_vcycles + 10000)
 
       UniProcessorTestUtils.programProcessor(
-        program_with_send.map(inst => Assembler.assemble(inst)(equations)),
+        program_with_send.map(inst => Assembler.assemble(inst)(equations)).toIndexedSeq,
         4, 30, 20, dut
       ){
         rdgen.nextInt(2) == 0
@@ -302,8 +302,8 @@ class UniProcessorCoupledCountersTester extends AnyFlatSpec with Matchers with C
         if (gold.nonEmpty) {
           dut.clock.step(1)
           if (dut.io.packet_out.valid.peek().litToBoolean) {
-            val reg = (dut.io.packet_out.address.peek().litValue().toInt)
-            val value = dut.io.packet_out.data.peek().litValue().toInt
+            val reg = (dut.io.packet_out.address.peek().litValue.toInt)
+            val value = dut.io.packet_out.data.peek().litValue.toInt
             println(s"expected ${gold.head._1} = ${gold.head._2}")
             println(s"got ${R(reg)} = ${value}")
             dut.io.packet_out.address.expect(gold.head._1.index.U)

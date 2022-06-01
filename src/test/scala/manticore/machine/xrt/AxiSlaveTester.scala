@@ -44,7 +44,7 @@ class AxiSlaveTester extends AnyFlatSpec with ChiselScalatestTester with Matcher
     dut.clock.step()
     dut.io.core.BREADY.poke(true.B)
     waitOnCondition {
-      dut.io.core.BVALID.peek.litToBoolean
+      dut.io.core.BVALID.peek().litToBoolean
     }
     dut.io.core.BRESP.expect(0.U)
     dut.clock.step()
@@ -55,15 +55,15 @@ class AxiSlaveTester extends AnyFlatSpec with ChiselScalatestTester with Matcher
     dut.io.core.ARVALID.poke(true.B)
     dut.io.core.RREADY.poke(false.B)
     waitOnCondition {
-      dut.io.core.ARREADY.peek.litToBoolean
+      dut.io.core.ARREADY.peek().litToBoolean
     }
     dut.clock.step()
     dut.io.core.ARVALID.poke(false.B)
     dut.io.core.RREADY.poke(true.B)
     waitOnCondition {
-      dut.io.core.RVALID.peek.litToBoolean
+      dut.io.core.RVALID.peek().litToBoolean
     }
-    val read_word = dut.io.core.RDATA.peek().litValue().toLong
+    val read_word = dut.io.core.RDATA.peek().litValue.toLong
     dut.io.core.RRESP.expect(0.U)
     dut.clock.step()
     dut.io.core.RREADY.poke(false.B)

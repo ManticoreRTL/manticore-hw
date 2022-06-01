@@ -31,7 +31,7 @@ class ProgrammerTester
 
 
 
-    def stickySet(err: Bool, cond: => Bool) {
+    def stickySet(err: Bool, cond: => Bool): Unit = {
       val r = RegInit(Bool(), false.B)
 
       when(cond) {
@@ -142,7 +142,7 @@ class ProgrammerTester
             dut.clock.step()
             println("Validated the instruction stream")
           } else {
-            if (dut.io.packet_out.valid.peek.litToBoolean) {
+            if (dut.io.packet_out.valid.peek().litToBoolean) {
               dut.io.packet_out.xHops.expect(expected_stream.head._2.U)
               dut.io.packet_out.yHops.expect(expected_stream.head._3.U)
               dut.io.packet_out.data.expect(expected_stream.head._1.U)

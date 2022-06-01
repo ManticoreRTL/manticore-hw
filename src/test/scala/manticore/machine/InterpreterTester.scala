@@ -26,10 +26,10 @@ class InterpreterTester extends FlatSpec with Matchers{
         Add2(R(4), R(2), R(3)),
         // multiplex
         Custom(R(5),
-          CustomFunction(Array.fill(16)(BigInt(0xcaca))),
+          CustomFunction(Array.fill(16)(BigInt(0xcaca)).toIndexedSeq),
           R(0), R(1), R(2), R(3)),
         Custom(R(6),
-          CustomFunction(Array.fill(16)(BigInt(0xcaca))),
+          CustomFunction(Array.fill(16)(BigInt(0xcaca)).toIndexedSeq),
           R(5), R(0), R(2), R(3)),
         SetValue(R(7), 0x1234),
         SetValue(R(8), 0x4567),
@@ -56,7 +56,7 @@ class InterpreterTester extends FlatSpec with Matchers{
             BigInt(0xFF00),
             BigInt(0xFF00),
             BigInt(0xFF00)
-          )), R(10), R(9), R(8), R(7)
+          ).toIndexedSeq), R(10), R(9), R(8), R(7)
         )
       )
     )

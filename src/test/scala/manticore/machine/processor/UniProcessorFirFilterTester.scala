@@ -251,7 +251,7 @@ class UniProcessorFirFilterTester extends AnyFlatSpec with Matchers with ChiselS
       //      streamInstructions(program)
 
       UniProcessorTestUtils.programProcessor(
-        program.map(Assembler.assemble(_)(equations)),
+        program.map(Assembler.assemble(_)(equations)).toIndexedSeq,
         2, 30, 50, dut
       ) {
         rdgen.nextInt(10) == 0

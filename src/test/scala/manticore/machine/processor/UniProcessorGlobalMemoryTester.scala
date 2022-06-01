@@ -135,8 +135,8 @@ class UniProcessorGlobalMemoryTester extends AnyFlatSpec with Matchers with Chis
                 // store
 
                 val new_req = Request(
-                  dut.io.periphery.cache.wdata.peek().litValue().toInt,
-                  dut.io.periphery.cache.addr.peek().litValue().toLong,
+                  dut.io.periphery.cache.wdata.peek().litValue.toInt,
+                  dut.io.periphery.cache.addr.peek().litValue.toLong,
                   10 max rdgen.nextInt(20)
                 )
                 if (mem.getOrElse(new_req.address, 0) + 1 != new_req.value) {
@@ -151,7 +151,7 @@ class UniProcessorGlobalMemoryTester extends AnyFlatSpec with Matchers with Chis
                 dut.clock.step()
                 TickState(Some(new_req), None, new_mem)
               } else { // load
-                val address = dut.io.periphery.cache.addr.peek().litValue().toLong
+                val address = dut.io.periphery.cache.addr.peek().litValue.toLong
                 if (!mem.contains(address)) {
                   println(s"Loading 0 from an uninitialized memory location ${address}")
                 }
@@ -214,7 +214,7 @@ class UniProcessorGlobalMemoryTester extends AnyFlatSpec with Matchers with Chis
       dut.io.clock_enable_n.poke(false.B)
       dut.clock.step()
       UniProcessorTestUtils.programProcessor(
-        program.map(inst => Assembler.assemble(inst)(equations)),
+        program.map(inst => Assembler.assemble(inst)(equations)).toIndexedSeq,
         10, 10, 5, dut.io.packet_in, dut.clock
       ) {
         true

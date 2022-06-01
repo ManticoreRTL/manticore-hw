@@ -65,7 +65,7 @@ class UniProcessorSimpleCounterTester extends AnyFlatSpec with Matchers with Chi
 
 
       UniProcessorTestUtils.programProcessor(
-        instructions, epilogue_length, sleep_length, countdown, dut
+        instructions.toIndexedSeq, epilogue_length, sleep_length, countdown, dut
       ){
         rdgen.nextInt(10) == 0
       }
@@ -82,10 +82,10 @@ class UniProcessorSimpleCounterTester extends AnyFlatSpec with Matchers with Chi
 
         @tailrec
         def execute(expected: Seq[Int], msgs: Seq[(Int, Int)]): Unit = {
-          if (dut.io.periphery.active.peek.litToBoolean) {
+          if (dut.io.periphery.active.peek().litToBoolean) {
             val next =
               if (dut.io.packet_out.valid.peek().litToBoolean) {
-                if (dut.io.packet_out.address.peek.litValue().toInt == 2) {
+                if (dut.io.packet_out.address.peek().litValue.toInt == 2) {
                   dut.io.packet_out.data.expect(counter.U)
                   dut.io.packet_out.xHops.expect(2.U)
                   dut.io.packet_out.yHops.expect(2.U)
@@ -111,7 +111,7 @@ class UniProcessorSimpleCounterTester extends AnyFlatSpec with Matchers with Chi
             }
           }
         }
-        waitForStart
+        waitForStart()
         execute(Range(3, 7), Nil)
       }
       dut.clock.setTimeout(10000)

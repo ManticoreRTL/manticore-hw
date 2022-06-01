@@ -320,7 +320,7 @@ class ProgrammerNoCTester
               v.zipWithIndex.reverse.foreach { case (p, y) =>
                 if (p.valid.peek().litToBoolean) {
                   println(
-                    s"[${cycle}]: Received packet at (${x}, ${y}) with value ${p.data.peek().litValue().toInt}"
+                    s"[${cycle}]: Received packet at (${x}, ${y}) with value ${p.data.peek().litValue.toInt}"
                   )
                   if (mem_pos(x)(y) < initial_memory_content(x)(y).length) {
                     p.data.expect(
@@ -353,7 +353,7 @@ class ProgrammerNoCTester
                 .map { y =>
                   if (dut.io.exception(x)(y).error.peek().litToBoolean) {
                     println(
-                      s"[${cycle}] an exception in core_${x}_${y} occurred ${dut.io.exception(x)(y).peek}"
+                      s"[${cycle}] an exception in core_${x}_${y} occurred ${dut.io.exception(x)(y).peek()}"
                     )
                     false
                   } else {
@@ -376,7 +376,7 @@ class ProgrammerNoCTester
             else {
               if (
                 dut.io.exception.flatten
-                  .map(_.id.peek().litValue().toInt)
+                  .map(_.id.peek().litValue.toInt)
                   .forall(_ == 0xffff)
               ) {
                 println("Stop condition caught")
