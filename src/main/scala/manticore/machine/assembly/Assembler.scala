@@ -51,15 +51,37 @@ object Assembler {
 
     instruction match {
       case Custom(rd, func, rs1, rs2, rs3, rs4) =>
+        val funct_id = equation.indexOf(func.equation)
         val inst = BinaryInstructionBuilder() ++
           (ManticoreBaseISA.Custom.value, ManticoreBaseISA.OpcodeBits) ++
           (rd.index, ManticoreBaseISA.IdBits) ++
-          (equation.indexOf(func), ManticoreBaseISA.FunctBits) ++
+          (funct_id, ManticoreBaseISA.FunctBits) ++
           (rs1.index, ManticoreBaseISA.IdBits) ++
           (rs2.index, ManticoreBaseISA.IdBits) ++
           (rs3.index, ManticoreBaseISA.IdBits) ++
           (rs4.index, ManticoreBaseISA.IdBits)
         inst.build
+
+      case SetLutData(id, value) =>
+        val inst = BinaryInstructionBuilder() ++
+          (ManticoreBaseISA.SetLutData.value, ManticoreBaseISA.OpcodeBits) ++
+          (0, ManticoreBaseISA.IdBits) ++
+          (id, ManticoreBaseISA.FunctBits) ++
+          (0, 4 * ManticoreBaseISA.IdBits - ManticoreBaseISA.DataBits) ++
+          (value, ManticoreBaseISA.DataBits)
+        inst.build
+
+      case ConfigureLuts(rs1, rs2, rs3, rs4) =>
+        val inst = BinaryInstructionBuilder() ++
+          (ManticoreBaseISA.ConfigureLuts.value, ManticoreBaseISA.OpcodeBits) ++
+          (0, ManticoreBaseISA.IdBits) ++
+          (0, ManticoreBaseISA.FunctBits) ++
+          (rs1.index, ManticoreBaseISA.IdBits) ++
+          (rs2.index, ManticoreBaseISA.IdBits) ++
+          (rs3.index, ManticoreBaseISA.IdBits) ++
+          (rs4.index, ManticoreBaseISA.IdBits)
+        inst.build
+
       case Add2(rd, rs1, rs2) =>
         arithmetic(StandardALU.Functs.ADD2)(rd, rs1, rs2)
       case Or2(rd, rs1, rs2) =>

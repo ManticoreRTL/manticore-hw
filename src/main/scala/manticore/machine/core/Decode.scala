@@ -98,7 +98,7 @@ class Decode(config: ISA) extends Module {
   setEqual(opcode_regs.set_carry, config.SetCarry.value)
   setEqual(opcode_regs.set_lut_data, config.SetLutData.value)
 
-  when (opcode === config.ConfigureLut.value.U) {
+  when (opcode === config.ConfigureLuts.value.U) {
     opcode_regs.configure_lut := Vec.fill(config.numFuncts)(1.B)
   } otherwise {
     opcode_regs.configure_lut := Vec.fill(config.numFuncts)(0.B)

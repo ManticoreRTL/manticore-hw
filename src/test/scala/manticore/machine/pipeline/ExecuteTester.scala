@@ -15,28 +15,25 @@ import manticore.machine.core.alu.StandardALU.Functs.Functs
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-
 class ExecuteTester extends AnyFlatSpec with ChiselScalatestTester with Matchers {
 
-
   val rdgen = new scala.util.Random(0)
-
 
   // create random LUT equations
   val equations = Seq.fill(32)(Seq.fill(16)(BigInt(rdgen.nextInt(1 << 16))))
 
   behavior of "Execute stage"
 
-  def computeCustom(x: Int, y: Int, u: Int, v: Int)(equ: Seq[BigInt]): Int = {
+  def computeCustom(rs1: Int, rs2: Int, rs3: Int, rs4: Int)(equ: Seq[BigInt]): Int = {
     import manticore.machine.assembly.Instruction.{Custom, CustomFunction, R, SetValue}
     import manticore.machine.assembly._
     val interpreter = new Interpreter
     interpreter.run(
       Array(
-        SetValue(R(1), x),
-        SetValue(R(2), y),
-        SetValue(R(3), u),
-        SetValue(R(4), v),
+        SetValue(R(1), rs1),
+        SetValue(R(2), rs2),
+        SetValue(R(3), rs3),
+        SetValue(R(4), rs4),
         Custom(R(5), CustomFunction(equ), R(1), R(2), R(3), R(4))
       )
     )
@@ -152,11 +149,5 @@ class ExecuteTester extends AnyFlatSpec with ChiselScalatestTester with Matchers
       })(dut)
       dut.clock.step()
     }
-
-  //  it should "compute handle computation in a single cycle" in {
-  //
-  //    test(new ExecuteComb(ScalpISA0, ))
-  //  }
-
 
 }

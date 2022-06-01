@@ -135,6 +135,8 @@ class Interpreter {
       case GlobalLoad(rd, addrlo, addrmid, addrhi)  => ???
       case GlobalStore(rs, addrlo, addrmid, addrhi) => ???
       case Nop()                                    =>
+      case SetLutData(rd, value) => ???
+      case ConfigureLuts(rs1, rs2, rs3, rs4) => ???
     }
   }
 

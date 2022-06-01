@@ -32,7 +32,8 @@ trait ISA {
   def forwarding: Boolean = false
   def LutArity: Int = 4
 
-  def numFuncts = 1 << FunctBits
+  def numFuncts = (1 << FunctBits)
+  def numRegs = 1 << IdBits
 
   sealed class Opcode(val value: Int) extends InstructionField(0, OpcodeBits)
   type OpcodeType = Opcode
@@ -52,7 +53,7 @@ trait ISA {
   object Predicate extends Opcode(Instruction.Opcode.PREDICATE.id)
   object SetCarry extends Opcode(Instruction.Opcode.SETCARRY.id)
   object SetLutData extends Opcode(Instruction.Opcode.SETLUTDATA.id)
-  object ConfigureLut extends Opcode(Instruction.Opcode.CONFIGURELUT.id)
+  object ConfigureLuts extends Opcode(Instruction.Opcode.CONFIGURELUTS.id)
   object DestReg extends  InstructionField(OpcodeBits, IdBits)
   object Funct extends InstructionField(DestReg.toIndex + 1, FunctBits)
   object SourceReg1 extends InstructionField(Funct.toIndex + 1, IdBits)
