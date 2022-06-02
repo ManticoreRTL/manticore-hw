@@ -115,11 +115,10 @@ class ExecuteComb(
     debug_enable: Boolean = false
 ) extends ExecuteBase(config, debug_tag, debug_enable) {
 
+  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Custom ALU ////////////////////////////////////////////////////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   val custom_alu = Module(new CustomAlu(config.DataBits, config.FunctBits, config.LutArity, equations))
-
-  val standard_alu = Module(new StandardALUComb(config.DataBits))
-
-  // Custom ALU inputs
   custom_alu.io.rsx := Vec(io.regs_in.rs1, io.regs_in.rs2, io.regs_in.rs3, io.regs_in.rs4)
   for (i <- Range(0, config.numFuncts)) {
     // ALL luts are configured in parallel. It is not possible to configure them one by one.
@@ -130,6 +129,21 @@ class ExecuteComb(
   }
   custom_alu.io.selector := io.pipe_in.funct
 
+  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Standard ALU //////////////////////////////////////////////////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  val standard_alu = Module(new StandardALUComb(config.DataBits))
+
+  val standard_alu_output_mask = Wire(UInt(config.DataBits.W))
+  when (io.pipe_in.opcode.slice) {
+    // Mask to use on the output of the ALU (for slicing after the ALU has
+    // performed SRL on rs).
+    standard_alu_output_mask := io.pipe_in.immediate
+  } otherwise {
+    // Keep the full output of the ALU.
+    standard_alu_output_mask := Fill(config.DataBits, 1.B).asUInt
+  }
+
   when(io.pipe_in.opcode.arith | io.pipe_in.opcode.expect) {
     standard_alu.io.in.y := io.regs_in.rs2
     when(io.pipe_in.opcode.expect) {
@@ -139,7 +153,10 @@ class ExecuteComb(
     }
   } otherwise {
     when(io.pipe_in.opcode.slice) {
-      standard_alu.io.funct := StandardALU.Functs.SLICE.id.U
+      // When configured to perform a slice, the funct field already
+      // has the code for SRL.
+      standard_alu.io.funct := io.pipe_in.funct
+      standard_alu.io.in.y := io.pipe_in.slice_ofst
     } otherwise {
       // TODO (skashani): This comment from Mahyar seems wrong as MUX is assembled
       // as an ARITH instruction. To check with him later.
@@ -148,12 +165,11 @@ class ExecuteComb(
       // funct for Mux (which is stateful) so we should set it to zero to
       // ensure no stateful ALU operations are performed.
       standard_alu.io.funct := StandardALU.Functs.ADD2.id.U
+      standard_alu.io.in.y := io.pipe_in.immediate
     }
-    standard_alu.io.in.y := io.pipe_in.immediate
   }
 
   standard_alu.io.in.select := io.regs_in.rs3
-
   standard_alu.io.in.carry := io.carry_in
 
   when(io.pipe_in.opcode.set || io.pipe_in.opcode.send) {
@@ -165,7 +181,7 @@ class ExecuteComb(
   when(io.pipe_in.opcode.cust) {
     io.pipe_out.result := custom_alu.io.out
   } otherwise {
-    io.pipe_out.result := standard_alu.io.out
+    io.pipe_out.result := standard_alu.io.out & standard_alu_output_mask
   }
 
   io.pipe_out.opcode    := io.pipe_in.opcode

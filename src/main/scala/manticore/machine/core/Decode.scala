@@ -64,6 +64,10 @@ object Decode {
     val opcode: OpcodePipe = new OpcodePipe(config.numFuncts)
     val funct: UInt = UInt(config.FunctBits.W)
     val immediate: UInt = UInt(config.DataBits.W)
+    // The slice mask is encoded in the immediate field, but the slice
+    // offset is encoded in log2Ceil(config.DataBits) additional bits.
+    // Only the slice instruction uses these extra bits.
+    val slice_ofst: UInt = UInt(log2Ceil(config.DataBits).W)
   }
 
 }
@@ -79,9 +83,14 @@ class Decode(config: ISA) extends Module {
   def getField(field: InstructionField): UInt = io.instruction(field.toIndex, field.fromIndex)
 
   val opcode: UInt = Wire(UInt(config.OpcodeBits.W))
-  opcode := io.instruction(config.OpcodeBits - 1, 0)
 
   val opcode_regs = Reg(new Decode.OpcodePipe(config.numFuncts))
+  val funct_reg = Reg(UInt(config.Funct.W))
+  val immediate_reg = Reg(UInt(config.DataBits.W))
+  val slice_ofst_reg = Reg(UInt(log2Ceil(config.DataBits).W))
+  val rd_reg = Reg(UInt(config.IdBits.W))
+
+  opcode := io.instruction(config.OpcodeBits - 1, 0)
 
   def setEqual[T <: Data](reg: T, expected_opcode: Int): Unit =
     when (opcode === expected_opcode.U) {
@@ -90,6 +99,8 @@ class Decode(config: ISA) extends Module {
       reg := false.B
     }
 
+  // Whole instruction must be 0, not just the opcode. This is just a sanity check.
+  opcode_regs.nop := io.instruction === 0.U
   setEqual(opcode_regs.cust, config.Custom.value)
   setEqual(opcode_regs.arith, config.Arithmetic.value)
   setEqual(opcode_regs.lload, config.LocalLoad.value)
@@ -103,37 +114,29 @@ class Decode(config: ISA) extends Module {
   setEqual(opcode_regs.set_carry, config.SetCarry.value)
   setEqual(opcode_regs.slice, config.Slice.value)
   setEqual(opcode_regs.set_lut_data, config.SetLutData.value)
-
   when (opcode === config.ConfigureLuts.value.U) {
     opcode_regs.configure_luts := Vec.fill(config.numFuncts)(1.B)
   } otherwise {
     opcode_regs.configure_luts := Vec.fill(config.numFuncts)(0.B)
   }
 
-  // Whole instruction must be 0, not just the opcode. This is just a sanity check.
-  opcode_regs.nop := io.instruction === 0.U
+  funct_reg := getField(config.Funct)
+  immediate_reg := io.instruction.head(config.DataBits)
+  slice_ofst_reg := io.instruction(config.DataBits + log2Ceil(config.DataBits) - 1, config.DataBits)
+  rd_reg := getField(config.DestReg)
 
   io.pipe_out.opcode := opcode_regs
-
-  val funct_reg = Reg(UInt(config.Funct.W))
-
-  val immediate_reg = Reg(UInt(config.DataBits.W))
-  val rd_reg = Reg(UInt(config.IdBits.W))
-
-  funct_reg := getField(config.Funct)
   io.pipe_out.funct := funct_reg
-
-  immediate_reg := io.instruction.head(config.DataBits)
   io.pipe_out.immediate := immediate_reg
-
-  rd_reg := getField(config.DestReg)
   io.pipe_out.rd := rd_reg
+  io.pipe_out.slice_ofst := slice_ofst_reg
 
+  // These are NOT registers and are sent directly to the register files.
+  // The response comes back 1 cycle later in the Execute stage.
   io.pipe_out.rs1 := getField(config.SourceReg1)
   io.pipe_out.rs2 := getField(config.SourceReg2)
   io.pipe_out.rs3 := getField(config.SourceReg3)
   io.pipe_out.rs4 := getField(config.SourceReg4)
-
 }
 
 

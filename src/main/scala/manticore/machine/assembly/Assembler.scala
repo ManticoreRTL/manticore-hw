@@ -84,14 +84,18 @@ object Assembler {
         inst.build
 
       case Slice(rd, rs, offset, length) =>
+        // We compute the slice mask at compile time and embed it in the
+        // instruction's immediate field.
+        // We use the ALU's built-in SRL instruction and just mask the
+        // output appropriately.
         val inst = BinaryInstructionBuilder() ++
           (ManticoreBaseISA.Slice.value, ManticoreBaseISA.OpcodeBits) ++
           (rd.index, ManticoreBaseISA.IdBits) ++
           (StandardALU.Functs.SRL.id, ManticoreBaseISA.FunctBits) ++
           (rs.index, ManticoreBaseISA.IdBits) ++
-          (0, 3 * ManticoreBaseISA.IdBits - 2 * log2Ceil(ManticoreBaseISA.DataBits)) ++
+          (0, 3 * ManticoreBaseISA.IdBits - log2Ceil(ManticoreBaseISA.DataBits) - ManticoreBaseISA.DataBits) ++
           (offset.toInt, log2Ceil(ManticoreBaseISA.DataBits)) ++
-          (length.toInt, log2Ceil(ManticoreBaseISA.DataBits))
+          ((1 << length.toInt) - 1, ManticoreBaseISA.DataBits)
         inst.build
 
       case Add2(rd, rs1, rs2) =>
