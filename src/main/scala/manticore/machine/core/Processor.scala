@@ -108,8 +108,9 @@ class Processor(
     new ExecuteComb(config, equations, name_tag + "::exec", debug_enable, enable_custom_alu)
   )
 
-  if (debug_enable)
+  if (debug_enable) {
     execute_stage.io.debug_time := io.periphery.debug_time
+  }
 
   val memory_stage = Module(new MemoryAccess(config, DimX, DimY))
 
@@ -400,8 +401,15 @@ class Processor(
 
   val exception_cond: Bool = Wire(Bool())
 
-  // Expect instruction should throw an exception if the result of SetEqual is false
-  exception_cond := (execute_stage.io.pipe_out.opcode.expect && execute_stage.io.pipe_out.result === 0.U)
+  // Expect instruction should throw an exception if the result of SetEqual is false.
+  // Using functionality related to the custom ALU is an error if the custom ALU has been disabled.
+  exception_cond := (execute_stage.io.pipe_out.opcode.expect && execute_stage.io.pipe_out.result === 0.U) ||
+                    (!enable_custom_alu.B &&
+                      (decode_stage.io.pipe_out.opcode.configure_luts.head ||
+                        decode_stage.io.pipe_out.opcode.set_lut_data ||
+                        decode_stage.io.pipe_out.opcode.cust
+                      )
+                    )
 
   exception_occurred := exception_cond
 
