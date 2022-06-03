@@ -29,7 +29,8 @@ class CustomAlu(
   dataWidth: Int,
   functBits: Int,
   lutArity: Int,
-  equations: Seq[Seq[BigInt]]
+  equations: Seq[Seq[BigInt]],
+  enable: Boolean = true
 ) extends Module {
 
   val numFuncts = 1 << functBits
@@ -41,18 +42,27 @@ class CustomAlu(
     val out = Output(UInt(dataWidth.W))
   })
 
-  val results = Wire(Vec(numFuncts, UInt(dataWidth.W)))
+  if (enable) {
 
-  // Create numFunct custom functions.
-  for (i <- Range(0, numFuncts)) {
-    val customFunct = Module(new CustomFunction(dataWidth, lutArity, equations(i)))
-    customFunct.io.config := io.config(i)
-    customFunct.io.rsx := io.rsx
-    results(i) := customFunct.io.out
+    val results = Wire(Vec(numFuncts, UInt(dataWidth.W)))
+
+    // Create numFunct custom functions.
+    for (i <- Range(0, numFuncts)) {
+      val customFunct = Module(new CustomFunction(dataWidth, lutArity, equations(i)))
+      customFunct.io.config := io.config(i)
+      customFunct.io.rsx := io.rsx
+      results(i) := customFunct.io.out
+    }
+
+    // Select the output from one of the custom functions.
+    io.out := results(io.selector)
+
+  } else {
+
+    io.out := 0.U
+
   }
 
-  // Select the output from one of the custom functions.
-  io.out := results(io.selector)
 }
 
 class CustomFunctionInterface(

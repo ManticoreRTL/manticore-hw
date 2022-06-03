@@ -61,6 +61,7 @@ object KernelInfo {
 class ManticoreFlatKernel(
     DimX: Int,
     DimY: Int,
+    enable_custom_alu: Boolean = true,
     debug_enable: Boolean = false,
     freqMhz: Double = 200.0,
     // m_axi_path: Seq[String] =
@@ -110,7 +111,7 @@ class ManticoreFlatKernel(
   interrupt             := slave.io.control.interrupt
 
   val manticore =
-    Module(new ManticoreFlatArray(DimX, DimY, debug_enable))
+    Module(new ManticoreFlatArray(DimX, DimY, debug_enable, enable_custom_alu))
 
   manticore.io.reset         := reset
   manticore.io.control_clock := clock_distribution.io.control_clock
@@ -167,6 +168,7 @@ class ManticoreFlatSimKernel(
     DimX: Int,
     DimY: Int,
     debug_enable: Boolean = false,
+    enable_custom_alu: Boolean = true,
     prefix_path: String = "./"
 ) extends Module {
 
@@ -204,7 +206,7 @@ class ManticoreFlatSimKernel(
   clock_distribution.io.root_clock := clock
 
   val manticore =
-    Module(new ManticoreFlatArray(DimX, DimY, debug_enable, prefix_path))
+    Module(new ManticoreFlatArray(DimX, DimY, debug_enable, enable_custom_alu, prefix_path))
   manticore.io.clock_stabled := clock_distribution.io.locked
 
   manticore.io.reset         := reset
@@ -466,6 +468,7 @@ object ManticoreKernelGenerator {
       target: String = "hw_emu",
       dimx: Int = 8,
       dimy: Int = 8,
+      enable_custom_alu: Boolean = true,
       freqMhz: Double = 200.0
   ) = {
 
@@ -480,6 +483,7 @@ object ManticoreKernelGenerator {
       new ManticoreFlatKernel(
         DimX = dimx,
         DimY = dimy,
+        enable_custom_alu = enable_custom_alu,
         debug_enable = false,
         freqMhz = freqMhz
       ),

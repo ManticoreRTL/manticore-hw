@@ -47,7 +47,8 @@ class Processor(
     initial_array: String = "",
     name_tag: String = "core",
     debug_enable: Boolean = false,
-    debug_level: Int = 0
+    debug_level: Int = 0,
+    enable_custom_alu: Boolean = true,
 ) extends Module {
   val io: ProcessorInterface = IO(new ProcessorInterface(config, DimX, DimY))
 
@@ -104,7 +105,7 @@ class Processor(
   val fetch_stage  = Module(new Fetch(config))
   val decode_stage = Module(new Decode(config))
   val execute_stage = Module(
-    new ExecuteComb(config, equations, name_tag + "::exec", debug_enable)
+    new ExecuteComb(config, equations, name_tag + "::exec", debug_enable, enable_custom_alu)
   )
 
   if (debug_enable)

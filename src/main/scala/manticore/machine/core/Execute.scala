@@ -85,7 +85,7 @@ object ExecuteInterface {
 }
 
 class ExecuteInterface(
-  config: ISA,
+  config: ISA
 ) extends Bundle {
   val pipe_in    = Input(new PipeIn(config))
   val regs_in    = Input(new ALUInput(config.DataBits))
@@ -106,7 +106,8 @@ class ExecuteComb(
     config: ISA,
     equations: Seq[Seq[BigInt]],
     debug_tag: String = "UNTAGGED",
-    debug_enable: Boolean = false
+    debug_enable: Boolean = false,
+    custom_alu_enable: Boolean = true,
 ) extends Module {
 
   val io = IO(new ExecuteInterface(config))
@@ -114,7 +115,7 @@ class ExecuteComb(
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Custom ALU ////////////////////////////////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  val custom_alu = Module(new CustomAlu(config.DataBits, config.FunctBits, config.LutArity, equations))
+  val custom_alu = Module(new CustomAlu(config.DataBits, config.FunctBits, config.LutArity, equations, custom_alu_enable))
   custom_alu.io.rsx := Vec(io.regs_in.rs1, io.regs_in.rs2, io.regs_in.rs3, io.regs_in.rs4)
   for (i <- Range(0, config.numFuncts)) {
     // ALL luts are configured in parallel. It is not possible to configure them one by one.

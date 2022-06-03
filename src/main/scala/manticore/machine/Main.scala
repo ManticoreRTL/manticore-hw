@@ -12,6 +12,7 @@ object Main {
   case class CliConfig(
       dimx: Int = 2,
       dimy: Int = 2,
+      enable_custom_alu: Boolean = true,
       target: String = "<INV>",
       output: File = new File("."),
       platform: String = "",
@@ -38,6 +39,9 @@ object Main {
           .action { case (y, c) => c.copy(dimy = y) }
           .required()
           .text("Y dimension size"),
+        opt[Boolean]("enable_custom_alu")
+          .action { case (b, c) => c.copy(enable_custom_alu = b)}
+          .text("Enable custom ALUs in cores"),
         opt[String]('t', "target")
           .action { case (t, c) => c.copy(target = t) }
           .required()
@@ -109,6 +113,7 @@ object Main {
           dimx = cfg.dimx,
           dimy = cfg.dimy,
           target = t,
+          enable_custom_alu = cfg.enable_custom_alu,
           freqMhz = cfg.freq
         )
 
@@ -117,7 +122,8 @@ object Main {
           new ManticoreFlatSimKernel(
             DimX = cfg.dimx,
             DimY = cfg.dimy,
-            debug_enable = true
+            debug_enable = true,
+            enable_custom_alu = cfg.enable_custom_alu
           ),
           Array("--target-dir", cfg.output.toPath.toString)
         )
