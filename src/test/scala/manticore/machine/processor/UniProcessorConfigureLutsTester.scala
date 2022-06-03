@@ -25,6 +25,9 @@ class UniProcessorConfigureLutsTester extends AnyFlatSpec with Matchers with Chi
 
   val numTestFuncts = 4 // Can not modify without explicitly adding a function in the code below.
 
+  // This test programs the processor with 4 custom functions, then performs
+  // random computations with them and checks their result.
+
   // We reserve the following registers in the processor:
   // addr 0 -> all zeros
   // addr 1 -> all ones
@@ -34,6 +37,23 @@ class UniProcessorConfigureLutsTester extends AnyFlatSpec with Matchers with Chi
   val allZerosReg = R(0)
   val allOnesReg = R(1)
   val functRegs = Seq.tabulate(numTestFuncts)(idx => R(allOnesReg.index + 1 + idx))
+
+  // Populate the processor's registers with random values. We reserve xx+2 entries
+  // shown below:
+  // addr 0 -> all zeros
+  // addr 1 -> all ones
+  // addr 2 -> funct_0 result
+  // addr 3 -> funct_1 result
+  // addr 4 -> funct_2 result
+  // addr 5 -> funct_3 result
+  // ...
+  // addr xx+2 -> funct_xx result.
+  val initialRegs = ArrayBuffer.fill(ManticoreBaseISA.numRegs)(BigInt(0))
+  initialRegs(allZerosReg.index) = BigInt(0)
+  initialRegs(allOnesReg.index) = BigInt((1 << ManticoreBaseISA.DataBits) - 1)
+  Range(functRegs.last.index + 1, initialRegs.size).foreach { addr =>
+    initialRegs(addr) = rdgen.nextInt(1 << ManticoreBaseISA.DataBits)
+  }
 
   // To generate equations in python:
   //
@@ -231,26 +251,6 @@ class UniProcessorConfigureLutsTester extends AnyFlatSpec with Matchers with Chi
     }
 
     (progLutCompute.toSeq, expectedSends.toSeq)
-  }
-
-  // This test programs the processor with 4 custom functions, then performs
-  // random computations with them and checks their result.
-
-  // Populate the processor's registers with random values. We reserve xx+2 entries
-  // shown below:
-  // addr 0 -> all zeros
-  // addr 1 -> all ones
-  // addr 2 -> funct_0 result
-  // addr 3 -> funct_1 result
-  // addr 4 -> funct_2 result
-  // addr 5 -> funct_3 result
-  // ...
-  // addr xx+2 -> funct_xx result.
-  val initialRegs = ArrayBuffer.fill(ManticoreBaseISA.numRegs)(BigInt(0))
-  initialRegs(allZerosReg.index) = BigInt(0)
-  initialRegs(allOnesReg.index) = BigInt((1 << 16) - 1)
-  Range(functRegs.last.index + 1, initialRegs.size).foreach { addr =>
-    initialRegs(addr) = rdgen.nextInt(1 << 16)
   }
 
   // Create programs.

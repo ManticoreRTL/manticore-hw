@@ -85,12 +85,12 @@ class Decode(config: ISA) extends Module {
   val opcode: UInt = Wire(UInt(config.OpcodeBits.W))
 
   val opcode_regs = Reg(new Decode.OpcodePipe(config.numFuncts))
-  val funct_reg = Reg(UInt(config.Funct.W))
+  val funct_reg = Reg(UInt(config.FunctField.W))
   val immediate_reg = Reg(UInt(config.DataBits.W))
   val slice_ofst_reg = Reg(UInt(log2Ceil(config.DataBits).W))
   val rd_reg = Reg(UInt(config.IdBits.W))
 
-  opcode := io.instruction(config.OpcodeBits - 1, 0)
+  opcode := getField(config.OpcodeField)
 
   def setEqual[T <: Data](reg: T, expected_opcode: Int): Unit =
     when (opcode === expected_opcode.U) {
@@ -120,10 +120,10 @@ class Decode(config: ISA) extends Module {
     opcode_regs.configure_luts := Vec.fill(config.numFuncts)(0.B)
   }
 
-  funct_reg := getField(config.Funct)
-  immediate_reg := io.instruction.head(config.DataBits)
-  slice_ofst_reg := io.instruction(config.DataBits + log2Ceil(config.DataBits) - 1, config.DataBits)
-  rd_reg := getField(config.DestReg)
+  funct_reg := getField(config.FunctField)
+  immediate_reg := getField(config.ImmediateField)
+  slice_ofst_reg := getField(config.SliceOfstField)
+  rd_reg := getField(config.DestRegField)
 
   io.pipe_out.opcode := opcode_regs
   io.pipe_out.funct := funct_reg
@@ -133,10 +133,10 @@ class Decode(config: ISA) extends Module {
 
   // These are NOT registers and are sent directly to the register files.
   // The response comes back 1 cycle later in the Execute stage.
-  io.pipe_out.rs1 := getField(config.SourceReg1)
-  io.pipe_out.rs2 := getField(config.SourceReg2)
-  io.pipe_out.rs3 := getField(config.SourceReg3)
-  io.pipe_out.rs4 := getField(config.SourceReg4)
+  io.pipe_out.rs1 := getField(config.SourceReg1Field)
+  io.pipe_out.rs2 := getField(config.SourceReg2Field)
+  io.pipe_out.rs3 := getField(config.SourceReg3Field)
+  io.pipe_out.rs4 := getField(config.SourceReg4Field)
 }
 
 

@@ -1,8 +1,10 @@
 package manticore.machine
 
 import Chisel.fromIntToWidth
+import Chisel.log2Up
 import chisel3.internal.firrtl.IntervalRange
 import chisel3.internal.firrtl.Width
+import chisel3.util.log2Ceil
 import manticore.machine.assembly.Instruction
 import manticore.machine.assembly.Instruction.Opcode
 
@@ -15,10 +17,12 @@ sealed abstract class InstructionField(val fromIndex: Int, val length: Int) {
 
 // The instruction format is as follows:
 //
-// |  opcode |          rd          |  funct  |          rs1         |          rs2         |          rs3         |          rs4         |
-// | <- 4 -> | <------- 11 -------> | <- 5 -> | <------- 11 -------> | <------- 11 -------> | <------- 11 -------> | <------- 11 -------> |
-//                                                                                                    | <------------- 16 --------------> |
-//                                                                                                    |                imm                |
+// |MSb                                                                                                                                LSb|
+// |63                                                                                                                                   0|
+// |          rs4         |          rs3         |          rs2         |          rs1         |  funct  |          rd          |  opcode |
+// | <------- 11 -------> | <------- 11 -------> | <------- 11 -------> | <------- 11 -------> | <- 5 -> | <------- 11 -------> | <- 4 -> |
+// | <---------- 16 ---------> | <-- 4 ---> |
+// |            imm            | slice_ofst |
 
 trait ISA {
   def NumPcBits: Int
@@ -31,16 +35,19 @@ trait ISA {
   def CarryCount: Int
   def forwarding: Boolean = false
   def LutArity: Int = 4
+  def ImmBits: Int = 16
 
   def numFuncts = (1 << FunctBits)
   def numRegs = 1 << IdBits
 
   sealed class Opcode(val value: Int) extends InstructionField(0, OpcodeBits)
+  object OpcodeField extends InstructionField(0, OpcodeBits)
+
   type OpcodeType = Opcode
   /**
    * Opcode unique objects, can serve as types
    */
-  object Nop extends Opcode(Opcode.NOP.id)
+  object Nop extends Opcode(Instruction.Opcode.NOP.id)
   object SetValue extends Opcode(Instruction.Opcode.SET.id)
   object Custom extends Opcode(Instruction.Opcode.CUST.id)
   object Arithmetic extends Opcode (Instruction.Opcode.ARITH.id)
@@ -55,12 +62,14 @@ trait ISA {
   object SetLutData extends Opcode(Instruction.Opcode.SETLUTDATA.id)
   object ConfigureLuts extends Opcode(Instruction.Opcode.CONFIGURELUTS.id)
   object Slice extends Opcode(Instruction.Opcode.SLICE.id)
-  object DestReg extends  InstructionField(OpcodeBits, IdBits)
-  object Funct extends InstructionField(DestReg.toIndex + 1, FunctBits)
-  object SourceReg1 extends InstructionField(Funct.toIndex + 1, IdBits)
-  object SourceReg2 extends InstructionField(SourceReg1.toIndex + 1, IdBits)
-  object SourceReg3 extends InstructionField(SourceReg2.toIndex + 1, IdBits)
-  object SourceReg4 extends InstructionField(SourceReg3.toIndex + 1, IdBits)
+  object DestRegField extends  InstructionField(OpcodeBits, IdBits)
+  object FunctField extends InstructionField(DestRegField.toIndex + 1, FunctBits)
+  object SourceReg1Field extends InstructionField(FunctField.toIndex + 1, IdBits)
+  object SourceReg2Field extends InstructionField(SourceReg1Field.toIndex + 1, IdBits)
+  object SourceReg3Field extends InstructionField(SourceReg2Field.toIndex + 1, IdBits)
+  object SourceReg4Field extends InstructionField(SourceReg3Field.toIndex + 1, IdBits)
+  object ImmediateField extends InstructionField(NumBits - ImmBits, ImmBits)
+  object SliceOfstField extends InstructionField(NumBits - ImmBits - log2Ceil(DataBits), log2Ceil(DataBits))
 }
 
 object ManticoreBaseISA extends ISA {

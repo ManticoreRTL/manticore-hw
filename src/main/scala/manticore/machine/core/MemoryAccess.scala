@@ -88,7 +88,8 @@ class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
     io.pipe_in.opcode.arith || {
       if (config.WithGlobalMemory) io.pipe_in.opcode.gload else false.B
     } ||
-    io.pipe_in.opcode.set
+    io.pipe_in.opcode.set ||
+    io.pipe_in.opcode.slice
   }
   pipeIt(io.pipe_out.rd) {
     io.pipe_in.rd
