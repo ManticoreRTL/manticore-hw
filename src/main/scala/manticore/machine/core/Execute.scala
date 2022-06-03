@@ -84,7 +84,9 @@ object ExecuteInterface {
   }
 }
 
-class ExecuteInterface(config: ISA) extends Bundle {
+class ExecuteInterface(
+  config: ISA,
+) extends Bundle {
   val pipe_in    = Input(new PipeIn(config))
   val regs_in    = Input(new ALUInput(config.DataBits))
   val carry_in   = Input(UInt(1.W))
@@ -100,20 +102,14 @@ class ExecuteInterface(config: ISA) extends Bundle {
   val lutdata_din = Input(Vec(config.numFuncts, UInt(config.DataBits.W)))
 }
 
-class ExecuteBase(
-    config: ISA,
-    debug_tag: String = "UNTAGGED",
-    debug_enable: Boolean = false
-) extends Module {
-  val io = IO(new ExecuteInterface(config))
-}
-
 class ExecuteComb(
     config: ISA,
     equations: Seq[Seq[BigInt]],
     debug_tag: String = "UNTAGGED",
     debug_enable: Boolean = false
-) extends ExecuteBase(config, debug_tag, debug_enable) {
+) extends Module {
+
+  val io = IO(new ExecuteInterface(config))
 
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Custom ALU ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -134,14 +130,13 @@ class ExecuteComb(
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   val standard_alu = Module(new StandardALUComb(config.DataBits))
 
-  val standard_alu_output_mask = Wire(UInt(config.DataBits.W))
   when (io.pipe_in.opcode.slice) {
     // Mask to use on the output of the ALU (for slicing after the ALU has
     // performed SRL on rs).
-    standard_alu_output_mask := io.pipe_in.immediate
+    standard_alu.io.in.mask := io.pipe_in.immediate
   } otherwise {
     // Keep the full output of the ALU.
-    standard_alu_output_mask := Fill(config.DataBits, 1.B).asUInt
+    standard_alu.io.in.mask := Fill(config.DataBits, 1.B).asUInt
   }
 
   when(io.pipe_in.opcode.arith | io.pipe_in.opcode.expect) {
@@ -181,7 +176,7 @@ class ExecuteComb(
   when(io.pipe_in.opcode.cust) {
     io.pipe_out.result := custom_alu.io.out
   } otherwise {
-    io.pipe_out.result := standard_alu.io.out & standard_alu_output_mask
+    io.pipe_out.result := standard_alu.io.out
   }
 
   io.pipe_out.opcode    := io.pipe_in.opcode

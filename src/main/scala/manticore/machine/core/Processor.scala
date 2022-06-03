@@ -103,7 +103,7 @@ class Processor(
 
   val fetch_stage  = Module(new Fetch(config))
   val decode_stage = Module(new Decode(config))
-  val execute_stage: ExecuteBase = Module(
+  val execute_stage = Module(
     new ExecuteComb(config, equations, name_tag + "::exec", debug_enable)
   )
 
