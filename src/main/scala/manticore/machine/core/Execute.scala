@@ -165,7 +165,9 @@ class ExecuteComb(
     }
   }
 
-  standard_alu.io.in.select := io.regs_in.rs3
+  // TODO (skashani): Old code when RS3 was being used.
+  // standard_alu.io.in.select := io.regs_in.rs3
+  standard_alu.io.in.select := io.carry_in
   standard_alu.io.in.carry := io.carry_in
 
   when(io.pipe_in.opcode.set || io.pipe_in.opcode.send) {

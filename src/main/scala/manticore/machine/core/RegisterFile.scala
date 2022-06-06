@@ -30,6 +30,7 @@ import manticore.machine.ManticoreBaseISA
 import manticore.machine.memory.GenericMemoryInterface
 import manticore.machine.memory.SimpleDualPortMemory
 import manticore.machine.memory.SimpleDualPortMemoryInterface
+import manticore.machine.memory.DummyDualPortMemory
 
 class RegisterFileInterface(config: ISA) extends Bundle {
   def makeAddr = Input(UInt(config.IdBits.W))
@@ -70,13 +71,30 @@ class RegisterFileInterface(config: ISA) extends Bundle {
 
 }
 
-class RegisterFile(config: ISA, INIT: String = "") extends Module {
+class RegisterFile(
+  config: ISA,
+  INIT: String = "",
+  enable_custom_alu: Boolean = true
+) extends Module {
 
   val io = IO(new RegisterFileInterface(config))
 
-  def makeBank = new SimpleDualPortMemory(ADDRESS_WIDTH = config.IdBits,
-    DATA_WIDTH = config.DataBits, INIT = INIT)
-  val rs1bank, rs2bank, rs3bank, rs4bank = Module(makeBank)
+  def makeBank(
+    enable: Boolean = true
+  ) = {
+    if (enable) {
+      new SimpleDualPortMemory(ADDRESS_WIDTH = config.IdBits, DATA_WIDTH = config.DataBits, INIT = INIT)
+    } else {
+      new DummyDualPortMemory(ADDRESS_WIDTH = config.IdBits, DATA_WIDTH = config.DataBits)
+    }
+  }
+
+  // Banks 1 and 2 are always enabled.
+  // Banks 3 and 4 are disabled if the custom ALU is disabled.
+  val rs1bank = Module(makeBank(true))
+  val rs2bank = Module(makeBank(true))
+  val rs3bank = Module(makeBank(enable_custom_alu))
+  val rs4bank = Module(makeBank(enable_custom_alu))
 
   io.w <-> rs1bank.io
   io.w <-> rs2bank.io

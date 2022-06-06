@@ -114,7 +114,7 @@ class Processor(
 
   val memory_stage = Module(new MemoryAccess(config, DimX, DimY))
 
-  val register_file       = Module(new RegisterFile(config, initial_registers))
+  val register_file       = Module(new RegisterFile(config, initial_registers, enable_custom_alu))
   val carry_register_file = Module(new CarryRegisterFile(config))
 
   val lut_load_regs = Module(new LutLoadDataRegisterFile(config))
