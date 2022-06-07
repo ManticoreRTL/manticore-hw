@@ -19,7 +19,7 @@
 // `timescale 1 ns
 
 module MultiplierDsp48 (
-  input               clk,
+  input               clock,
   input  [16 - 1 : 0] in0,
   input  [16 - 1 : 0] in1,
   output [16 - 1 : 0] out,
@@ -31,7 +31,7 @@ module MultiplierDsp48 (
 // Pipeline signal for simulations.
 reg valid_d1, valid_d2;
 assign valid_out = valid_d2;
-always @(posedge clk) begin
+always @(posedge clock) begin
   valid_d1 <= valid_in;
   valid_d2 <= valid_d1;
 end
@@ -46,7 +46,7 @@ wire [4 - 1 : 0] ALUMODE;
 wire [5 - 1 : 0] INMODE;
 wire [9 - 1 : 0] OPMODE;
 
-assign CLK = clk;
+assign CLK = clock;
 assign A = in0;
 assign B = in1;
 
