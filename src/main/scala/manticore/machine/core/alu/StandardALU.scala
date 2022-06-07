@@ -23,9 +23,7 @@ class ALUInterface(DATA_BITS: Int) extends Bundle {
 object StandardALU {
   object Functs extends Enumeration {
     type Functs = Value
-    val ADD2, SUB2, MUL2, AND2, OR2, XOR2, SLL, // logical left shift
-    SRL,                                        // logical right shift (zeros padded to the right)
-    SRA, SEQ, SLT, SLTS, MUX, ADDC = Value
+    val ADD2, SUB2, MUL2, AND2, OR2, XOR2, SLL, SRL, SRA, SEQ, SLTU, SLTS, MUX, ADDC = Value
   }
 }
 
@@ -85,7 +83,7 @@ class StandardALUComb(DATA_BITS: Int) extends Module {
     is(Functs.SEQ.id.U) {
       alu_res := (io.in.x === io.in.y).asUInt
     }
-    is(Functs.SLT.id.U) {
+    is(Functs.SLTU.id.U) {
       alu_res := (io.in.x < io.in.y).asUInt
     }
     is(Functs.SLTS.id.U) {

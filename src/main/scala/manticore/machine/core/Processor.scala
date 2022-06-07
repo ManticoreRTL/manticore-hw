@@ -387,9 +387,7 @@ class Processor(
   // exec --> memory and write back implementation
   memory_stage.io.local_memory_interface <> array_memory.io
   memory_stage.io.local_memory_interface.dout := array_memory.io.dout
-
   memory_stage.io.pipe_in := execute_stage.io.pipe_out
-  register_file.io.w.en := memory_stage.io.pipe_out.write_back // & (memory_stage.io.pipe_out.rd =/= 0.U)
 
   register_file.io.w.addr := memory_stage.io.pipe_out.rd
 

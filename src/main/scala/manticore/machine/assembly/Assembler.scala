@@ -39,14 +39,15 @@ object Assembler {
 
     def arithmetic(
         funct: StandardALU.Functs.Functs
-    )(rd: Register, rs1: Register, rs2: Register): Long = {
+    )(rd: Register, rs1: Register, rs2: Register, sel: Register = R(0)): Long = {
       val inst = BinaryInstructionBuilder() ++
         (ManticoreBaseISA.Arithmetic.value, ManticoreBaseISA.OpcodeBits) ++
         (rd.index, ManticoreBaseISA.IdBits) ++
         (funct.id, ManticoreBaseISA.FunctBits) ++
         (rs1.index, ManticoreBaseISA.IdBits) ++
         (rs2.index, ManticoreBaseISA.IdBits) ++
-        (0, 2 * ManticoreBaseISA.IdBits)
+        (sel.index, ManticoreBaseISA.IdBits) ++
+        (0, ManticoreBaseISA.IdBits)
       inst.build
     }
 
@@ -100,6 +101,8 @@ object Assembler {
 
       case Add2(rd, rs1, rs2) =>
         arithmetic(StandardALU.Functs.ADD2)(rd, rs1, rs2)
+      case Sub2(rd, rs1, rs2) =>
+        arithmetic(StandardALU.Functs.SUB2)(rd, rs1, rs2)
       case Or2(rd, rs1, rs2) =>
         arithmetic(StandardALU.Functs.OR2)(rd, rs1, rs2)
       case And2(rd, rs1, rs2) =>
@@ -112,8 +115,16 @@ object Assembler {
         arithmetic(StandardALU.Functs.SEQ)(rd, rs1, rs2)
       case SetLessThanSigned(rd, rs1, rs2) =>
         arithmetic(StandardALU.Functs.SLTS)(rd, rs1, rs2)
-      case Mux2(rd, rs1, rs2) =>
-        arithmetic(StandardALU.Functs.MUX)(rd, rs1, rs2)
+      case SetLessThanUnsigned(rd, rs1, rs2) =>
+        arithmetic(StandardALU.Functs.SLTU)(rd, rs1, rs2)
+      case ShiftLeftLogic(rd, rs1, rs2) =>
+        arithmetic(StandardALU.Functs.SLL)(rd, rs1, rs2)
+      case ShiftRightLogic(rd, rs1, rs2) =>
+        arithmetic(StandardALU.Functs.SRL)(rd, rs1, rs2)
+      case ShiftRightArithmetic(rd, rs1, rs2) =>
+        arithmetic(StandardALU.Functs.SRA)(rd, rs1, rs2)
+      case Mux2(rd, tval, fval, sel) =>
+        arithmetic(StandardALU.Functs.MUX)(rd, tval, fval, sel)
       case LocalLoad(rd, base, offset) =>
         val inst: BinaryInstructionBuilder = BinaryInstructionBuilder() ++
           (ManticoreBaseISA.LocalLoad.value, ManticoreBaseISA.OpcodeBits) ++

@@ -279,7 +279,8 @@ class UniProcessorConfigureLutsTester extends AnyFlatSpec with Matchers with Chi
         Seq.fill(ManticoreBaseISA.numRegs)(0)
       ) {
         Paths.get("test_data_dir" + File.separator + getTestName + File.separator + "ra.data").toAbsolutePath
-      }
+      },
+      enable_custom_alu = true
     )
   }
 

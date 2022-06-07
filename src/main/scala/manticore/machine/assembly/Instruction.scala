@@ -71,6 +71,12 @@ object Instruction {
     rs2: Register
   ) extends BinaryArithmeticInstruction(rd, rs1, rs2, "ADD")
 
+  case class Sub2(
+    rd: Register,
+    rs1: Register,
+    rs2: Register
+  ) extends BinaryArithmeticInstruction(rd, rs1, rs2, "SUB")
+
   case class Or2(
     rd: Register,
     rs1: Register,
@@ -113,23 +119,32 @@ object Instruction {
     rs2: Register
   ) extends BinaryArithmeticInstruction(rd, rs1, rs2, "SLTS")
 
-  case class SetGreaterThanUnsigned(
-    rd: Register,
-    rs1: Register,
-    rs2: Register
-  ) extends BinaryArithmeticInstruction(rd, rs1, rs2, "SGTU")
-
-  case class SetGreaterThanSigned(
-    rd: Register,
-    rs1: Register,
-    rs2: Register
-  ) extends BinaryArithmeticInstruction(rd, rs1, rs2, "SGTS")
-
   case class Mux2(
     rd: Register,
+    fval: Register,
+    tval: Register,
+    sel: Register
+  ) extends ArithmeticInstruction {
+    override def toString: String = s"MUX\t${rd}, ${fval}, ${tval}, ${sel}"
+  }
+
+  case class ShiftLeftLogic(
+    rd: Register,
     rs1: Register,
     rs2: Register
-  ) extends BinaryArithmeticInstruction(rd, rs1, rs2, "MUX")
+  ) extends BinaryArithmeticInstruction(rd, rs1, rs2, "SLL")
+
+  case class ShiftRightLogic(
+    rd: Register,
+    rs1: Register,
+    rs2: Register
+  ) extends BinaryArithmeticInstruction(rd, rs1, rs2, "SRL")
+
+  case class ShiftRightArithmetic(
+    rd: Register,
+    rs1: Register,
+    rs2: Register
+  ) extends BinaryArithmeticInstruction(rd, rs1, rs2, "SRA")
 
   case class LocalLoad(
     rd: Register,
