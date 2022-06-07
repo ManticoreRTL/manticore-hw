@@ -16,7 +16,7 @@ module Main ();
 
   // The DSP has a 2-cycle latency. We therefore need to store the intermediate values
   // to check the result after a delay when the inputs are fed.
-  logic [W - 1 : 0] outcome [0:1];
+  logic [W - 1 : 0] expected [0:2];
 
   // Testbench signals
   logic              clock = 0;
@@ -27,7 +27,7 @@ module Main ();
 
   // DUT
   MultiplierDsp48 dut (
-    .clk(clock),
+    .clock(clock),
     .in0(in0),
     .in1(in1),
     .out(out),
@@ -36,13 +36,17 @@ module Main ();
   );
 
   task testRoutine;
-    outcome[1] <= outcome[0];
+    expected[1] <= expected[0];
+    expected[2] <= expected[1];
 
-    if (($urandom() & 1) == 0) begin
+    // Calling urandom_range(0, 3) instead of urandom_range(0, 1) simply to have
+    // longer delays between operations in the simulation.
+    if ($urandom_range(0,3) == 1) begin
       valid_in <= 1;
-      in0 = ($urandom() & 16'hffff);
-      in1 = ($urandom() & 16'hffff);
-      outcome[0] <= (in0 * in1);
+      // $urandom_range returns an INCLUSIVE range.
+      in0 = $urandom_range(0, 65535);
+      in1 = $urandom_range(0, 65535);
+      expected[0] <= (in0 * in1);
     end else begin
       valid_in <= 0;
     end
@@ -50,9 +54,9 @@ module Main ();
     if (valid_out == 1) begin
       cnt <= cnt + 1;
       valid_in <= 1;
-      if (out != outcome[1]) begin
-        $display("[%d] Expected %h but got %h", cnt, outcome[1], out);
-        $finish;
+      if (out != expected[2]) begin
+        $display("[%d] Expected %h but got %h", cnt, expected[2], out);
+        // $finish;
       end
     end
 
