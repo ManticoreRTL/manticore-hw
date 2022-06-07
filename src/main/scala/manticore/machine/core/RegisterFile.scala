@@ -89,11 +89,11 @@ class RegisterFile(
     }
   }
 
-  // Banks 1 and 2 are always enabled.
-  // Banks 3 and 4 are disabled if the custom ALU is disabled.
+  // Banks 1, 2, and 3 are always enabled (bank 3 is needed for mux instructions' select bit for now).
+  // Bank 4 is disabled if the custom ALU is disabled.
   val rs1bank = Module(makeBank(true))
   val rs2bank = Module(makeBank(true))
-  val rs3bank = Module(makeBank(enable_custom_alu))
+  val rs3bank = Module(makeBank(true))
   val rs4bank = Module(makeBank(enable_custom_alu))
 
   io.w <-> rs1bank.io
