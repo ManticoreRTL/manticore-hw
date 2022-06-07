@@ -105,10 +105,8 @@ class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
   if (config.WithGlobalMemory) {
     when(io.pipe_in.opcode.lload) {
       io.pipe_out.result := io.local_memory_interface.dout
-
     }.elsewhen(io.pipe_in.opcode.gload) {
       io.pipe_out.result := io.global_memory_interface.rdata
-
     } otherwise {
       pipeIt(io.pipe_out.result) { io.pipe_in.result }
     }

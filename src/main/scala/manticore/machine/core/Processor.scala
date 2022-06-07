@@ -11,6 +11,7 @@ import manticore.machine.memory.CacheFrontInterface
 import manticore.machine.memory.MemStyle
 import manticore.machine.memory.SimpleDualPortMemory
 import scala.util.Random
+import manticore.machine.core.alu.Multiplier
 
 class NamedError(nameBits: Int) extends Bundle {
   val error: Bool = Bool()
@@ -127,6 +128,9 @@ class Processor(
       INIT = initial_array
     )
   )
+
+  // The multiplier is parallel to the Execute and Memory stages.
+  val multiplier = Module(new Multiplier(config.DataBits))
 
   val skip_exec            = Wire(Bool())
   val skip_sleep           = Wire(Bool())
@@ -361,7 +365,7 @@ class Processor(
   register_file.io.rs4.addr   := decode_stage.io.pipe_out.rs4
 
   register_file.io.w.addr    := memory_stage.io.pipe_out.rd
-  register_file.io.w.din     := memory_stage.io.pipe_out.result
+  register_file.io.w.din     := Mux(multiplier.io.valid_out, multiplier.io.out, memory_stage.io.pipe_out.result)
   register_file.io.w.en      := memory_stage.io.pipe_out.write_back
 
   carry_register_file.io.raddr := decode_stage.io.pipe_out.rs3
@@ -374,6 +378,11 @@ class Processor(
   lut_load_regs.io.waddr := execute_stage.io.lutdata_waddr
   lut_load_regs.io.wen := execute_stage.io.lutdata_wen
   execute_stage.io.lutdata_din := lut_load_regs.io.dout
+
+  // decode --> multiplier
+  multiplier.io.in0 := register_file.io.rs1.dout
+  multiplier.io.in1 := register_file.io.rs2.dout
+  multiplier.io.valid_in := decode_stage.io.pipe_out.opcode.mult
 
   // exec --> memory and write back implementation
   memory_stage.io.local_memory_interface <> array_memory.io

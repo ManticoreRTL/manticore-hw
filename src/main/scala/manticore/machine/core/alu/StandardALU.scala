@@ -9,22 +9,22 @@ import scala.language.implicitConversions
 class ALUInterface(DATA_BITS: Int) extends Bundle {
 
   val in = Input(new Bundle {
-    val x = UInt(DATA_BITS.W)
-    val y = UInt(DATA_BITS.W)
-    val carry = UInt(1.W)
+    val x      = UInt(DATA_BITS.W)
+    val y      = UInt(DATA_BITS.W)
+    val carry  = UInt(1.W)
     val select = Bool()
-    val mask = UInt(DATA_BITS.W)
+    val mask   = UInt(DATA_BITS.W)
   })
-  val out           = Output(UInt(DATA_BITS.W))
-  val carry_out     = Output(UInt(1.W))
-  val funct         = Input(UInt(4.W))
+  val out       = Output(UInt(DATA_BITS.W))
+  val carry_out = Output(UInt(1.W))
+  val funct     = Input(UInt(4.W))
 }
 
 object StandardALU {
   object Functs extends Enumeration {
     type Functs = Value
     val ADD2, SUB2, MUL2, AND2, OR2, XOR2, SLL, // logical left shift
-    SRL, // logical right shift (zeros padded to the right)
+    SRL,                                        // logical right shift (zeros padded to the right)
     SRA, SEQ, SLT, SLTS, MUX, ADDC = Value
   }
 }
@@ -34,10 +34,10 @@ class StandardALUComb(DATA_BITS: Int) extends Module {
 
   val Functs = StandardALU.Functs
 
-  val shamnt = Wire(UInt(log2Ceil(DATA_BITS).W))
-  val sum_res = Wire(UInt((DATA_BITS + 1).W))
+  val shamnt         = Wire(UInt(log2Ceil(DATA_BITS).W))
+  val sum_res        = Wire(UInt((DATA_BITS + 1).W))
   val sum_with_carry = Wire(UInt((DATA_BITS + 1).W))
-  val alu_res = Wire(UInt(DATA_BITS.W))
+  val alu_res        = Wire(UInt(DATA_BITS.W))
 
   def widened(w: UInt): UInt = {
     val as_wider = Wire(UInt((DATA_BITS + 1).W))
@@ -45,8 +45,8 @@ class StandardALUComb(DATA_BITS: Int) extends Module {
     as_wider
   }
 
-  shamnt := io.in.y(log2Ceil(DATA_BITS) - 1, 0)
-  sum_res := widened(io.in.x) + widened(io.in.y)
+  shamnt         := io.in.y(log2Ceil(DATA_BITS) - 1, 0)
+  sum_res        := widened(io.in.x) + widened(io.in.y)
   sum_with_carry := sum_res + widened(io.in.carry)
 
   switch(io.funct) {
@@ -56,10 +56,14 @@ class StandardALUComb(DATA_BITS: Int) extends Module {
     is(Functs.SUB2.id.U) {
       alu_res := io.in.x - io.in.y
     }
-    is(Functs.MUL2.id.U) {
-      //TODO: change back to mul!
-      alu_res := io.in.x + io.in.y
-    }
+    // The multiplier is handled through a parallel path to the Execute and Memory
+    // stages. We leave this code here commented out for documentation purposes.
+    // Note that the output of the standard ALU will be undefined if it received
+    // the Functs.MUL2 command, but this is fine as the external multiplier's output
+    // is written back to the regsiter file in any case.
+    // is(Functs.MUL2.id.U) {
+    //   alu_res := io.in.x * io.in.y
+    // }
     is(Functs.AND2.id.U) {
       alu_res := io.in.x & io.in.y
     }
