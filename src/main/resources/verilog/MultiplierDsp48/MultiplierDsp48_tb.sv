@@ -39,23 +39,25 @@ module Main ();
     expected[1] <= expected[0];
     expected[2] <= expected[1];
 
-    // Calling urandom_range(0, 3) instead of urandom_range(0, 1) simply to have
+    // Calling urandom_range(0, 9) instead of urandom_range(0, 1) simply to have
     // longer delays between operations in the simulation.
-    if ($urandom_range(0,3) == 1) begin
+    if ($urandom_range(0,9) == 3) begin
       valid_in <= 1;
       // $urandom_range returns an INCLUSIVE range.
-      in0 = $urandom_range(0, 65535);
-      in1 = $urandom_range(0, 65535);
-      expected[0] <= (in0 * in1);
+      in0 = $urandom_range(1, 10);
+      in1 = $urandom_range(1, 10);
     end else begin
       valid_in <= 0;
+      in0 = 0;
+      in1 = 0;
     end
+
+    expected[0] <= (in0 * in1);
 
     if (valid_out == 1) begin
       cnt <= cnt + 1;
-      valid_in <= 1;
       if (out != expected[2]) begin
-        $display("[%d] Expected %h but got %h", cnt, expected[2], out);
+        $display("[%d] Expected %d but got %d", cnt, expected[2], out);
         // $finish;
       end
     end
