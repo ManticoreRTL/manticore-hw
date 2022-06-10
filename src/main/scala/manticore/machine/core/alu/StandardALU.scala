@@ -5,6 +5,7 @@ import chisel3.stage.ChiselStage
 import manticore.machine.ISA
 
 import scala.language.implicitConversions
+import manticore.machine.ManticoreBaseISA
 
 class ALUInterface(DATA_BITS: Int) extends Bundle {
 
@@ -20,17 +21,8 @@ class ALUInterface(DATA_BITS: Int) extends Bundle {
   val funct     = Input(UInt(4.W))
 }
 
-object StandardALU {
-  object Functs extends Enumeration {
-    type Functs = Value
-    val ADD2, SUB2, MUL2, AND2, OR2, XOR2, SLL, SRL, SRA, SEQ, SLTU, SLTS, MUX, ADDC = Value
-  }
-}
-
 class StandardALUComb(DATA_BITS: Int) extends Module {
   val io = IO(new ALUInterface(DATA_BITS = DATA_BITS))
-
-  val Functs = StandardALU.Functs
 
   val shamnt         = Wire(UInt(log2Ceil(DATA_BITS).W))
   val sum_res        = Wire(UInt((DATA_BITS + 1).W))
@@ -48,10 +40,10 @@ class StandardALUComb(DATA_BITS: Int) extends Module {
   sum_with_carry := sum_res + widened(io.in.carry)
 
   switch(io.funct) {
-    is(Functs.ADD2.id.U) {
+    is(ISA.Functs.ADD2.id.U) {
       alu_res := sum_res(DATA_BITS - 1, 0)
     }
-    is(Functs.SUB2.id.U) {
+    is(ISA.Functs.SUB2.id.U) {
       alu_res := io.in.x - io.in.y
     }
     // The multiplier is handled through a parallel path to the Execute and Memory
@@ -62,41 +54,41 @@ class StandardALUComb(DATA_BITS: Int) extends Module {
     // is(Functs.MUL2.id.U) {
     //   alu_res := io.in.x * io.in.y
     // }
-    is(Functs.AND2.id.U) {
+    is(ISA.Functs.AND2.id.U) {
       alu_res := io.in.x & io.in.y
     }
-    is(Functs.OR2.id.U) {
+    is(ISA.Functs.OR2.id.U) {
       alu_res := io.in.x | io.in.y
     }
-    is(Functs.XOR2.id.U) {
+    is(ISA.Functs.XOR2.id.U) {
       alu_res := io.in.x ^ io.in.y
     }
-    is(Functs.SLL.id.U) {
+    is(ISA.Functs.SLL.id.U) {
       alu_res := io.in.x << shamnt
     }
-    is(Functs.SRL.id.U) {
+    is(ISA.Functs.SRL.id.U) {
       alu_res := io.in.x >> shamnt
     }
-    is(Functs.SRA.id.U) {
+    is(ISA.Functs.SRA.id.U) {
       alu_res := (io.in.x.asSInt >> shamnt).asUInt
     }
-    is(Functs.SEQ.id.U) {
+    is(ISA.Functs.SEQ.id.U) {
       alu_res := (io.in.x === io.in.y).asUInt
     }
-    is(Functs.SLTU.id.U) {
+    is(ISA.Functs.SLTU.id.U) {
       alu_res := (io.in.x < io.in.y).asUInt
     }
-    is(Functs.SLTS.id.U) {
+    is(ISA.Functs.SLTS.id.U) {
       alu_res := (io.in.x.asSInt < io.in.y.asSInt).asUInt
     }
-    is(Functs.MUX.id.U) {
+    is(ISA.Functs.MUX.id.U) {
       when(io.in.select) {
         alu_res := io.in.y
       } otherwise {
         alu_res := io.in.x
       }
     }
-    is(Functs.ADDC.id.U) {
+    is(ISA.Functs.ADDC.id.U) {
       alu_res := sum_with_carry(DATA_BITS - 1, 0)
     }
   }

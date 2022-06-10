@@ -7,7 +7,7 @@ import chisel3.util.HasBlackBoxResource
 class MultiplierInterface(dataWidth: Int) extends Bundle {
   val in0       = Input(UInt(dataWidth.W))
   val in1       = Input(UInt(dataWidth.W))
-  val out       = Output(UInt(dataWidth.W))
+  val out       = Output(UInt((2 * dataWidth).W))
   val valid_in  = Input(Bool())
   val valid_out = Output(Bool())
 }
@@ -23,7 +23,7 @@ class Multiplier(dataWidth: Int) extends Module {
       val clock     = Input(Clock())
       val in0       = Input(UInt(dataWidth.W))
       val in1       = Input(UInt(dataWidth.W))
-      val out       = Output(UInt(dataWidth.W))
+      val out       = Output(UInt((2 * dataWidth).W))
       val valid_in  = Input(Bool())
       val valid_out = Output(Bool())
     })

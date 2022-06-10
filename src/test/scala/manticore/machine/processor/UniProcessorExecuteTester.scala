@@ -3,6 +3,7 @@ package manticore.machine.processor
 import chisel3._
 import chisel3.util.log2Ceil
 import chiseltest._
+import manticore.machine.ISA.Functs._
 import manticore.machine.ManticoreBaseISA
 import manticore.machine.UIntWide
 import manticore.machine.assembly.Assembler
@@ -11,7 +12,6 @@ import manticore.machine.assembly.Instruction.Add2
 import manticore.machine.assembly.Instruction.R
 import manticore.machine.assembly.Instruction.Send
 import manticore.machine.core.Processor
-import manticore.machine.core.alu.StandardALU.Functs._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -51,7 +51,7 @@ class UniProcessorExecuteTester extends AnyFlatSpec with Matchers with ChiselSca
     val rd = R(ManticoreBaseISA.numRegs - 1)
     Range(0, numTests).foreach { _ =>
       // I omit SLTS as I can't figure out how to do the signed comparison using unsigned numbers.
-      val functs = Array(ADD2, SUB2, MUL2, AND2, OR2, XOR2, SLL, SRL, SRA, SEQ, SLTU, MUX)
+      val functs = Array(ADD2, SUB2, MUL2, MUL2H, AND2, OR2, XOR2, SLL, SRL, SRA, SEQ, SLTU, MUX)
 
       // We choose random source registers. Note that these are chosen to be different from
       // the register that holds the output of the operation under test.
@@ -68,47 +68,56 @@ class UniProcessorExecuteTester extends AnyFlatSpec with Matchers with ChiselSca
       val (res_val, instr) = functs(rdgen.nextInt(functs.length)) match {
         case ADD2 =>
           val instr = Instruction.Add2(rd, rs1, rs2)
-          val res = rs1_val + rs2_val
+          val res   = rs1_val + rs2_val
           (res, instr)
         case SUB2 =>
           val instr = Instruction.Sub2(rd, rs1, rs2)
-          val res = rs1_val - rs2_val
+          val res   = rs1_val - rs2_val
           (res, instr)
         case MUL2 =>
-          val instr = Instruction.Mult2(rd, rs1, rs2)
-          val res = rs1_val * rs2_val
+          val instr = Instruction.Mul2(rd, rs1, rs2)
+          val res   = rs1_val * rs2_val
+          (res, instr)
+        case MUL2H =>
+          val instr = Instruction.Mul2H(rd, rs1, rs2)
+          // UIntWide multiplication is clipped. We need to perform the compuation
+          // with a BigInt to keep the high-order bits.
+          val res = UIntWide(
+            (rs1_val.toBigInt * rs2_val.toBigInt) >> ManticoreBaseISA.DataBits,
+            ManticoreBaseISA.DataBits
+          )
           (res, instr)
         case AND2 =>
           val instr = Instruction.And2(rd, rs1, rs2)
-          val res = rs1_val & rs2_val
+          val res   = rs1_val & rs2_val
           (res, instr)
         case OR2 =>
           val instr = Instruction.Or2(rd, rs1, rs2)
-          val res = rs1_val | rs2_val
+          val res   = rs1_val | rs2_val
           (res, instr)
         case XOR2 =>
           val instr = Instruction.Xor2(rd, rs1, rs2)
-          val res = rs1_val ^ rs2_val
+          val res   = rs1_val ^ rs2_val
           (res, instr)
         case SLL =>
           val instr = Instruction.ShiftLeftLogic(rd, rs1, rs2)
-          val res = rs1_val << shamnt.toInt
+          val res   = rs1_val << shamnt.toInt
           (res, instr)
         case SRL =>
           val instr = Instruction.ShiftRightLogic(rd, rs1, rs2)
-          val res = rs1_val >> shamnt.toInt
+          val res   = rs1_val >> shamnt.toInt
           (res, instr)
         case SRA =>
           val instr = Instruction.ShiftRightArithmetic(rd, rs1, rs2)
-          val res = rs1_val >>> shamnt.toInt
+          val res   = rs1_val >>> shamnt.toInt
           (res, instr)
         case SEQ =>
           val instr = Instruction.SetEqual(rd, rs1, rs2)
-          val res = if (rs1_val == rs2_val) ONE else ZERO
+          val res   = if (rs1_val == rs2_val) ONE else ZERO
           (res, instr)
         case SLTU =>
           val instr = Instruction.SetLessThanUnsigned(rd, rs1, rs2)
-          val res = if (rs1_val < rs2_val) ONE else ZERO
+          val res   = if (rs1_val < rs2_val) ONE else ZERO
           (res, instr)
         // case SLTS =>
         //   val instr = Instruction.SetLessThanSigned(rd, rs1, rs2)
@@ -123,9 +132,9 @@ class UniProcessorExecuteTester extends AnyFlatSpec with Matchers with ChiselSca
         //   }
         //   (res, instr)
         case MUX =>
-          val instr = Instruction.Mux2(rd, rs1, rs2, rs3)
+          val instr  = Instruction.Mux2(rd, rs1, rs2, rs3)
           val select = rs3_val & ONE
-          val res = if (select == ONE) rs2_val else rs1_val
+          val res    = if (select == ONE) rs2_val else rs1_val
           (res, instr)
       }
 
@@ -207,7 +216,7 @@ class UniProcessorExecuteTester extends AnyFlatSpec with Matchers with ChiselSca
       def executeAndCheck(expectedSends: Seq[(UIntWide, String)]): Unit = {
         val checkOutput = dut.io.packet_out.valid.peek().litToBoolean
         val nextExpectedSends = if (checkOutput) {
-          val received = dut.io.packet_out.data.peekInt()
+          val received          = dut.io.packet_out.data.peekInt()
           val (expected, instr) = expectedSends.head
           println(s"Expected = ${expected.toBigInt}, received = ${received}, instr = ${instr}")
           dut.io.packet_out.data.expect(expected.toBigInt)

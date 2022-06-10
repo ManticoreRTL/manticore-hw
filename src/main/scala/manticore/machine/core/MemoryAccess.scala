@@ -19,6 +19,8 @@ object MemoryAccess {
     val gload: Bool       = Bool()
     val send: Bool        = Bool()
     val nop: Bool         = Bool()
+    val mul: Bool         = Bool()
+    val mulh: Bool        = Bool()
   }
 
 }
@@ -97,9 +99,14 @@ class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
   pipeIt(io.pipe_out.lload) {
     io.pipe_in.opcode.lload
   }
-
   pipeIt(io.pipe_out.nop) {
     io.pipe_in.opcode.nop
+  }
+  pipeIt(io.pipe_out.mul) {
+    io.pipe_in.opcode.mul
+  }
+  pipeIt(io.pipe_out.mulh) {
+    io.pipe_in.opcode.mulh
   }
 
   if (config.WithGlobalMemory) {

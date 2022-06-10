@@ -25,16 +25,12 @@ import chisel3.stage.ChiselStage
 import manticore.machine.ISA
 import manticore.machine.InstructionField
 import manticore.machine.ManticoreBaseISA
-import manticore.machine.core.alu.StandardALU
 
 object Decode {
 
   class OpcodePipe(numFuncts: Int) extends Bundle {
-    val cust: Bool  = Bool()
-    val arith: Bool = Bool()
-    // Multiplications are done by a parallel datapath to the Execute and Memory
-    // stages. This signal will be high in parallel to arith.
-    val mult: Bool         = Bool()
+    val cust: Bool         = Bool()
+    val arith: Bool        = Bool()
     val lload: Bool        = Bool()
     val lstore: Bool       = Bool()
     val send: Bool         = Bool()
@@ -52,6 +48,10 @@ object Decode {
     // many LUTs and it may not achieve the same frequency scaling.
     val configure_luts: Vec[Bool] = Vec(numFuncts, Bool())
     val slice: Bool               = Bool()
+    // Multiplications are done by a parallel datapath to the Execute and Memory
+    // stages. One of these signals will be high in parallel to arith.
+    val mul: Bool  = Bool() // unsigned  low result
+    val mulh: Bool = Bool() // unsigned high result
   }
 
   class PipeOut(config: ISA) extends Bundle {
@@ -108,11 +108,15 @@ class Decode(config: ISA) extends Module {
   val slice_ofst_reg = Reg(UInt(log2Ceil(config.DataBits).W))
   val rd_reg         = Reg(UInt(config.IdBits.W))
 
+  val is_arith = Wire(Bool())
+  is_arith := (opcode === config.Arithmetic.value.U)
+
   // Whole instruction must be 0, not just the opcode. This is just a sanity check.
   opcode_regs.nop            := io.instruction === 0.U
   opcode_regs.cust           := (opcode === config.Custom.value.U)
-  opcode_regs.arith          := (opcode === config.Arithmetic.value.U)
-  opcode_regs.mult           := (opcode === config.Arithmetic.value.U) && (funct === StandardALU.Functs.MUL2.id.U)
+  opcode_regs.arith          := is_arith
+  opcode_regs.mul            := is_arith && (funct === ISA.Functs.MUL2.id.U)
+  opcode_regs.mulh           := is_arith && (funct === ISA.Functs.MUL2H.id.U)
   opcode_regs.lload          := (opcode === config.LocalLoad.value.U)
   opcode_regs.lstore         := (opcode === config.LocalStore.value.U)
   opcode_regs.expect         := (opcode === config.Expect.value.U)

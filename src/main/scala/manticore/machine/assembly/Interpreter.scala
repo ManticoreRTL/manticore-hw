@@ -71,7 +71,7 @@ class Interpreter {
       case Xor2(rd, rs1, rs2) =>
         env.register_file(rd) = clipped(env.register_file(rs1) ^ env.register_file(rs2))
 
-      case Mult2(rd, rs1, rs2) =>
+      case Mul2(rd, rs1, rs2) =>
         env.register_file(rd) = clipped(env.register_file(rs1) * env.register_file(rs2))
 
       case Mux2(rd, fval, tval, sel) =>
@@ -116,6 +116,7 @@ class Interpreter {
       case ShiftLeftLogic(rd, rs1, rs2)             => ???
       case ShiftRightLogic(rd, rs1, rs2)            => ???
       case ShiftRightArithmetic(rd, rs1, rs2)       => ???
+      case Mul2H(rd, rs1, rs2)                      => ???
     }
   }
 

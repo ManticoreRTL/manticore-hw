@@ -130,7 +130,9 @@ class Processor(
   )
 
   // The multiplier is parallel to the Execute and Memory stages.
-  val multiplier = Module(new Multiplier(config.DataBits))
+  val multiplier          = Module(new Multiplier(config.DataBits))
+  val multiplier_res_high = Wire(UInt(config.DataBits.W))
+  val multiplier_res_low  = Wire(UInt(config.DataBits.W))
 
   val skip_exec            = Wire(Bool())
   val skip_sleep           = Wire(Bool())
@@ -364,9 +366,16 @@ class Processor(
   register_file.io.rs3.addr := decode_stage.io.pipe_out.rs3
   register_file.io.rs4.addr := decode_stage.io.pipe_out.rs4
 
+  multiplier_res_high := multiplier.io.out(2 * config.DataBits - 1, config.DataBits)
+  multiplier_res_low  := multiplier.io.out(config.DataBits - 1, 0)
+
   register_file.io.w.addr := memory_stage.io.pipe_out.rd
-  register_file.io.w.din  := Mux(multiplier.io.valid_out, multiplier.io.out, memory_stage.io.pipe_out.result)
-  register_file.io.w.en   := memory_stage.io.pipe_out.write_back
+  when(multiplier.io.valid_out) {
+    register_file.io.w.din := Mux(memory_stage.io.pipe_out.mulh, multiplier_res_high, multiplier_res_low)
+  } otherwise {
+    register_file.io.w.din := memory_stage.io.pipe_out.result
+  }
+  register_file.io.w.en := memory_stage.io.pipe_out.write_back
 
   carry_register_file.io.raddr := decode_stage.io.pipe_out.rs3
   execute_stage.io.carry_in    := carry_register_file.io.dout
@@ -382,7 +391,7 @@ class Processor(
   // decode --> multiplier
   multiplier.io.in0      := register_file.io.rs1.dout
   multiplier.io.in1      := register_file.io.rs2.dout
-  multiplier.io.valid_in := decode_stage.io.pipe_out.opcode.mult
+  multiplier.io.valid_in := decode_stage.io.pipe_out.opcode.mul || decode_stage.io.pipe_out.opcode.mulh
 
   // exec --> memory and write back implementation
   memory_stage.io.local_memory_interface <> array_memory.io
@@ -401,7 +410,7 @@ class Processor(
   val gmem_expect_response = Reg(Bool())
   gmem_expect_response := memory_stage.io.global_memory_interface.start
   val gmem_failure = Reg(Bool())
-  gmem_failure := (gmem_expect_response && !io.periphery.cache.done) | gmem_failure
+  gmem_failure := (gmem_expect_response && !io.periphery.cache.done) || gmem_failure
 
   val exception_occurred: Bool = Reg(Bool())
   val exception_id: UInt       = Reg(UInt(config.DataBits.W))

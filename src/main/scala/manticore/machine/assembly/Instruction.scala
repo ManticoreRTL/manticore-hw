@@ -95,11 +95,17 @@ object Instruction {
     rs2: Register
   ) extends BinaryArithmeticInstruction(rd, rs1, rs2, "XOR")
 
-  case class Mult2(
+  case class Mul2(
     rd: Register,
     rs1: Register,
     rs2: Register
-  ) extends BinaryArithmeticInstruction(rd, rs1, rs2, "MULT")
+  ) extends BinaryArithmeticInstruction(rd, rs1, rs2, "MUL")
+
+  case class Mul2H(
+    rd: Register,
+    rs1: Register,
+    rs2: Register
+  ) extends BinaryArithmeticInstruction(rd, rs1, rs2, "MULH")
 
   case class SetEqual(
     rd: Register,

@@ -30,7 +30,6 @@ import manticore.machine.core.ExecuteInterface.PipeOut
 import manticore.machine.core.alu.ALUInput
 import manticore.machine.core.alu.CustomAlu
 import manticore.machine.core.alu.CustomFunctionConfigInterface
-import manticore.machine.core.alu.StandardALU
 import manticore.machine.core.alu.StandardALUComb
 import manticore.machine.memory.CacheCommand
 import manticore.machine.memory.CacheConfig
@@ -147,7 +146,7 @@ class ExecuteComb(
   when(io.pipe_in.opcode.arith | io.pipe_in.opcode.expect) {
     standard_alu.io.in.y := io.regs_in.rs2
     when(io.pipe_in.opcode.expect) {
-      standard_alu.io.funct := StandardALU.Functs.SEQ.id.U
+      standard_alu.io.funct := ISA.Functs.SEQ.id.U
     } otherwise {
       standard_alu.io.funct := io.pipe_in.funct
     }
@@ -164,7 +163,7 @@ class ExecuteComb(
       // with non-arith instructions, funct can be any value, including the
       // funct for Mux (which is stateful) so we should set it to zero to
       // ensure no stateful ALU operations are performed.
-      standard_alu.io.funct := StandardALU.Functs.ADD2.id.U
+      standard_alu.io.funct := ISA.Functs.ADD2.id.U
       standard_alu.io.in.y  := io.pipe_in.immediate
     }
   }
@@ -208,7 +207,7 @@ class ExecuteComb(
     io.carry_din := standard_alu.io.carry_out
   }
   io.carry_wen :=
-    (io.pipe_in.opcode.arith & (io.pipe_in.funct === StandardALU.Functs.ADDC.id.U)) | (io.pipe_in.opcode.set_carry)
+    (io.pipe_in.opcode.arith & (io.pipe_in.funct === ISA.Functs.ADDC.id.U)) | (io.pipe_in.opcode.set_carry)
 
   // enable/disable predicate
   when(io.pipe_in.opcode.predicate) {

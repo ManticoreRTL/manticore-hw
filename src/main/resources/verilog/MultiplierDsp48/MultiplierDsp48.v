@@ -1,4 +1,4 @@
-// A pipelined 16x16=16 multiplier with a latency of 2 cycles.
+// A pipelined 16x16=32 multiplier with a latency of 2 cycles.
 //
 // The DSP48 is a pipelined DSP unit with 3 stages.
 //
@@ -23,7 +23,7 @@ module MultiplierDsp48 (
   input               clock,
   input  [16 - 1 : 0] in0,
   input  [16 - 1 : 0] in1,
-  output [16 - 1 : 0] out,
+  output [32 - 1 : 0] out,
   // These ports are here to make simulations easier to understand.
   input               valid_in,
   output              valid_out
@@ -39,10 +39,11 @@ end
 
 `ifdef VERILATOR
 
-  reg [16 - 1 : 0] res_d1, res_d2;
+  reg [32 - 1 : 0] res_d1, res_d2;
   assign out = res_d2;
   always @(posedge clock) begin
-    res_d1 <= in0 * in1;
+    // Extend to 32 bits to ensure full-precision multiplication result.
+    res_d1 <= {16'b0, in0} * {16'b0, in1};
     res_d2 <= res_d1;
   end
 
@@ -58,8 +59,8 @@ end
   wire [9 - 1 : 0] OPMODE;
 
   assign CLK = clock;
-  assign A = in0;
-  assign B = in1;
+  assign A = {14'b0, in0};
+  assign B = {2'b0, in1};
 
   assign ALUMODE = 4'b0000; // Z + W + X + Y + CIN (cf. UG579 Table 2-7)
 
@@ -73,7 +74,7 @@ end
   //                 ||^^^     Z multiplexer 0
   //                 ^^        W multiplexer 0
 
-  assign out = P;
+  assign out = P[31 : 0];
 
   DSP48E2 #(
     // Feature Control Attributes: Data Path Selection

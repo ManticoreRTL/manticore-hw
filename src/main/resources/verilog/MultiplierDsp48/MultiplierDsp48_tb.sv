@@ -11,12 +11,12 @@ module Main ();
   logic [W - 1 : 0] in1 = 0;
   logic             valid_in = 0;
   // outputs, so we use a wire instead of logic.
-  wire  [W - 1 : 0] out;
+  wire  [2*W-1 : 0] out;
   wire              valid_out;
 
   // The DSP has a 2-cycle latency. We therefore need to store the intermediate values
   // to check the result after a delay when the inputs are fed.
-  logic [W - 1 : 0] expected [0:2];
+  logic [2*W-1 : 0] expected [0:2];
 
   // Testbench signals
   logic              clock = 0;
@@ -44,8 +44,8 @@ module Main ();
     if ($urandom_range(0,9) == 3) begin
       valid_in <= 1;
       // $urandom_range returns an INCLUSIVE range.
-      in0 = $urandom_range(1, 10);
-      in1 = $urandom_range(1, 10);
+      in0 = $urandom_range(1, 65535);
+      in1 = $urandom_range(1, 65535);
     end else begin
       valid_in <= 0;
       in0 = 0;
