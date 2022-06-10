@@ -49,19 +49,19 @@ class Processor(
     name_tag: String = "core",
     debug_enable: Boolean = false,
     debug_level: Int = 0,
-    enable_custom_alu: Boolean = true,
+    enable_custom_alu: Boolean = true
 ) extends Module {
   val io: ProcessorInterface = IO(new ProcessorInterface(config, DimX, DimY))
 
   object ProcessorPhase extends ChiselEnum {
     val DynamicReceiveProgramLength, // wait for the first message that indicates the length of the program
-    DynamicReceiveInstruction, // wait for a dynamic number of cycles to receive all instructions
-    DynamicReceiveEpilogueLength, // wait for a message that contains the epilogue length of the program
-    DynamicReceiveSleepLength, // wait for dynamic number of cycles to receive the sleep period after
+    DynamicReceiveInstruction,       // wait for a dynamic number of cycles to receive all instructions
+    DynamicReceiveEpilogueLength,    // wait for a message that contains the epilogue length of the program
+    DynamicReceiveSleepLength,       // wait for dynamic number of cycles to receive the sleep period after
     // execution which is essentially the number of messages the processor is expected to receive from other processors
     DynamicReceiveCountDown, // wait for the last message that determines the count-down period
-    StaticCountDown, // count down to start the processor execution
-    StaticExecutionPhase, // static execution phase, the processor runs the instructions
+    StaticCountDown,         // count down to start the processor execution
+    StaticExecutionPhase,    // static execution phase, the processor runs the instructions
     StaticSleepPhase = Value
 
   }
@@ -299,7 +299,7 @@ class Processor(
   }
 
   fetch_stage.io.execution_enable := (state === ProcessorPhase.StaticExecutionPhase)
-  io.periphery.active := (state === ProcessorPhase.StaticExecutionPhase)
+  io.periphery.active             := (state === ProcessorPhase.StaticExecutionPhase)
 
   class RegisterWriteByPass extends Bundle {
     val value   = UInt(config.DataBits.W)
@@ -359,14 +359,14 @@ class Processor(
     decode_stage.io.pipe_out.rs4,
     forwarding_signals
   )
-  register_file.io.rs1.addr   := decode_stage.io.pipe_out.rs1
-  register_file.io.rs2.addr   := decode_stage.io.pipe_out.rs2
-  register_file.io.rs3.addr   := decode_stage.io.pipe_out.rs3
-  register_file.io.rs4.addr   := decode_stage.io.pipe_out.rs4
+  register_file.io.rs1.addr := decode_stage.io.pipe_out.rs1
+  register_file.io.rs2.addr := decode_stage.io.pipe_out.rs2
+  register_file.io.rs3.addr := decode_stage.io.pipe_out.rs3
+  register_file.io.rs4.addr := decode_stage.io.pipe_out.rs4
 
-  register_file.io.w.addr    := memory_stage.io.pipe_out.rd
-  register_file.io.w.din     := Mux(multiplier.io.valid_out, multiplier.io.out, memory_stage.io.pipe_out.result)
-  register_file.io.w.en      := memory_stage.io.pipe_out.write_back
+  register_file.io.w.addr := memory_stage.io.pipe_out.rd
+  register_file.io.w.din  := Mux(multiplier.io.valid_out, multiplier.io.out, memory_stage.io.pipe_out.result)
+  register_file.io.w.en   := memory_stage.io.pipe_out.write_back
 
   carry_register_file.io.raddr := decode_stage.io.pipe_out.rs3
   execute_stage.io.carry_in    := carry_register_file.io.dout
@@ -374,20 +374,20 @@ class Processor(
   carry_register_file.io.waddr := execute_stage.io.carry_rd
   carry_register_file.io.din   := execute_stage.io.carry_din
 
-  lut_load_regs.io.din := execute_stage.io.pipe_out.immediate
-  lut_load_regs.io.waddr := execute_stage.io.lutdata_waddr
-  lut_load_regs.io.wen := execute_stage.io.lutdata_wen
+  lut_load_regs.io.din         := decode_stage.io.pipe_out.immediate
+  lut_load_regs.io.waddr       := decode_stage.io.pipe_out.funct
+  lut_load_regs.io.wen         := decode_stage.io.pipe_out.opcode.set_lut_data
   execute_stage.io.lutdata_din := lut_load_regs.io.dout
 
   // decode --> multiplier
-  multiplier.io.in0 := register_file.io.rs1.dout
-  multiplier.io.in1 := register_file.io.rs2.dout
+  multiplier.io.in0      := register_file.io.rs1.dout
+  multiplier.io.in1      := register_file.io.rs2.dout
   multiplier.io.valid_in := decode_stage.io.pipe_out.opcode.mult
 
   // exec --> memory and write back implementation
   memory_stage.io.local_memory_interface <> array_memory.io
   memory_stage.io.local_memory_interface.dout := array_memory.io.dout
-  memory_stage.io.pipe_in := execute_stage.io.pipe_out
+  memory_stage.io.pipe_in                     := execute_stage.io.pipe_out
 
   register_file.io.w.addr := memory_stage.io.pipe_out.rd
 
@@ -411,12 +411,10 @@ class Processor(
   // Expect instruction should throw an exception if the result of SetEqual is false.
   // Using functionality related to the custom ALU is an error if the custom ALU has been disabled.
   exception_cond := (execute_stage.io.pipe_out.opcode.expect && execute_stage.io.pipe_out.result === 0.U) ||
-                    (!enable_custom_alu.B &&
-                      (decode_stage.io.pipe_out.opcode.configure_luts.head ||
-                        decode_stage.io.pipe_out.opcode.set_lut_data ||
-                        decode_stage.io.pipe_out.opcode.cust
-                      )
-                    )
+    (!enable_custom_alu.B &&
+      (decode_stage.io.pipe_out.opcode.configure_luts.head ||
+        decode_stage.io.pipe_out.opcode.set_lut_data ||
+        decode_stage.io.pipe_out.opcode.cust))
 
   exception_occurred := exception_cond
 
@@ -434,7 +432,6 @@ class Processor(
   io.periphery.dynamic_cycle := execute_stage.io.pipe_out.gmem.start
 
 }
-
 
 object ProcessorEmitter extends App {
 

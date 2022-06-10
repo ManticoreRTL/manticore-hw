@@ -96,9 +96,7 @@ class ExecuteInterface(
   val carry_wen = Output(Bool())
   val carry_din = Output(UInt(1.W))
 
-  val lutdata_waddr = Output(UInt(config.FunctBits.W))
-  val lutdata_wen   = Output(Bool())
-  val lutdata_din   = Input(Vec(config.numFuncts, UInt(config.DataBits.W)))
+  val lutdata_din = Input(Vec(config.numFuncts, UInt(config.DataBits.W)))
 }
 
 class ExecuteComb(
@@ -211,9 +209,6 @@ class ExecuteComb(
   }
   io.carry_wen :=
     (io.pipe_in.opcode.arith & (io.pipe_in.funct === StandardALU.Functs.ADDC.id.U)) | (io.pipe_in.opcode.set_carry)
-
-  io.lutdata_wen   := io.pipe_in.opcode.set_lut_data
-  io.lutdata_waddr := io.pipe_in.funct
 
   // enable/disable predicate
   when(io.pipe_in.opcode.predicate) {

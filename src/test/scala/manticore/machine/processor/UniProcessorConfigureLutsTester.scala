@@ -16,8 +16,9 @@ import java.io.File
 import java.nio.file.Paths
 import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
+import manticore.machine.UIntWide
 
-class UniProcessorConfigureLutsTester extends AnyFlatSpec with Matchers with ChiselScalatestTester{
+class UniProcessorConfigureLutsTester extends AnyFlatSpec with Matchers with ChiselScalatestTester {
 
   val rdgen = new scala.util.Random(0)
 
@@ -35,8 +36,8 @@ class UniProcessorConfigureLutsTester extends AnyFlatSpec with Matchers with Chi
   // addr 3 -> funct_1 result
   // ...
   val allZerosReg = R(0)
-  val allOnesReg = R(1)
-  val functRegs = Seq.tabulate(numTestFuncts)(idx => R(allOnesReg.index + 1 + idx))
+  val allOnesReg  = R(1)
+  val functRegs   = Seq.tabulate(numTestFuncts)(idx => R(allOnesReg.index + 1 + idx))
 
   // Populate the processor's registers with random values. We reserve xx+2 entries
   // shown below:
@@ -48,11 +49,11 @@ class UniProcessorConfigureLutsTester extends AnyFlatSpec with Matchers with Chi
   // addr 5 -> funct_3 result
   // ...
   // addr xx+2 -> funct_xx result.
-  val initialRegs = ArrayBuffer.fill(ManticoreBaseISA.numRegs)(BigInt(0))
-  initialRegs(allZerosReg.index) = BigInt(0)
-  initialRegs(allOnesReg.index) = BigInt((1 << ManticoreBaseISA.DataBits) - 1)
+  val initialRegs = ArrayBuffer.fill(ManticoreBaseISA.numRegs)(UIntWide(0, ManticoreBaseISA.DataBits))
+  initialRegs(allZerosReg.index) = UIntWide(0, ManticoreBaseISA.DataBits)
+  initialRegs(allOnesReg.index) = UIntWide((1 << ManticoreBaseISA.DataBits) - 1, ManticoreBaseISA.DataBits)
   Range(functRegs.last.index + 1, initialRegs.size).foreach { addr =>
-    initialRegs(addr) = rdgen.nextInt(1 << ManticoreBaseISA.DataBits)
+    initialRegs(addr) = UIntWide(rdgen.nextInt(1 << ManticoreBaseISA.DataBits), ManticoreBaseISA.DataBits)
   }
 
   // To generate equations in python:
@@ -103,10 +104,10 @@ class UniProcessorConfigureLutsTester extends AnyFlatSpec with Matchers with Chi
   //
   // These are homogeneous equations as all bits in the LUT vector compute
   // the same thing.
-  val funct_0 = Instruction.CustomFunction(Seq.fill(ManticoreBaseISA.DataBits)(BigInt(0x8000)))
-  val funct_1 = Instruction.CustomFunction(Seq.fill(ManticoreBaseISA.DataBits)(BigInt(0xFFFE)))
-  val funct_2 = Instruction.CustomFunction(Seq.fill(ManticoreBaseISA.DataBits)(BigInt(0x6996)))
-  val funct_3 = Instruction.CustomFunction(Seq.fill(ManticoreBaseISA.DataBits)(BigInt(0xF888)))
+  val funct_0   = Instruction.CustomFunction(Seq.fill(ManticoreBaseISA.DataBits)(BigInt(0x8000)))
+  val funct_1   = Instruction.CustomFunction(Seq.fill(ManticoreBaseISA.DataBits)(BigInt(0xfffe)))
+  val funct_2   = Instruction.CustomFunction(Seq.fill(ManticoreBaseISA.DataBits)(BigInt(0x6996)))
+  val funct_3   = Instruction.CustomFunction(Seq.fill(ManticoreBaseISA.DataBits)(BigInt(0xf888)))
   val zeroFunct = Seq.fill(ManticoreBaseISA.DataBits)(BigInt(0))
   val all_functs = Seq(
     funct_0,
@@ -179,7 +180,7 @@ class UniProcessorConfigureLutsTester extends AnyFlatSpec with Matchers with Chi
     val progLutConfig = ArrayBuffer.empty[Instruction.Instruction]
 
     val zeroOne = Seq(0, 1)
-    for { a3 <- zeroOne ; a2 <- zeroOne ; a1 <- zeroOne ; a0 <- zeroOne } {
+    for { a3 <- zeroOne; a2 <- zeroOne; a1 <- zeroOne; a0 <- zeroOne } {
       // Bit index to program is given by {a3, a2, a1, a0}
       val bitIdx = (a3 << 3) | (a2 << 2) | (a1 << 1) | (a0 << 0)
 
@@ -187,10 +188,10 @@ class UniProcessorConfigureLutsTester extends AnyFlatSpec with Matchers with Chi
         // Extract the given bit index of every equation in the current function.
         val lutDataRegContents_str = funct.equation.map(equ => (equ >> bitIdx & 1).toInt).mkString
         val lutDataRegContents_int = Integer.parseInt(lutDataRegContents_str, 2)
-        val funct_str = s"{${funct.equation.map(equ => equ.toString(16)).mkString(", ")}}"
+        val funct_str              = s"{${funct.equation.map(equ => equ.toString(16)).mkString(", ")}}"
 
-        // // Debug
-        // println(s"funct = ${funct_str}, bit_index = ${bitIdx}, lut_data_reg = ${lutDataRegContents_str}")
+        // Debug
+        println(s"funct = ${funct_str}, bit_index = ${bitIdx}, lut_data_reg = ${lutDataRegContents_str}")
 
         // Emit instructions to set LUT data register for bit bitIdx in each LUT vector.
         progLutConfig += Instruction.SetLutData(R(funct_idx), lutDataRegContents_int)
@@ -204,11 +205,11 @@ class UniProcessorConfigureLutsTester extends AnyFlatSpec with Matchers with Chi
   }
 
   def createLutComputeProgram(): (
-    Seq[Instruction.Instruction],
-    Seq[BigInt] // What we expect to be sent out (data only).
+      Seq[Instruction.Instruction],
+      Seq[(UIntWide, String)] // What we expect to be sent out (data only).
   ) = {
     val progLutCompute = ArrayBuffer.empty[Instruction.Instruction]
-    val expectedSends = ArrayBuffer.empty[BigInt]
+    val expectedSends  = ArrayBuffer.empty[(UIntWide, String)]
 
     // Now we must compute something with the programmed custom LUTs to check they are correct.
     // We cannot read the contents of the register file, so we instead compute a result and
@@ -221,10 +222,10 @@ class UniProcessorConfigureLutsTester extends AnyFlatSpec with Matchers with Chi
       // the custom functions themselves as previous executions of the functions
       // would modify the value stored in their output registers.
       val startIdx = functRegs.last.index + 1
-      val rs1 = R(rdgen.between(startIdx, ManticoreBaseISA.numRegs))
-      val rs2 = R(rdgen.between(startIdx, ManticoreBaseISA.numRegs))
-      val rs3 = R(rdgen.between(startIdx, ManticoreBaseISA.numRegs))
-      val rs4 = R(rdgen.between(startIdx, ManticoreBaseISA.numRegs))
+      val rs1      = R(rdgen.between(startIdx, ManticoreBaseISA.numRegs))
+      val rs2      = R(rdgen.between(startIdx, ManticoreBaseISA.numRegs))
+      val rs3      = R(rdgen.between(startIdx, ManticoreBaseISA.numRegs))
+      val rs4      = R(rdgen.between(startIdx, ManticoreBaseISA.numRegs))
 
       val rs1_val = initialRegs(rs1.index)
       val rs2_val = initialRegs(rs2.index)
@@ -234,6 +235,15 @@ class UniProcessorConfigureLutsTester extends AnyFlatSpec with Matchers with Chi
       functRegs.zip(all_functs).foreach { case (reg, funct) =>
         progLutCompute += Instruction.Custom(reg, funct, rs1, rs2, rs3, rs4)
       }
+      val funct_0_instrStr =
+        s"${progLutCompute(progLutCompute.size - 4)}, rs1 = ${rs1_val}, rs2 = ${rs2_val}, rs3 = ${rs3_val}, rs4 = ${rs4_val}"
+      val funct_1_instrStr =
+        s"${progLutCompute(progLutCompute.size - 3)}, rs1 = ${rs1_val}, rs2 = ${rs2_val}, rs3 = ${rs3_val}, rs4 = ${rs4_val}"
+      val funct_2_instrStr =
+        s"${progLutCompute(progLutCompute.size - 2)}, rs1 = ${rs1_val}, rs2 = ${rs2_val}, rs3 = ${rs3_val}, rs4 = ${rs4_val}"
+      val funct_3_instrStr =
+        s"${progLutCompute(progLutCompute.size - 1)}, rs1 = ${rs1_val}, rs2 = ${rs2_val}, rs3 = ${rs3_val}, rs4 = ${rs4_val}"
+
       functRegs.zip(all_functs).foreach { case (reg, funct) =>
         // The destination doesn't matter. We only care that we are sending.
         progLutCompute += Instruction.Send(reg, reg, 1, 1)
@@ -244,19 +254,19 @@ class UniProcessorConfigureLutsTester extends AnyFlatSpec with Matchers with Chi
       val funct_1_expected = rs1_val | rs2_val | rs3_val | rs4_val
       val funct_2_expected = rs1_val ^ rs2_val ^ rs3_val ^ rs4_val
       val funct_3_expected = (rs1_val & rs2_val) | (rs3_val & rs4_val)
-      expectedSends += funct_0_expected
-      expectedSends += funct_1_expected
-      expectedSends += funct_2_expected
-      expectedSends += funct_3_expected
+      expectedSends += Tuple2(funct_0_expected, funct_0_instrStr)
+      expectedSends += Tuple2(funct_1_expected, funct_1_instrStr)
+      expectedSends += Tuple2(funct_2_expected, funct_2_instrStr)
+      expectedSends += Tuple2(funct_3_expected, funct_3_instrStr)
     }
 
     (progLutCompute.toSeq, expectedSends.toSeq)
   }
 
   // Create programs.
-  val progLutConfig = createLutConfigProgram()
+  val progLutConfig                   = createLutConfigProgram()
   val (progLutCompute, expectedSends) = createLutComputeProgram()
-  val finalProgram = progLutConfig ++ progLutCompute
+  val finalProgram                    = progLutConfig ++ progLutCompute
   println(finalProgram.mkString("\n"))
   println(s"num instructions = ${finalProgram.size}")
 
@@ -268,7 +278,8 @@ class UniProcessorConfigureLutsTester extends AnyFlatSpec with Matchers with Chi
 
     new Processor(
       config = ManticoreBaseISA,
-      DimX = 16, DimY = 16,
+      DimX = 16,
+      DimY = 16,
       equations = initEquations,
       initial_registers = UniProcessorTestUtils.createMemoryDataFiles {
         initialRegs.map(reg => reg.toInt).toSeq
@@ -288,19 +299,21 @@ class UniProcessorConfigureLutsTester extends AnyFlatSpec with Matchers with Chi
 
   it should "program the LUTs" in {
 
-    val equations = all_functs.map(funct => funct.equation)
-    val assembledInstructions = finalProgram.map(instr =>
-      Assembler.assemble(instr)(equations)
-    )
+    val equations             = all_functs.map(funct => funct.equation)
+    val assembledInstructions = finalProgram.map(instr => Assembler.assemble(instr)(equations))
 
     test(makeProcessor).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { dut =>
-      val sleep_length = 10
+      val sleep_length    = 10
       val epilogue_length = 0
-      val countdown = 20
+      val countdown       = 20
 
       UniProcessorTestUtils.programProcessor(
-        assembledInstructions, epilogue_length, sleep_length, countdown, dut
-      ){
+        assembledInstructions,
+        epilogue_length,
+        sleep_length,
+        countdown,
+        dut
+      ) {
         rdgen.nextInt(10) == 0
       }
 
@@ -311,12 +324,13 @@ class UniProcessorConfigureLutsTester extends AnyFlatSpec with Matchers with Chi
         }
       }
 
-      def executeAndCheck(expectedSends: Seq[BigInt]): Unit = {
+      def executeAndCheck(expectedSends: Seq[(UIntWide, String)]): Unit = {
         val checkOutput = dut.io.packet_out.valid.peek().litToBoolean
         val nextExpectedSends = if (checkOutput) {
-          val received = dut.io.packet_out.data.peekInt()
-          println(s"Expected = ${expectedSends.head}, received = ${received}")
-          dut.io.packet_out.data.expect(expectedSends.head)
+          val received          = dut.io.packet_out.data.peekInt()
+          val (expected, instr) = expectedSends.head
+          println(s"Expected = ${expected.toBigInt}, received = ${received}, instr = ${instr}")
+          dut.io.packet_out.data.expect(expected.toBigInt)
           // We've consumed one expected value, so next time we must check for the rest of the sends only.
           expectedSends.tail
         } else {
