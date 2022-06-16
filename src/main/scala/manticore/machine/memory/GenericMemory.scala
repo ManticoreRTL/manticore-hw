@@ -133,6 +133,7 @@ class SimpleDualPortMemoryInterface(val ADDRESS_WIDTH: Int, val DATA_WIDTH: Int)
 
 class SimpleDualPortMemory(val ADDRESS_WIDTH: Int,
                            val DATA_WIDTH: Int,
+                           val READ_LATENCY: Int,
                            val STYLE: MemStyle.MemSyle = MemStyle.BRAM,
                            val INIT: String = "") extends Module {
   val io = IO(new SimpleDualPortMemoryInterface(ADDRESS_WIDTH, DATA_WIDTH))
@@ -160,7 +161,8 @@ class SimpleDualPortMemory(val ADDRESS_WIDTH: Int,
   class URAMLike extends VerilogMemory(
     Map(
       "ADDRESS_WIDTH" -> ADDRESS_WIDTH,
-      "DATA_WIDTH" -> DATA_WIDTH
+      "DATA_WIDTH" -> DATA_WIDTH,
+      "READ_LATENCY" -> READ_LATENCY
     )
   ) with HasBlackBoxResource {
     addResource("/verilog/URAMLike.v")

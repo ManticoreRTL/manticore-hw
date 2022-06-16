@@ -67,6 +67,7 @@ class Fetch(config: ISA) extends Module {
 
   val inst_memory = Module(
     new SimpleDualPortMemory(
+      READ_LATENCY = 1,
       ADDRESS_WIDTH = 12,
       DATA_WIDTH = 64,
       STYLE = MemStyle.URAM

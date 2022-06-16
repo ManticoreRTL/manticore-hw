@@ -73,7 +73,7 @@ class RegisterFile(config: ISA, INIT: String = "") extends Module {
   val io = IO(new RegisterFileInterface(config))
 
   def makeBank = new SimpleDualPortMemory(ADDRESS_WIDTH = config.IdBits,
-    DATA_WIDTH = config.DataBits, INIT = INIT)
+  READ_LATENCY = 1, DATA_WIDTH = config.DataBits, INIT = INIT)
   val xbank, ybank, ubank, vbank = Module(makeBank)
 
   io.w <-> xbank.io

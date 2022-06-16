@@ -22,8 +22,8 @@ object AxiSlave {
       AxiSlaveDataWidth: Int = 32
   ) extends Bundle {
 
-    // val ACCLK    = Input(Clock()) // implicit
-    // val ARESET   = Input(Bool()) // implicit
+    //val ACCLK    = Input(Clock()) // implicit
+    //val ARESET   = Input(Bool()) // implicit
     // val ACLK_EN = Input(Bool()) // always enabled
     val AWADDR  = Input(UInt(AxiSlaveAddrWidth.W))
     val AWVALID = Input(Bool())
@@ -269,7 +269,7 @@ class AxiSlave(config: ISA) extends Module {
     }
   }
 
-  /// --- Special "bit-level" registers
+  // --- Special "bit-level" registers
 
   val int_ap_idle  = Reg(Bool())
   val int_ap_ready = Reg(Bool())
@@ -330,8 +330,8 @@ class AxiSlave(config: ISA) extends Module {
     int_isr(1) := int_isr(1) ^ io.core.WDATA(1) // toggle status on write
   }
 
-  // handle user register writes, device registers can not be written using
-  // the axi slave, the manitcore array writes them externally
+  //handle user register writes, device registers can not be written using
+  //the axi slave, the manitcore array writes them externally
 
   val writables = (io.host_regs.elements ++ io.pointer_regs.elements)
     .map { k =>
@@ -368,7 +368,8 @@ class AxiSlave(config: ISA) extends Module {
       old_value := host_controlled_regs((waddr >> 2) - (UserAddressBase >> 2).U)
       host_controlled_regs((waddr >> 2) - (UserAddressBase >> 2).U) :=
         (io.core.WDATA & wmask.asUInt()) | (old_value & !(wmask.asUInt()))
-    }
+    
+  }
   }
   // when(io.host_regs.ele)
   /** Handling rdata for ApControlAddress = 0x00 GlobalInterruptEnableAddress =

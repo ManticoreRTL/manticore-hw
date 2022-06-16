@@ -120,6 +120,7 @@ class Processor(
   val array_memory = Module(
     new SimpleDualPortMemory(
       ADDRESS_WIDTH = 12,
+      READ_LATENCY = 1,
       DATA_WIDTH = config.DataBits,
       STYLE = MemStyle.BRAM,
       INIT = initial_array
