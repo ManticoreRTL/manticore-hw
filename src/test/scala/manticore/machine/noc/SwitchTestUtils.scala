@@ -4,7 +4,6 @@ import Chisel._
 import chisel3.experimental.BundleLiterals.AddBundleLiteralConstructor
 import manticore.machine.ISA
 import manticore.machine.core.NoCBundle
-import manticore.machine.ISA
 
 object SwitchTestUtils {
 

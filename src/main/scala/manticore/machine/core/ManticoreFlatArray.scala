@@ -1,14 +1,13 @@
 package manticore.machine.core
 
 import chisel3._
-
 import chisel3.experimental.ChiselEnum
 import chisel3.util._
-
-import manticore.machine.ManticoreFullISA
 import manticore.machine.ManticoreBaseISA
+import manticore.machine.ManticoreFullISA
+import manticore.machine.memory.CacheCommand
+import manticore.machine.memory.CacheConfig
 
-import manticore.machine.memory.{CacheCommand, CacheConfig}
 import scala.annotation.tailrec
 
 class ManticoreFlatArrayInterface extends Bundle {
@@ -370,6 +369,7 @@ class ComputeArray(
     dimx: Int,
     dimy: Int,
     debug_enable: Boolean = false,
+    enable_custom_alu: Boolean = true,
     prefix_path: String = "./"
 ) extends Module {
 
@@ -382,8 +382,9 @@ class ComputeArray(
     val dynamic_cycle      = Output(Bool())
     val execution_active   = Output(Bool())
   })
-  val equations = Seq.fill(1 << ManticoreFullISA.FunctBits) {
-    Seq.tabulate(ManticoreFullISA.DataBits) { i => (1 << i) }
+
+  val equations = Seq.fill(1 << ManticoreBaseISA.FunctBits) {
+    Seq.tabulate(ManticoreBaseISA.DataBits) { i => BigInt(1) << i }
   }
 
   def makeConfigData[T](gen: (Int, Int) => T): Seq[Seq[T]] =
@@ -410,7 +411,8 @@ class ComputeArray(
           initial_registers = s"${prefix_path}/rf_${x}_${y}.dat",
           initial_array = s"${prefix_path}/ra_${x}_${y}.dat",
           debug_enable = debug_enable,
-          name_tag = s"CoreX${x}Y${y}"
+          name_tag = s"CoreX${x}Y${y}",
+          enable_custom_alu = enable_custom_alu
         )
       )
       core.suggestName(s"core_${x}_${y}")
@@ -496,6 +498,7 @@ class ManticoreFlatArray(
     dimx: Int,
     dimy: Int,
     debug_enable: Boolean = false,
+    enable_custom_alu: Boolean = true,
     prefix_path: String = "./"
 ) extends RawModule {
 
@@ -551,7 +554,7 @@ class ManticoreFlatArray(
       clock = io.compute_clock,
       reset = controller.io.soft_reset
     ) {
-      Module(new ComputeArray(dimx, dimy, debug_enable, prefix_path))
+      Module(new ComputeArray(dimx, dimy, debug_enable, enable_custom_alu, prefix_path))
     }
 
   controller.io.kill_clock := compute_array.io.dynamic_cycle

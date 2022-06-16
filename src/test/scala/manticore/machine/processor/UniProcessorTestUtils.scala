@@ -1,21 +1,31 @@
 package manticore.machine.processor
 
 
+import chisel3.VecInit
 import chisel3._
-import chisel3.util.{switch, is, Cat}
 import chisel3.experimental.BundleLiterals._
-import chiseltest._
-import manticore.machine.{ISA, ManticoreBaseISA}
-import manticore.machine.core.{BareNoCBundle, ClockBuffer, Processor, ProcessorInterface}
 import chisel3.experimental.ChiselEnum
+import chisel3.util.Cat
+import chisel3.util.is
+import chisel3.util.switch
+import chiseltest._
+import manticore.machine.ISA
+import manticore.machine.ManticoreBaseISA
+import manticore.machine.ManticoreFullISA
+import manticore.machine.core.BareNoCBundle
+import manticore.machine.core.ClockBuffer
+import manticore.machine.core.Processor
+import manticore.machine.core.ProcessorInterface
+import manticore.machine.memory.CacheBackInterface
+import manticore.machine.memory.CacheBackendCommand
+import manticore.machine.memory.CacheCommand
+import manticore.machine.memory.CacheConfig
+import manticore.machine.memory.SimpleDualPortMemory
 
 import java.io.PrintWriter
-import java.nio.file.{Files, Path}
+import java.nio.file.Files
+import java.nio.file.Path
 import scala.annotation.tailrec
-import manticore.machine.ManticoreFullISA
-import chisel3.VecInit
-
-import manticore.machine.memory.{CacheBackInterface, CacheBackendCommand, CacheCommand, CacheConfig, SimpleDualPortMemory}
 
 object UniProcessorTestUtils {
 
@@ -136,7 +146,7 @@ object UniProcessorTestUtils {
   class ClockedProcessor(config: ISA,
                          DimX: Int,
                          DimY: Int,
-                         equations: Seq[Seq[Int]],
+                         equations: Seq[Seq[BigInt]],
                          initial_registers: String = "",
                          initial_array: String = "") extends Module {
     val io = IO(new ProcessorInterface(config, DimX, DimY) {
@@ -171,7 +181,7 @@ object UniProcessorTestUtils {
   class MemoryModel(val rom_values: String, val memory_size: Int)
       extends Module {
 
-    
+
     val io = IO(new Bundle {
       val memory: CacheBackInterface = Flipped(CacheConfig.backInterface())
       val errors: MemoryError        = Output(new MemoryError)

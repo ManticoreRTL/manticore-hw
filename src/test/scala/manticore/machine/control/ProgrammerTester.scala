@@ -1,21 +1,18 @@
 package manticore.machine.control
 
 import Chisel._
-
+import chisel3.VecInit
+import chisel3.experimental.ChiselEnum
 import chiseltest._
-
 import manticore.machine.ManticoreBaseISA
+import manticore.machine.ManticoreFullISA
+import manticore.machine.core.MemoryReadWriteInterface
+import manticore.machine.core.NoCBundle
 import manticore.machine.core.Programmer
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import scala.annotation.tailrec
-
-import manticore.machine.core.MemoryReadWriteInterface
-import manticore.machine.ManticoreFullISA
-import chisel3.VecInit
-import chisel3.experimental.ChiselEnum
-import manticore.machine.core.NoCBundle
 class ProgrammerTester
     extends AnyFlatSpec
     with ChiselScalatestTester
@@ -32,9 +29,9 @@ class ProgrammerTester
     val io    = IO(Flipped(new MemoryReadWriteInterface(ManticoreFullISA)))
     val error = IO(Output(new MemoryError))
 
-    
 
-    def stickySet(err: Bool, cond: => Bool) {
+
+    def stickySet(err: Bool, cond: => Bool): Unit = {
       val r = RegInit(Bool(), false.B)
 
       when(cond) {
@@ -145,7 +142,7 @@ class ProgrammerTester
             dut.clock.step()
             println("Validated the instruction stream")
           } else {
-            if (dut.io.packet_out.valid.peek.litToBoolean) {
+            if (dut.io.packet_out.valid.peek().litToBoolean) {
               dut.io.packet_out.xHops.expect(expected_stream.head._2.U)
               dut.io.packet_out.yHops.expect(expected_stream.head._3.U)
               dut.io.packet_out.data.expect(expected_stream.head._1.U)
@@ -157,7 +154,7 @@ class ProgrammerTester
               validateStream(expected_stream)
             }
           }
-          
+
         }
 
         dut.io.start.poke(true.B)

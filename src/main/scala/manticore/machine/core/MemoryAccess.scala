@@ -3,7 +3,8 @@ package manticore.machine.core
 import Chisel._
 import chisel3.experimental.IO
 import manticore.machine.ISA
-import manticore.machine.memory.{CacheConfig, SimpleDualPortMemoryInterface}
+import manticore.machine.memory.CacheConfig
+import manticore.machine.memory.SimpleDualPortMemoryInterface
 
 object MemoryAccess {
 
@@ -18,6 +19,8 @@ object MemoryAccess {
     val gload: Bool       = Bool()
     val send: Bool        = Bool()
     val nop: Bool         = Bool()
+    val mul: Bool         = Bool()
+    val mulh: Bool        = Bool()
   }
 
 }
@@ -83,11 +86,12 @@ class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
 
   pipeIt(io.pipe_out.write_back) {
     io.pipe_in.opcode.lload ||
-    io.pipe_in.opcode.cust0 ||
+    io.pipe_in.opcode.cust ||
     io.pipe_in.opcode.arith || {
       if (config.WithGlobalMemory) io.pipe_in.opcode.gload else false.B
     } ||
-    io.pipe_in.opcode.set
+    io.pipe_in.opcode.set ||
+    io.pipe_in.opcode.slice
   }
   pipeIt(io.pipe_out.rd) {
     io.pipe_in.rd
@@ -95,18 +99,21 @@ class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
   pipeIt(io.pipe_out.lload) {
     io.pipe_in.opcode.lload
   }
-
   pipeIt(io.pipe_out.nop) {
     io.pipe_in.opcode.nop
+  }
+  pipeIt(io.pipe_out.mul) {
+    io.pipe_in.opcode.mul
+  }
+  pipeIt(io.pipe_out.mulh) {
+    io.pipe_in.opcode.mulh
   }
 
   if (config.WithGlobalMemory) {
     when(io.pipe_in.opcode.lload) {
       io.pipe_out.result := io.local_memory_interface.dout
-
     }.elsewhen(io.pipe_in.opcode.gload) {
       io.pipe_out.result := io.global_memory_interface.rdata
-
     } otherwise {
       pipeIt(io.pipe_out.result) { io.pipe_in.result }
     }

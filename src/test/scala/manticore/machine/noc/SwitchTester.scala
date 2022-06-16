@@ -24,16 +24,14 @@
 package manticore.machine.noc
 
 import Chisel._
-
-
-
+import chisel3.experimental.BundleLiterals._
 import chiseltest._
 import manticore.machine.ManticoreBaseISA
-import manticore.machine.core.{NoCBundle, Switch}
-
+import manticore.machine.core.NoCBundle
+import manticore.machine.core.Switch
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import chisel3.experimental.BundleLiterals._
+
 import scala.util.Random
 
 
@@ -60,7 +58,7 @@ class SwitchTester extends AnyFlatSpec  with ChiselScalatestTester with Matchers
       _.data -> orig.data,
       _.address -> orig.address,
       _.valid -> true.B,
-      _.xHops -> (orig.xHops.litValue() - 1).U,
+      _.xHops -> (orig.xHops.litValue - 1).U,
       _.yHops -> orig.yHops
     )
   }
@@ -70,12 +68,12 @@ class SwitchTester extends AnyFlatSpec  with ChiselScalatestTester with Matchers
       _.address -> orig.address,
       _.valid -> true.B,
       _.xHops -> orig.xHops,
-      _.yHops -> (orig.yHops.litValue() - 1).U
+      _.yHops -> (orig.yHops.litValue - 1).U
     )
   }
 
   def invalidated(orig: NoCBundle): NoCBundle = {
-    require(orig.yHops.litValue() == 0 & orig.xHops.litValue() == 0,
+    require(orig.yHops.litValue == 0 & orig.xHops.litValue == 0,
       s"Can not invalidate a non-terminal packet %s".format(orig))
     NoCBundle(DIMX, DIMY, config).Lit(
       _.data -> orig.data,
@@ -86,9 +84,9 @@ class SwitchTester extends AnyFlatSpec  with ChiselScalatestTester with Matchers
     )
   }
   def routeFromLocal(packet: NoCBundle) = {
-    if (packet.xHops.litValue() != 0 ) {
+    if (packet.xHops.litValue != 0 ) {
       SwitchPort.X
-    } else if (packet.yHops.litValue() != 0) {
+    } else if (packet.yHops.litValue != 0) {
       SwitchPort.Y
     } else {
       SwitchPort.L
@@ -115,16 +113,16 @@ class SwitchTester extends AnyFlatSpec  with ChiselScalatestTester with Matchers
           case SwitchPort.Y =>
             dut.io.yOutput.expect(passY(packet), s"[%d] Expected local packet %s on Y".format(i, passY(packet)))
             dut.io.xOutput.expect(emptyPacket, s"[%d] expected empty packet on port X, got %s"
-              .format(i, dut.io.peek))
+              .format(i, dut.io.peek()))
           case SwitchPort.X =>
             dut.io.xOutput.expect(passX(packet), s"[%d] Expected local packet %s on X".format(i, passX(packet)))
             dut.io.yOutput.expect(emptyPacket, s"[%d] expected empty packet on port y, got %s"
-              .format(i, dut.io.yOutput.peek))
+              .format(i, dut.io.yOutput.peek()))
           case SwitchPort.L =>
             dut.io.xOutput.expect(emptyPacket, s"[%d] expected empty packet on port X, got %s"
-              .format(i, dut.io.xOutput.peek))
+              .format(i, dut.io.xOutput.peek()))
             dut.io.yOutput.expect(emptyPacket, s"[%d] expected empty packet on port y, got %s"
-              .format(i, dut.io.yOutput.peek))
+              .format(i, dut.io.yOutput.peek()))
             dut.io.terminal.expect(false.B)
         }
       }
@@ -142,7 +140,7 @@ class SwitchTester extends AnyFlatSpec  with ChiselScalatestTester with Matchers
         dut.clock.step()
 
         def checkY(): Unit =
-          if (packetY.yHops.litValue() == 0) {
+          if (packetY.yHops.litValue == 0) {
             dut.io.yOutput.expect(invalidated(packetY),
               s"expected packet %s to become %s (terminal)".format(packetY, invalidated(packetY)))
             dut.io.terminal.expect(true.B)
@@ -160,7 +158,7 @@ class SwitchTester extends AnyFlatSpec  with ChiselScalatestTester with Matchers
           case SwitchPort.L  | SwitchPort.Y =>
             // L is dropped because it tried to go through Y
             dut.io.xOutput.expect(emptyPacket, s"[%d] expected empty packet on port X, got %s"
-              .format(i, dut.io.peek))
+              .format(i, dut.io.peek()))
             // but Y passes
             checkY()
         }
@@ -184,30 +182,30 @@ class SwitchTester extends AnyFlatSpec  with ChiselScalatestTester with Matchers
           case SwitchPort.Y =>
             // drop Y because X is turning
             dut.io.yOutput.expect(passY(packetX), s"[%d] Expected packet %s from X on Y got %s"
-              .format(i, passY(packetX), dut.io.yOutput.peek))
+              .format(i, passY(packetX), dut.io.yOutput.peek()))
             dut.io.xOutput.expect(emptyPacket, s"[%d] Expected empty packet on Y but got %s".format(
-              i, dut.io.xOutput.peek
+              i, dut.io.xOutput.peek()
             ))
             dut.io.terminal.expect(false.B)
           case SwitchPort.L =>
             dut.io.yOutput.expect(invalidated(packetX), s"[%d] Expected packet %s from X on Y got %s"
-              .format(i, invalidated(packetX), dut.io.yOutput.peek))
+              .format(i, invalidated(packetX), dut.io.yOutput.peek()))
             dut.io.terminal.expect(true.B)
             dut.io.xOutput.expect(emptyPacket, s"[%d] Expected empty packet on Y but got %s".format(
-              i, dut.io.xOutput.peek
+              i, dut.io.xOutput.peek()
             ))
           case SwitchPort.X =>
             // both packets pass
             dut.io.xOutput.expect(passX(packetX), s"[%d] Expected packet %s from X on Y got %s"
-              .format(i, passX(packetX), dut.io.xOutput.peek))
-            if (packetY.yHops.litValue() == 0) {
+              .format(i, passX(packetX), dut.io.xOutput.peek()))
+            if (packetY.yHops.litValue == 0) {
               dut.io.yOutput.expect(invalidated(packetY), s"[%d] Expected packet %s on Y but got %s".format(
-                i, invalidated(packetY), dut.io.yOutput.peek
+                i, invalidated(packetY), dut.io.yOutput.peek()
               ))
               dut.io.terminal.expect(true.B)
             } else {
               dut.io.yOutput.expect(passY(packetY), s"[%d] Expected packet %s on Y but got %s".format(
-                i, passY(packetY), dut.io.yOutput.peek
+                i, passY(packetY), dut.io.yOutput.peek()
               ))
               dut.io.terminal.expect(false.B)
             }
@@ -233,39 +231,39 @@ class SwitchTester extends AnyFlatSpec  with ChiselScalatestTester with Matchers
           case (SwitchPort.X, SwitchPort.X | SwitchPort.L) =>
             // drop L
             dut.io.xOutput.expect(passX(packetX), s"[%d] Expected packet %s on X but got %s"
-              .format(i, passX(packetX), dut.io.xOutput.peek))
+              .format(i, passX(packetX), dut.io.xOutput.peek()))
             dut.io.yOutput.expect(emptyPacket, s"[%d] Expected empty packet on %s on Y but " +
-              s"got %s".format(i, dut.io.yOutput.peek))
+              s"got %s".format(i, dut.io.yOutput.peek()))
           case (SwitchPort.X, SwitchPort.Y) =>
             // both X and L can pass
             dut.io.xOutput.expect(passX(packetX), s"[%d] Expected packet %s on X but got %s"
-              .format(i, passX(packetX), dut.io.xOutput.peek))
+              .format(i, passX(packetX), dut.io.xOutput.peek()))
             dut.io.yOutput.expect(passY(packetL), s"[%d] Expected packet %s on X but got %s"
-              .format(i, passY(packetL), dut.io.yOutput.peek))
+              .format(i, passY(packetL), dut.io.yOutput.peek()))
           case (SwitchPort.Y, SwitchPort.X) =>
             // X turns and L pass
             dut.io.xOutput.expect(passX(packetL), s"[%d] Expected packet %s on X but got %s"
-              .format(i, passX(packetL), dut.io.xOutput.peek))
+              .format(i, passX(packetL), dut.io.xOutput.peek()))
             dut.io.yOutput.expect(passY(packetX), s"[%d] Expected packet %s on X but got %s"
-              .format(i, passY(packetX), dut.io.yOutput.peek))
+              .format(i, passY(packetX), dut.io.yOutput.peek()))
           case (SwitchPort.Y, SwitchPort.L | SwitchPort.Y) =>
             // only x passes
             dut.io.yOutput.expect(passY(packetX), s"[%d] Expected packet %s on X but got %s"
-              .format(i, passY(packetX), dut.io.yOutput.peek))
+              .format(i, passY(packetX), dut.io.yOutput.peek()))
             dut.io.xOutput.expect(emptyPacket, s"[%d] Expected empty packet on %s on Y but " +
-              s"got %s".format(i, dut.io.xOutput.peek))
+              s"got %s".format(i, dut.io.xOutput.peek()))
           case (SwitchPort.L, SwitchPort.L | SwitchPort.Y) =>
             // only x passes
             dut.io.yOutput.expect(invalidated(packetX), s"[%d] Expected packet %s on X but got %s"
-              .format(i, invalidated(packetX), dut.io.yOutput.peek))
+              .format(i, invalidated(packetX), dut.io.yOutput.peek()))
             dut.io.xOutput.expect(emptyPacket, s"[%d] Expected empty packet on %s on Y but " +
-              s"got %s".format(i, dut.io.xOutput.peek))
+              s"got %s".format(i, dut.io.xOutput.peek()))
           case (SwitchPort.L, SwitchPort.X) =>
             // X turns and L pass
             dut.io.xOutput.expect(passX(packetL), s"[%d] Expected packet %s on X but got %s"
-              .format(i, passX(packetL), dut.io.xOutput.peek))
+              .format(i, passX(packetL), dut.io.xOutput.peek()))
             dut.io.yOutput.expect(invalidated(packetX), s"[%d] Expected packet %s on X but got %s"
-              .format(i, invalidated(packetX), dut.io.yOutput.peek))
+              .format(i, invalidated(packetX), dut.io.yOutput.peek()))
 
         }
 

@@ -2,15 +2,16 @@ package manticore.machine.core
 
 import Chisel._
 import chisel3.experimental.ChiselEnum
-import manticore.machine.memory.{
-  CacheConfig,
-  CacheFrontInterface,
-  MemStyle,
-  SimpleDualPortMemory
-}
-import manticore.machine.{ISA, ManticoreBaseISA}
-import manticore.machine.ManticoreFullISA
 import chisel3.stage.ChiselStage
+import manticore.machine.ISA
+import manticore.machine.ManticoreBaseISA
+import manticore.machine.ManticoreFullISA
+import manticore.machine.memory.CacheConfig
+import manticore.machine.memory.CacheFrontInterface
+import manticore.machine.memory.MemStyle
+import manticore.machine.memory.SimpleDualPortMemory
+import scala.util.Random
+import manticore.machine.core.alu.Multiplier
 
 class NamedError(nameBits: Int) extends Bundle {
   val error: Bool = Bool()
@@ -42,26 +43,25 @@ class Processor(
     config: ISA,
     DimX: Int,
     DimY: Int,
-    equations: Seq[Seq[Int]],
+    equations: Seq[Seq[BigInt]],
     initial_registers: String = "",
     initial_array: String = "",
     name_tag: String = "core",
     debug_enable: Boolean = false,
-    debug_level: Int = 0
+    debug_level: Int = 0,
+    enable_custom_alu: Boolean = true
 ) extends Module {
-  //  val EQUATIONS = Seq.fill(1 << config.FUNCT_BITS)(Seq.fill(config.DATA_BITS)(rdgen.nextInt(16)))
-
   val io: ProcessorInterface = IO(new ProcessorInterface(config, DimX, DimY))
 
   object ProcessorPhase extends ChiselEnum {
     val DynamicReceiveProgramLength, // wait for the first message that indicates the length of the program
-    DynamicReceiveInstruction, // wait for a dynamic number of cycles to receive all instructions
-    DynamicReceiveEpilogueLength, // wait for a message that contains the epilogue length of the program
-    DynamicReceiveSleepLength, // wait for dynamic number of cycles to receive the sleep period after
+    DynamicReceiveInstruction,       // wait for a dynamic number of cycles to receive all instructions
+    DynamicReceiveEpilogueLength,    // wait for a message that contains the epilogue length of the program
+    DynamicReceiveSleepLength,       // wait for dynamic number of cycles to receive the sleep period after
     // execution which is essentially the number of messages the processor is expected to receive from other processors
     DynamicReceiveCountDown, // wait for the last message that determines the count-down period
-    StaticCountDown, // count down to start the processor execution
-    StaticExecutionPhase, // static execution phase, the processor runs the instructions
+    StaticCountDown,         // count down to start the processor execution
+    StaticExecutionPhase,    // static execution phase, the processor runs the instructions
     StaticSleepPhase = Value
 
   }
@@ -105,27 +105,34 @@ class Processor(
 
   val fetch_stage  = Module(new Fetch(config))
   val decode_stage = Module(new Decode(config))
-  val execute_stage: ExecuteBase = Module(
-    new ExecuteComb(config, equations, name_tag + "::exec", debug_enable)
+  val execute_stage = Module(
+    new ExecuteComb(config, equations, name_tag + "::exec", debug_enable, enable_custom_alu)
   )
 
-  if (debug_enable)
+  if (debug_enable) {
     execute_stage.io.debug_time := io.periphery.debug_time
+  }
 
   val memory_stage = Module(new MemoryAccess(config, DimX, DimY))
 
-  val register_file       = Module(new RegisterFile(config, initial_registers))
+  val register_file       = Module(new RegisterFile(config, initial_registers, enable_custom_alu))
   val carry_register_file = Module(new CarryRegisterFile(config))
+
+  val lut_load_regs = Module(new LutLoadDataRegisterFile(config))
 
   val array_memory = Module(
     new SimpleDualPortMemory(
-      ADDRESS_WIDTH = 12,
-      READ_LATENCY = 1,
+      ADDRESS_WIDTH = 14,
       DATA_WIDTH = config.DataBits,
-      STYLE = MemStyle.BRAM,
+      STYLE = MemStyle.URAM,
       INIT = initial_array
     )
   )
+
+  // The multiplier is parallel to the Execute and Memory stages.
+  val multiplier          = Module(new Multiplier(config.DataBits))
+  val multiplier_res_high = Wire(UInt(config.DataBits.W))
+  val multiplier_res_low  = Wire(UInt(config.DataBits.W))
 
   val skip_exec            = Wire(Bool())
   val skip_sleep           = Wire(Bool())
@@ -294,15 +301,7 @@ class Processor(
   }
 
   fetch_stage.io.execution_enable := (state === ProcessorPhase.StaticExecutionPhase)
-  io.periphery.active := (state === ProcessorPhase.StaticExecutionPhase) // || (
-  //   state === ProcessorPhase.StaticSleepPhase &&
-  //     (
-  //       decode_stage.io.instruction =/= 0.U ||
-  //         execute_stage.io.pipe_in.opcode.nop === false.B ||
-  //         memory_stage.io.pipe_in.opcode.nop === false.B ||
-  //         memory_stage.io.pipe_out.nop === false.B
-  //     )
-  // )
+  io.periphery.active             := (state === ProcessorPhase.StaticExecutionPhase)
 
   class RegisterWriteByPass extends Bundle {
     val value   = UInt(config.DataBits.W)
@@ -319,7 +318,7 @@ class Processor(
         ForwardingTuple(
           execute_stage.io.pipe_out.result,
           execute_stage.io.pipe_out.rd,
-          execute_stage.io.pipe_out.opcode.arith || execute_stage.io.pipe_out.opcode.cust0
+          execute_stage.io.pipe_out.opcode.arith || execute_stage.io.pipe_out.opcode.cust
         ),
         ForwardingTuple(
           memory_stage.io.pipe_out.result,
@@ -335,40 +334,48 @@ class Processor(
     } else {
       Seq.empty
     }
+
   // fetch --> decode
   decode_stage.io.instruction := fetch_stage.io.instruction
 
   // decode --> exec
   execute_stage.io.pipe_in := decode_stage.io.pipe_out
 
-  execute_stage.io.regs_in.x := ForwardPath(
-    register_file.io.rx.dout,
+  execute_stage.io.regs_in.rs1 := ForwardPath(
+    register_file.io.rs1.dout,
     decode_stage.io.pipe_out.rs1,
     forwarding_signals
   )
-  execute_stage.io.regs_in.y := ForwardPath(
-    register_file.io.ry.dout,
+  execute_stage.io.regs_in.rs2 := ForwardPath(
+    register_file.io.rs2.dout,
     decode_stage.io.pipe_out.rs2,
     forwarding_signals
   )
-  execute_stage.io.regs_in.u := ForwardPath(
-    register_file.io.ru.dout,
+  execute_stage.io.regs_in.rs3 := ForwardPath(
+    register_file.io.rs3.dout,
     decode_stage.io.pipe_out.rs3,
     forwarding_signals
   )
-  execute_stage.io.regs_in.v := ForwardPath(
-    register_file.io.rv.dout,
+  execute_stage.io.regs_in.rs4 := ForwardPath(
+    register_file.io.rs4.dout,
     decode_stage.io.pipe_out.rs4,
     forwarding_signals
   )
-  register_file.io.rx.addr   := decode_stage.io.pipe_out.rs1
-  register_file.io.ry.addr   := decode_stage.io.pipe_out.rs2
-  register_file.io.ru.addr   := decode_stage.io.pipe_out.rs3
-  register_file.io.rv.addr   := decode_stage.io.pipe_out.rs4
+  register_file.io.rs1.addr := decode_stage.io.pipe_out.rs1
+  register_file.io.rs2.addr := decode_stage.io.pipe_out.rs2
+  register_file.io.rs3.addr := decode_stage.io.pipe_out.rs3
+  register_file.io.rs4.addr := decode_stage.io.pipe_out.rs4
 
-  register_file.io.w.addr    := memory_stage.io.pipe_out.rd
-  register_file.io.w.din     := memory_stage.io.pipe_out.result
-  register_file.io.w.en      := memory_stage.io.pipe_out.write_back
+  multiplier_res_high := multiplier.io.out(2 * config.DataBits - 1, config.DataBits)
+  multiplier_res_low  := multiplier.io.out(config.DataBits - 1, 0)
+
+  register_file.io.w.addr := memory_stage.io.pipe_out.rd
+  when(multiplier.io.valid_out) {
+    register_file.io.w.din := Mux(memory_stage.io.pipe_out.mulh, multiplier_res_high, multiplier_res_low)
+  } otherwise {
+    register_file.io.w.din := memory_stage.io.pipe_out.result
+  }
+  register_file.io.w.en := memory_stage.io.pipe_out.write_back
 
   carry_register_file.io.raddr := decode_stage.io.pipe_out.rs3
   execute_stage.io.carry_in    := carry_register_file.io.dout
@@ -376,13 +383,20 @@ class Processor(
   carry_register_file.io.waddr := execute_stage.io.carry_rd
   carry_register_file.io.din   := execute_stage.io.carry_din
 
+  lut_load_regs.io.din         := decode_stage.io.pipe_out.immediate
+  lut_load_regs.io.waddr       := decode_stage.io.pipe_out.funct
+  lut_load_regs.io.wen         := decode_stage.io.pipe_out.opcode.set_lut_data
+  execute_stage.io.lutdata_din := lut_load_regs.io.dout
+
+  // decode --> multiplier
+  multiplier.io.in0      := register_file.io.rs1.dout
+  multiplier.io.in1      := register_file.io.rs2.dout
+  multiplier.io.valid_in := decode_stage.io.pipe_out.opcode.mul || decode_stage.io.pipe_out.opcode.mulh
+
   // exec --> memory and write back implementation
   memory_stage.io.local_memory_interface <> array_memory.io
   memory_stage.io.local_memory_interface.dout := array_memory.io.dout
-
-  memory_stage.io.pipe_in := execute_stage.io.pipe_out
-  register_file.io.w.en := memory_stage.io.pipe_out.write_back // & (memory_stage.io.pipe_out.rd =/= 0.U)
-
+  memory_stage.io.pipe_in                     := execute_stage.io.pipe_out
 
   register_file.io.w.addr := memory_stage.io.pipe_out.rd
 
@@ -396,15 +410,20 @@ class Processor(
   val gmem_expect_response = Reg(Bool())
   gmem_expect_response := memory_stage.io.global_memory_interface.start
   val gmem_failure = Reg(Bool())
-  gmem_failure := (gmem_expect_response && !io.periphery.cache.done) | gmem_failure
+  gmem_failure := (gmem_expect_response && !io.periphery.cache.done) || gmem_failure
 
   val exception_occurred: Bool = Reg(Bool())
   val exception_id: UInt       = Reg(UInt(config.DataBits.W))
 
   val exception_cond: Bool = Wire(Bool())
 
-  // Expect instruction should throw an exception if the result of SetEqual is false
-  exception_cond := (execute_stage.io.pipe_out.opcode.expect && execute_stage.io.pipe_out.result === 0.U)
+  // Expect instruction should throw an exception if the result of SetEqual is false.
+  // Using functionality related to the custom ALU is an error if the custom ALU has been disabled.
+  exception_cond := (execute_stage.io.pipe_out.opcode.expect && execute_stage.io.pipe_out.result === 0.U) ||
+    (!enable_custom_alu.B &&
+      (decode_stage.io.pipe_out.opcode.configure_luts.head ||
+        decode_stage.io.pipe_out.opcode.set_lut_data ||
+        decode_stage.io.pipe_out.opcode.cust))
 
   exception_occurred := exception_cond
 
@@ -423,18 +442,20 @@ class Processor(
 
 }
 
-
 object ProcessorEmitter extends App {
-  val rdgen = new scala.util.Random(0)
-  val equations: Seq[Seq[Int]] =
-    Seq.fill(32)(Seq.fill(16)(rdgen.nextInt(1 << 16)))
-//
+
+  val rgen = Random
+
+  val equations = Seq.fill(1 << ManticoreFullISA.FunctBits) {
+    Seq.fill(ManticoreFullISA.DataBits) { BigInt(rgen.nextInt(1 << 16)) }
+  }
+
   def makeProcessor() =
     new Processor(
-      config = ManticoreFullISA,
+      config = ManticoreBaseISA,
+      equations = equations,
       DimX = 16,
-      DimY = 16,
-      equations = equations
+      DimY = 16
     )
 
   new ChiselStage().emitVerilog(
@@ -442,9 +463,4 @@ object ProcessorEmitter extends App {
     Array("--target-dir", "gen-dir/processor/")
   )
 
-//  new ChiselStage().emitVerilog(
-//    new ClockedProcessor(config = ThyrioISA, DimX = 2, DimY = 2,
-//      equations = equations, "rf.dat", "ra.dat"
-//    ), Array("--target-dir", "gen-dir")
-//  )
 }

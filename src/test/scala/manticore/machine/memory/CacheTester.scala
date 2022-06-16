@@ -1,8 +1,11 @@
 package manticore.machine.memory
 
 import Chisel._
-import chisel3.tester.{testableClock, testableData}
-import chiseltest.{ChiselScalatestTester, VerilatorBackendAnnotation, WriteVcdAnnotation}
+import chisel3.tester.testableClock
+import chisel3.tester.testableData
+import chiseltest.ChiselScalatestTester
+import chiseltest.VerilatorBackendAnnotation
+import chiseltest.WriteVcdAnnotation
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -70,11 +73,11 @@ class CacheTester extends AnyFlatSpec with ChiselScalatestTester with Matchers {
     }
     def createRequest(dut: Cache): MemoryInputIF = {
       MemoryInputIF(
-        dut.io.back.raddr.peek.litValue().toInt,
-        dut.io.back.waddr.peek.litValue().toInt,
-        dut.io.back.wline.peek.litValue(),
-        dut.io.back.start.peek.litToBoolean,
-        CacheBackendCommand(dut.io.back.cmd.peek.litValue().toInt)
+        dut.io.back.raddr.peek().litValue.toInt,
+        dut.io.back.waddr.peek().litValue.toInt,
+        dut.io.back.wline.peek().litValue,
+        dut.io.back.start.peek().litToBoolean,
+        CacheBackendCommand(dut.io.back.cmd.peek().litValue.toInt)
       )
     }
 
@@ -110,7 +113,7 @@ class CacheTester extends AnyFlatSpec with ChiselScalatestTester with Matchers {
             dut.io.front.addr.poke(0.U)
             dut.io.front.wdata.poke(0.U)
             evaluteMemorySpec
-            if (dut.io.front.done.peek.litToBoolean) {
+            if (dut.io.front.done.peek().litToBoolean) {
               dut.io.front.rdata.expect(value.U, s"incorrect load from address 0x$addr%0x")
               (None, reads_left)
             } else {
@@ -149,7 +152,7 @@ class CacheTester extends AnyFlatSpec with ChiselScalatestTester with Matchers {
             (Some(Access(true, addr, value)), addr_list.tail)
           case a @ Some(Access(true, addr, value)) =>
             dut.io.back.start.expect(false.B, "Write should be a hit!")
-            if (dut.io.front.done.peek.litToBoolean) {
+            if (dut.io.front.done.peek().litToBoolean) {
               // store is finished, now load the stored value..
               dut.clock.step()
               dut.io.front.start.poke(true.B)
@@ -167,7 +170,7 @@ class CacheTester extends AnyFlatSpec with ChiselScalatestTester with Matchers {
           case a @ Some(Access(false, addr, value)) =>
             // check if the read is finished
             dut.io.back.start.expect(false.B, "Read should be a hit!")
-            if (dut.io.front.done.peek.litToBoolean) {
+            if (dut.io.front.done.peek().litToBoolean) {
               // read is finished, check the value
               dut.io.front.rdata.expect(value.U)
               dut.io.front.start.poke(false.B)
@@ -218,7 +221,7 @@ class CacheTester extends AnyFlatSpec with ChiselScalatestTester with Matchers {
     @tailrec
     def wait(): Unit = {
       dut.clock.step()
-      evaluteMemorySpec
+      evaluteMemorySpec()
       if (dut.io.front.done.peek().litToBoolean) {
         println("Cache reset complete")
         dut.io.front.start.poke(false.B)
@@ -263,7 +266,7 @@ class CacheTester extends AnyFlatSpec with ChiselScalatestTester with Matchers {
             dut.io.front.addr.poke(0.U)
             dut.io.front.wdata.poke(0.U)
             evaluteMemorySpec
-            if (dut.io.front.done.peek.litToBoolean) {
+            if (dut.io.front.done.peek().litToBoolean) {
               (None, writes_left)
             } else {
               (a, writes_left)
@@ -292,7 +295,7 @@ class CacheTester extends AnyFlatSpec with ChiselScalatestTester with Matchers {
       // an address to every half-word in the cache
       val whit_addr = hit_addr.flatMap{ addr => Range(0, 1 << 4).map(addr + _)}
       val whit_val = whit_addr.map(_ => rdgen.nextInt(1 << 16))
-      
+
       checkReadAfterWrite(whit_addr.zip(whit_val))
       // all the cache line are dirty now, any read miss should result in a write back
       println("Testing capacity read miss and write-back")

@@ -22,28 +22,20 @@ package manticore.machine.core
 
 import Chisel._
 import chisel3.stage.ChiselStage
-import manticore.machine.{ISA, ManticoreBaseISA}
-import manticore.machine.core.ExecuteInterface.{
-  GlobalMemoryInterface,
-  PipeIn,
-  PipeOut
-}
-import manticore.machine.core.alu.{
-  ALUInput,
-  CustomALU,
-  CustomALUComb,
-  StandardALU,
-  StandardALUComb
-}
-import manticore.machine.memory.{CacheCommand, CacheConfig}
-
+import manticore.machine.ISA
+import manticore.machine.ManticoreBaseISA
+import manticore.machine.core.ExecuteInterface.GlobalMemoryInterface
+import manticore.machine.core.ExecuteInterface.PipeIn
+import manticore.machine.core.ExecuteInterface.PipeOut
+import manticore.machine.core.alu.ALUInput
+import manticore.machine.core.alu.CustomAlu
+import manticore.machine.core.alu.CustomFunctionConfigInterface
+import manticore.machine.core.alu.StandardALUComb
+import manticore.machine.memory.CacheCommand
+import manticore.machine.memory.CacheConfig
 import scala.util.Random
+import manticore.machine.ManticoreFullISA
 
-// class ForwardBundle(dataWidth: Int, addressWidth: Int) extends Bundle {
-//   val value   = UInt(dataWidth.W)
-//   val address = UInt(addressWidth.W)
-//   val en      = Bool()
-// }
 case class ForwardingTuple(value: UInt, address: UInt, en: Bool)
 
 object ForwardPath {
@@ -52,9 +44,9 @@ object ForwardPath {
       address: UInt,
       paths: Seq[ForwardingTuple]
   ): UInt = {
-
     require(paths.forall(_.value.getWidth == value.getWidth))
     require(paths.forall(_.address.getWidth == address.getWidth))
+
     if (paths.isEmpty) {
       // no forwarding
       value
@@ -63,24 +55,19 @@ object ForwardPath {
         val temp = Wire(value.cloneType)
         temp := Mux(fpath.address === address && fpath.en, fpath.value, prev)
         temp
-
       }
     }
   }
 }
 
-
 object ExecuteInterface {
   type OpcodePipe = Decode.OpcodePipe
   type PipeIn     = Decode.PipeOut
   class PipeOut(config: ISA) extends Bundle {
-    val opcode    = new Decode.OpcodePipe
+    val opcode    = new Decode.OpcodePipe(config.numFuncts)
     val data      = UInt(config.DataBits.W)
     val result    = UInt(config.DataBits.W)
     val rd        = UInt(config.IdBits.W)
-    // val carry_rd  = UInt(log2Ceil(config.CarryCount).W)
-    // val carry_wen = Bool()
-    // val carry_din = UInt(1.W)
     val immediate = UInt(config.DataBits.W)
     val gmem      = new GlobalMemoryInterface(config)
     val pred      = Bool()
@@ -93,95 +80,126 @@ object ExecuteInterface {
     require(config.DataBits == CacheConfig.DataBits)
     val wdata = UInt(config.DataBits.W)
   }
-
 }
 
+class ExecuteInterface(
+    config: ISA
+) extends Bundle {
+  val pipe_in    = Input(new PipeIn(config))
+  val regs_in    = Input(new ALUInput(config.DataBits))
+  val carry_in   = Input(UInt(1.W))
+  val pipe_out   = Output(new PipeOut(config))
+  val debug_time = Input(UInt(64.W))
 
+  val carry_rd  = Output(UInt(log2Ceil(config.CarryCount).W))
+  val carry_wen = Output(Bool())
+  val carry_din = Output(UInt(1.W))
 
-class ExecuteInterface(config: ISA) extends Bundle {
-  val pipe_in: PipeIn = Input(new PipeIn(config))
-  val regs_in         = Input(new ALUInput(config.DataBits))
-  val carry_in        = Input(UInt(1.W))
-  val pipe_out        = Output(new PipeOut(config))
-  val debug_time      = Input(UInt(64.W))
-
-  val carry_rd  = UInt(log2Ceil(config.CarryCount).W)
-  val carry_wen = Bool()
-  val carry_din = UInt(1.W)
-}
-
-class ExecuteBase(
-    config: ISA,
-    equations: Seq[Seq[Int]],
-    debug_tag: String = "UNTAGGED",
-    debug_enable: Boolean = false
-) extends Module {
-  val io = IO(new ExecuteInterface(config))
+  val lutdata_din = Input(Vec(config.numFuncts, UInt(config.DataBits.W)))
 }
 
 class ExecuteComb(
     config: ISA,
-    equation: Seq[Seq[Int]],
+    equations: Seq[Seq[BigInt]],
     debug_tag: String = "UNTAGGED",
-    debug_enable: Boolean = false
-) extends ExecuteBase(config, equation, debug_tag, debug_enable) {
+    debug_enable: Boolean = false,
+    custom_alu_enable: Boolean = true
+) extends Module {
 
-  val custom_alu = Module(new CustomALUComb(config.DataBits, equation))
+  val io = IO(new ExecuteInterface(config))
 
+  val pipe_out_reg = Reg(new PipeOut(config))
+  val pred_reg     = Reg(Bool())
+  val rs4_reg      = Reg(UInt(log2Ceil(config.CarryCount).W))
+  val gmem_if_reg  = Reg(new GlobalMemoryInterface(config))
+
+  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Custom ALU ////////////////////////////////////////////////////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  val custom_alu = Module(
+    new CustomAlu(config.DataBits, config.FunctBits, config.LutArity, equations, custom_alu_enable)
+  )
+  custom_alu.io.rsx := Vec(io.regs_in.rs1, io.regs_in.rs2, io.regs_in.rs3, io.regs_in.rs4)
+  for (i <- Range(0, config.numFuncts)) {
+    // ALL luts are configured in parallel. It is not possible to configure them one by one.
+    // This avoids the use of (conf.FunctBits * config.DataBits) LUTs to perform an AND on this
+    // large fan-out path.
+    custom_alu.io.config(i).writeEnable := io.pipe_in.opcode.configure_luts(i)
+    custom_alu.io.config(i).loadData    := io.lutdata_din(i)
+  }
+  custom_alu.io.selector := io.pipe_in.funct
+
+  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Standard ALU //////////////////////////////////////////////////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   val standard_alu = Module(new StandardALUComb(config.DataBits))
 
-  // Custom ALU connections
-  custom_alu.io.in.x  := io.regs_in.x
-  custom_alu.io.in.y  := io.regs_in.y
-  custom_alu.io.in.u  := io.regs_in.u
-  custom_alu.io.in.v  := io.regs_in.v
-  custom_alu.io.funct := io.pipe_in.funct
+  when(io.pipe_in.opcode.slice) {
+    // Mask to use on the output of the ALU (for slicing after the ALU has
+    // performed SRL on rs).
+    standard_alu.io.in.mask := io.pipe_in.immediate
+  } otherwise {
+    // Keep the full output of the ALU.
+    standard_alu.io.in.mask := Fill(config.DataBits, 1.B).asUInt
+  }
 
   when(io.pipe_in.opcode.arith | io.pipe_in.opcode.expect) {
-    // standard_alu.io.in.y := io.regs_in.y
-    standard_alu.io.in.y := io.regs_in.y
+    standard_alu.io.in.y := io.regs_in.rs2
     when(io.pipe_in.opcode.expect) {
-      standard_alu.io.funct := StandardALU.Functs.SEQ.id.U
+      standard_alu.io.funct := ISA.Functs.SEQ.id.U
     } otherwise {
       standard_alu.io.funct := io.pipe_in.funct
     }
   } otherwise {
-    standard_alu.io.funct := StandardALU.Functs.ADD2.id.U
-    // with non-arith instructions, funct can be any value, including the
-    // funct for Mux (which is stateful) so we should set it to zero to
-    // ensure no stateful ALU operations are performed.
-    standard_alu.io.in.y := io.pipe_in.immediate
+    when(io.pipe_in.opcode.slice) {
+      // When configured to perform a slice, the funct field already
+      // has the code for SRL.
+      standard_alu.io.funct := io.pipe_in.funct
+      standard_alu.io.in.y  := io.pipe_in.slice_ofst
+    } otherwise {
+      // TODO (skashani): This comment from Mahyar seems wrong as MUX is assembled
+      // as an ARITH instruction. To check with him later.
+      //
+      // with non-arith instructions, funct can be any value, including the
+      // funct for Mux (which is stateful) so we should set it to zero to
+      // ensure no stateful ALU operations are performed.
+      standard_alu.io.funct := ISA.Functs.ADD2.id.U
+      standard_alu.io.in.y  := io.pipe_in.immediate
+    }
   }
 
-  standard_alu.io.in.select := io.regs_in.u
-
-  standard_alu.io.in.carry := io.carry_in
+  standard_alu.io.in.select := io.regs_in.rs3
+  standard_alu.io.in.carry  := io.carry_in
 
   when(io.pipe_in.opcode.set || io.pipe_in.opcode.send) {
     standard_alu.io.in.x := 0.U
   } otherwise {
-    standard_alu.io.in.x := io.regs_in.x
+    standard_alu.io.in.x := io.regs_in.rs1
   }
 
-  val pipe_out = Reg(new PipeOut(config))
-
-  when(io.pipe_in.opcode.cust0) {
-    pipe_out.result := custom_alu.io.out
+  when(io.pipe_in.opcode.cust) {
+    pipe_out_reg.result := custom_alu.io.out
   } otherwise {
-    pipe_out.result := standard_alu.io.out
+    pipe_out_reg.result := standard_alu.io.out
   }
 
-  pipe_out.opcode    := io.pipe_in.opcode
-  pipe_out.data      := io.regs_in.y
-  pipe_out.rd        := io.pipe_in.rd
-  pipe_out.immediate := io.pipe_in.immediate
+  pipe_out_reg.opcode    := io.pipe_in.opcode
+  pipe_out_reg.data      := io.regs_in.rs2
+  pipe_out_reg.rd        := io.pipe_in.rd
+  pipe_out_reg.immediate := io.pipe_in.immediate
+
+  io.pipe_out.opcode    := pipe_out_reg.opcode
+  io.pipe_out.data      := pipe_out_reg.data
+  io.pipe_out.result    := pipe_out_reg.result
+  io.pipe_out.rd        := pipe_out_reg.rd
+  io.pipe_out.immediate := pipe_out_reg.immediate
+
   when(io.pipe_in.opcode.set_carry) {
     io.carry_rd := io.pipe_in.rd
   } otherwise {
     // notice that rs4 needs to be registered before given to the output pipe
-    val rs4_reg = Reg(UInt(log2Ceil(config.CarryCount).W))
-    rs4_reg           := io.pipe_in.rs4
-    io.carry_rd       := rs4_reg
+    rs4_reg     := io.pipe_in.rs4
+    io.carry_rd := rs4_reg
   }
   when(io.pipe_in.opcode.set_carry) {
     io.carry_din := io.pipe_in.immediate(0)
@@ -189,28 +207,24 @@ class ExecuteComb(
     io.carry_din := standard_alu.io.carry_out
   }
   io.carry_wen :=
-    (io.pipe_in.opcode.arith & (io.pipe_in.funct === StandardALU.Functs.ADDC.id.U)) | (io.pipe_in.opcode.set_carry)
-  io.pipe_out := pipe_out
-
-  val pred_reg = Reg(Bool())
+    (io.pipe_in.opcode.arith & (io.pipe_in.funct === ISA.Functs.ADDC.id.U)) | (io.pipe_in.opcode.set_carry)
 
   // enable/disable predicate
   when(io.pipe_in.opcode.predicate) {
-    pred_reg := io.regs_in.x === 1.U
+    pred_reg := io.regs_in.rs1 === 1.U
   }
 
   io.pipe_out.pred := pred_reg
 
   if (config.WithGlobalMemory) {
-    val gmem_if_reg = Reg(new GlobalMemoryInterface(config))
-    gmem_if_reg.address := io.regs_in.y ## io.regs_in.u ## io.regs_in.v
+    gmem_if_reg.address := io.regs_in.rs2 ## io.regs_in.rs3 ## io.regs_in.rs4
     when(io.pipe_in.opcode.gload) {
       gmem_if_reg.command := CacheCommand.Read
     }.elsewhen(io.pipe_in.opcode.gstore) {
       gmem_if_reg.command := CacheCommand.Write
     }
     gmem_if_reg.start := (io.pipe_in.opcode.gstore && pred_reg) | io.pipe_in.opcode.gload
-    gmem_if_reg.wdata := io.regs_in.x
+    gmem_if_reg.wdata := io.regs_in.rs1
     io.pipe_out.gmem  := gmem_if_reg
   }
 
@@ -224,7 +238,7 @@ class ExecuteComb(
     val num_decoded = Wire(UInt(32.W))
     num_decoded :=
       io.pipe_in.opcode.arith.toUInt +
-        io.pipe_in.opcode.cust0.toUInt +
+        io.pipe_in.opcode.cust.toUInt +
         io.pipe_in.opcode.expect.toUInt +
         io.pipe_in.opcode.gload.toUInt +
         io.pipe_in.opcode.gstore.toUInt +
@@ -233,7 +247,9 @@ class ExecuteComb(
         io.pipe_in.opcode.nop.toUInt +
         io.pipe_in.opcode.predicate.toUInt +
         io.pipe_in.opcode.send.toUInt +
-        io.pipe_in.opcode.set.toUInt
+        io.pipe_in.opcode.set.toUInt +
+        io.pipe_in.opcode.set_lut_data.toUInt +
+        io.pipe_in.opcode.configure_luts(0) // This is a replicated signal, so just 1 of them suffices.
 
     when(num_decoded > 1.U) {
       dprintf("\tERROR multiple decoded operations (%d)!\n", num_decoded)
@@ -244,10 +260,12 @@ class ExecuteComb(
 }
 object ExecuteGen extends App {
 
-  val rdgen = Random
+  val rgen = Random
 
-  // create random LUT equations
-  val equations = Seq.fill(32)(Seq.fill(16)(rdgen.nextInt(1 << 16)))
+  val equations = Seq.fill(1 << ManticoreFullISA.FunctBits) {
+    Seq.fill(ManticoreFullISA.DataBits) { BigInt(rgen.nextInt(1 << 16)) }
+  }
 
   new ChiselStage().emitVerilog(new ExecuteComb(ManticoreBaseISA, equations))
+
 }

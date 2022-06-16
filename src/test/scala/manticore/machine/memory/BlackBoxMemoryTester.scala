@@ -1,16 +1,14 @@
 package manticore.machine.memory
 
 import chisel3._
-
-
 import chiseltest._
-
-
-import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
-import java.io.{File, PrintWriter}
-import java.nio.file.{Files, Paths}
+import java.io.File
+import java.io.PrintWriter
+import java.nio.file.Files
+import java.nio.file.Paths
 import scala.util.Random
 
 class BlackBoxMemoryTester extends AnyFlatSpec with ChiselScalatestTester with Matchers {

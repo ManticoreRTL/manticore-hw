@@ -1,13 +1,14 @@
 package manticore.machine.xrt
 
-import java.nio.file.{Files, StandardCopyOption}
-import java.io.PrintWriter
-import java.nio.file.Path
-import java.io.File
-
 import chisel3._
-import chisel3.util.HasBlackBoxPath
 import chisel3.stage.ChiselStage
+import chisel3.util.HasBlackBoxPath
+
+import java.io.File
+import java.io.PrintWriter
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.StandardCopyOption
 
 object AxiMasterGenerator {
 

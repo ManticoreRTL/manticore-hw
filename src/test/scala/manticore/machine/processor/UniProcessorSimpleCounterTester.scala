@@ -1,15 +1,13 @@
 package manticore.machine.processor
 
 import chisel3._
-
 import chiseltest._
-
-
-import manticore.machine.assembly.Assembler
-import manticore.machine.assembly.Instruction.{Add2, R, Send}
-import manticore.machine.core.Processor
 import manticore.machine.ManticoreBaseISA
-
+import manticore.machine.assembly.Assembler
+import manticore.machine.assembly.Instruction.Add2
+import manticore.machine.assembly.Instruction.R
+import manticore.machine.assembly.Instruction.Send
+import manticore.machine.core.Processor
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -33,7 +31,7 @@ class UniProcessorSimpleCounterTester extends AnyFlatSpec with Matchers with Chi
   )
 
   // create random LUT equations
-  val equations: Seq[Seq[Int]] = Seq.fill(32)(Seq.fill(16)(rdgen.nextInt(1 << 16)))
+  val equations: Seq[Seq[BigInt]] = Seq.fill(32)(Seq.fill(16)(BigInt(rdgen.nextInt(1 << 16))))
 
   def makeProcessor =
     new Processor(config = ManticoreBaseISA,
@@ -67,7 +65,7 @@ class UniProcessorSimpleCounterTester extends AnyFlatSpec with Matchers with Chi
 
 
       UniProcessorTestUtils.programProcessor(
-        instructions, epilogue_length, sleep_length, countdown, dut
+        instructions.toIndexedSeq, epilogue_length, sleep_length, countdown, dut
       ){
         rdgen.nextInt(10) == 0
       }
@@ -84,10 +82,10 @@ class UniProcessorSimpleCounterTester extends AnyFlatSpec with Matchers with Chi
 
         @tailrec
         def execute(expected: Seq[Int], msgs: Seq[(Int, Int)]): Unit = {
-          if (dut.io.periphery.active.peek.litToBoolean) {
+          if (dut.io.periphery.active.peek().litToBoolean) {
             val next =
               if (dut.io.packet_out.valid.peek().litToBoolean) {
-                if (dut.io.packet_out.address.peek.litValue().toInt == 2) {
+                if (dut.io.packet_out.address.peek().litValue.toInt == 2) {
                   dut.io.packet_out.data.expect(counter.U)
                   dut.io.packet_out.xHops.expect(2.U)
                   dut.io.packet_out.yHops.expect(2.U)
@@ -113,7 +111,7 @@ class UniProcessorSimpleCounterTester extends AnyFlatSpec with Matchers with Chi
             }
           }
         }
-        waitForStart
+        waitForStart()
         execute(Range(3, 7), Nil)
       }
       dut.clock.setTimeout(10000)

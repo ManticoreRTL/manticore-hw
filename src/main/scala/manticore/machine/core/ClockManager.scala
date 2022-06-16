@@ -100,11 +100,11 @@ class ClockManager(NumUsers: Int = 4, debug_enable: Boolean = false)
 
   if (debug_enable)
     debug_time := debug_time + 1.U
-  
+
   def dprintf(fmt: String, data: Bits*) =
     if (debug_enable)
       printf(s"[%d : Clock] " + fmt, (io.debug_time +: data): _*)
-  
+
 
   def setOnceError(error_bit: Bool, cond: Bool): Unit = {
     when(cond === true.B) {
@@ -145,7 +145,7 @@ class ClockManager(NumUsers: Int = 4, debug_enable: Boolean = false)
     universal
   }
 
-  
+
   switch(state) {
     is(GatedState.ClockActive) {
 

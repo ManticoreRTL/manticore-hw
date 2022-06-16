@@ -1,21 +1,17 @@
 package manticore.machine.noc
 
 import Chisel._
-
-
-
+import chisel3.experimental.BundleLiterals._
 import chiseltest._
 import manticore.machine.ManticoreBaseISA
 import manticore.machine.TestsCommon.RequiresVerilator
-import manticore.machine.core.{BareNoC, NoCBundle}
-
+import manticore.machine.core.BareNoC
+import manticore.machine.core.NoCBundle
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import scala.annotation.tailrec
 import scala.util.Random
-
-import chisel3.experimental.BundleLiterals._
 
 class BareNoCTester extends AnyFlatSpec with ChiselScalatestTester with Matchers {
 
@@ -102,14 +98,14 @@ class BareNoCTester extends AnyFlatSpec with ChiselScalatestTester with Matchers
 
       val target =
         Position(
-          (packet.xHops.litValue().toInt + source.x) % DimX,
-          (packet.yHops.litValue().toInt + source.y) % DimY)
+          (packet.xHops.litValue.toInt + source.x) % DimX,
+          (packet.yHops.litValue.toInt + source.y) % DimY)
 
       if (!coverage.contains(TestCase(source, target))) {
-        val latency = (packet.xHops.litValue().toInt + packet.yHops.litValue().toInt)
+        val latency = (packet.xHops.litValue.toInt + packet.yHops.litValue.toInt)
         val expected = ExpectedPacket(
-          data = packet.data.litValue().toInt,
-          address = packet.data.litValue().toInt,
+          data = packet.data.litValue.toInt,
+          address = packet.data.litValue.toInt,
           target = target,
           latency = latency
         )
@@ -155,7 +151,7 @@ class BareNoCTester extends AnyFlatSpec with ChiselScalatestTester with Matchers
 
   it should "always deliver packets in absence of congestion" taggedAs RequiresVerilator in {
 
-    
+
     test(new BareNoC(6, 7, ManticoreBaseISA))
       .withAnnotations(Seq(VerilatorBackendAnnotation)) { implicit dut =>
         checkRoutable

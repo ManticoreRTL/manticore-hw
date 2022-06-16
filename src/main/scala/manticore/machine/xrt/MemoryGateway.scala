@@ -1,11 +1,11 @@
 package manticore.machine.xrt
 
 import chisel3._
-import chisel3.util._
 import chisel3.experimental.ChiselEnum
 import chisel3.stage.ChiselStage
-import chisel3.util.HasBlackBoxResource
 import chisel3.util.HasBlackBoxPath
+import chisel3.util.HasBlackBoxResource
+import chisel3.util._
 
 class MemoryGatewayInterface(
     AxiIdWidth: Int = 1,

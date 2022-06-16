@@ -1,22 +1,27 @@
 package manticore.machine.control
 
 
-import chiseltest._
-
 import Chisel._
 import chisel3.VecInit
 import chisel3.experimental.ChiselEnum
-
+import chiseltest._
+import manticore.machine.ManticoreBaseISA
+import manticore.machine.ManticoreFullISA
+import manticore.machine.core.BareNoC
+import manticore.machine.core.BareNoCInterface
+import manticore.machine.core.MemoryReadWriteInterface
+import manticore.machine.core.NamedError
+import manticore.machine.core.NoCBundle
+import manticore.machine.core.Processor
+import manticore.machine.core.Programmer
+import manticore.machine.core.ProgrammerInterface
+import manticore.machine.processor.UniProcessorTestUtils
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import manticore.machine.{ManticoreBaseISA, ManticoreFullISA}
-import manticore.machine.core.{BareNoC, BareNoCInterface, NamedError, NoCBundle, Processor, Programmer, ProgrammerInterface}
-import manticore.machine.processor.UniProcessorTestUtils
 
 import java.io.File
 import java.nio.file.Paths
 import scala.annotation.tailrec
-import manticore.machine.core.MemoryReadWriteInterface
 
 
 class ProgrammerNoCTester
@@ -34,7 +39,7 @@ class ProgrammerNoCTester
 
   val equations = Seq.fill(1 << ManticoreFullISA.FunctBits) {
     Seq.fill(ManticoreFullISA.DataBits) {
-      rdgen.nextInt(1 << 16)
+      BigInt(rdgen.nextInt(1 << 16))
     }
   }
 
@@ -315,7 +320,7 @@ class ProgrammerNoCTester
               v.zipWithIndex.reverse.foreach { case (p, y) =>
                 if (p.valid.peek().litToBoolean) {
                   println(
-                    s"[${cycle}]: Received packet at (${x}, ${y}) with value ${p.data.peek().litValue().toInt}"
+                    s"[${cycle}]: Received packet at (${x}, ${y}) with value ${p.data.peek().litValue.toInt}"
                   )
                   if (mem_pos(x)(y) < initial_memory_content(x)(y).length) {
                     p.data.expect(
@@ -348,7 +353,7 @@ class ProgrammerNoCTester
                 .map { y =>
                   if (dut.io.exception(x)(y).error.peek().litToBoolean) {
                     println(
-                      s"[${cycle}] an exception in core_${x}_${y} occurred ${dut.io.exception(x)(y).peek}"
+                      s"[${cycle}] an exception in core_${x}_${y} occurred ${dut.io.exception(x)(y).peek()}"
                     )
                     false
                   } else {
@@ -371,7 +376,7 @@ class ProgrammerNoCTester
             else {
               if (
                 dut.io.exception.flatten
-                  .map(_.id.peek().litValue().toInt)
+                  .map(_.id.peek().litValue.toInt)
                   .forall(_ == 0xffff)
               ) {
                 println("Stop condition caught")

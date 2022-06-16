@@ -1,28 +1,26 @@
 package manticore.machine.xrt
 
 import chisel3._
-import manticore.machine.core.{
-  ClockDistribution,
-  DeviceRegisters,
-  HostRegisters,
-  ManticoreFlatArray,
-  MemoryReadWriteInterface
-}
-import manticore.machine.ManticoreFullISA
+import chisel3.experimental.ChiselEnum
 import chisel3.stage.ChiselStage
+import chisel3.util.Cat
+import chisel3.util.is
+import chisel3.util.log2Ceil
+import chisel3.util.switch
+import manticore.machine.ManticoreFullISA
+import manticore.machine.core.ClockDistribution
+import manticore.machine.core.DeviceRegisters
+import manticore.machine.core.HostRegisters
+import manticore.machine.core.ManticoreFlatArray
+import manticore.machine.core.MemoryReadWriteInterface
+import manticore.machine.memory.CacheConfig
 
+import java.io.File
+import java.io.PrintWriter
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
-import java.io.File
-import java.io.PrintWriter
 import scala.collection.immutable.ListMap
-import chisel3.util.log2Ceil
-import chisel3.experimental.ChiselEnum
-import chisel3.util.switch
-import chisel3.util.is
-import chisel3.util.Cat
-import manticore.machine.memory.CacheConfig
 
 class MemoryPointers extends Bundle {
   val pointer_0: UInt = UInt(64.W)
@@ -63,6 +61,7 @@ object KernelInfo {
 class ManticoreFlatKernel(
     DimX: Int,
     DimY: Int,
+    enable_custom_alu: Boolean = true,
     debug_enable: Boolean = false,
     freqMhz: Double = 200.0,
     // m_axi_path: Seq[String] =
@@ -112,7 +111,7 @@ class ManticoreFlatKernel(
   interrupt             := slave.io.control.interrupt
 
   val manticore =
-    Module(new ManticoreFlatArray(DimX, DimY, debug_enable))
+    Module(new ManticoreFlatArray(DimX, DimY, debug_enable, enable_custom_alu))
 
   manticore.io.reset         := reset
   manticore.io.control_clock := clock_distribution.io.control_clock
@@ -169,6 +168,7 @@ class ManticoreFlatSimKernel(
     DimX: Int,
     DimY: Int,
     debug_enable: Boolean = false,
+    enable_custom_alu: Boolean = true,
     prefix_path: String = "./"
 ) extends Module {
 
@@ -206,7 +206,7 @@ class ManticoreFlatSimKernel(
   clock_distribution.io.root_clock := clock
 
   val manticore =
-    Module(new ManticoreFlatArray(DimX, DimY, debug_enable, prefix_path))
+    Module(new ManticoreFlatArray(DimX, DimY, debug_enable, enable_custom_alu, prefix_path))
   manticore.io.clock_stabled := clock_distribution.io.locked
 
   manticore.io.reset         := reset
@@ -468,6 +468,7 @@ object ManticoreKernelGenerator {
       target: String = "hw_emu",
       dimx: Int = 8,
       dimy: Int = 8,
+      enable_custom_alu: Boolean = true,
       freqMhz: Double = 200.0
   ) = {
 
@@ -482,6 +483,7 @@ object ManticoreKernelGenerator {
       new ManticoreFlatKernel(
         DimX = dimx,
         DimY = dimy,
+        enable_custom_alu = enable_custom_alu,
         debug_enable = false,
         freqMhz = freqMhz
       ),

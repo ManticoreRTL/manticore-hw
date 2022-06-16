@@ -22,10 +22,12 @@ package manticore.machine.core
 
 import Chisel._
 import chisel3.stage.ChiselStage
-import manticore.machine.{ISA, ManticoreBaseISA}
 import firrtl.transforms.DontTouchAllTargets
 import manticore.machine.ISA
-import manticore.machine.memory.{MemStyle, SimpleDualPortMemory, SimpleDualPortMemoryInterface}
+import manticore.machine.ManticoreBaseISA
+import manticore.machine.memory.MemStyle
+import manticore.machine.memory.SimpleDualPortMemory
+import manticore.machine.memory.SimpleDualPortMemoryInterface
 
 /** Fetch module interface
   *   - `program_counter`: output signal to the controller, might be unsed.
@@ -162,7 +164,6 @@ class FetchCore(config: ISA) extends Module {
 //}
 
 object FetchGenerator extends App {
-  println(ManticoreBaseISA.Immediate.length)
   println(ManticoreBaseISA.IdBits)
   println(ManticoreBaseISA.FunctBits)
   println(ManticoreBaseISA.DataBits)
