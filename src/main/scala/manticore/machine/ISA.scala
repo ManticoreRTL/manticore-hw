@@ -18,7 +18,7 @@ sealed abstract class InstructionField(val fromIndex: Int, val length: Int) {
 object ISA {
   object Functs extends Enumeration {
     type Functs = Value
-    val ADD2, SUB2, MUL2, MUL2H, AND2, OR2, XOR2, SLL, SRL, SRA, SEQ, SLTU, SLTS, MUX, ADDC = Value
+    val ADD2, SUB2, MUL2, MUL2H, MUL2S, AND2, OR2, XOR2, SLL, SRL, SRA, SEQ, SLTU, SLTS, MUX, ADDC = Value
   }
 }
 
