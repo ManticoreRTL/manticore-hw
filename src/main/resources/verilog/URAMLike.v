@@ -1,6 +1,7 @@
 module URAMLike #(
   parameter DATA_WIDTH = 64,
-  parameter ADDRESS_WIDTH = 12
+  parameter ADDRESS_WIDTH = 12,
+  parameter READ_LATENCY = 2
 )(
    input         clock,
 
@@ -17,14 +18,29 @@ module URAMLike #(
    (* ram_style = "ultra" *)
    reg [DATA_WIDTH - 1:0] memory [0: (1 << ADDRESS_WIDTH) - 1];
    reg [DATA_WIDTH - 1:0] dout_reg;
+   reg [DATA_WIDTH - 1:0] dout_reg_temp;
    reg [ADDRESS_WIDTH - 1:0] addr_reg;
-   always @(posedge clock) begin
+   always @(posedge clock) 
+   begin
     if (wen) begin
       memory[waddr] <= din;
     end
-    dout_reg <= memory[raddr];
+    dout_reg_temp <= memory[raddr];
+    dout_reg <= dout_reg_temp;
    end
-   assign dout = dout_reg;
+   
+   if(READ_LATENCY==2)
+   begin
+    assign dout = dout_reg;     
+   end
+   else if(READ_LATENCY==1) 
+   begin
+    assign dout = dout_reg_temp;
+   end
+   else
+   begin
+    assign dout = dout_reg_temp; 
+   end
   //  assign dout = memory[addr_reg];
 `else
   xpm_memory_sdpram # (
@@ -47,7 +63,7 @@ module URAMLike #(
     .READ_DATA_WIDTH_B (DATA_WIDTH), //positive integer
     .ADDR_WIDTH_B (ADDRESS_WIDTH), //positive integer
     .READ_RESET_VALUE_B ("0"), //string
-    .READ_LATENCY_B (1), //non-negative integer
+    .READ_LATENCY_B (READ_LATENCY), //non-negative integer
     .WRITE_MODE_B ("read_first") //string; "write_first", "read_first", "no_change"
   ) uram_inst (
     // Common module ports

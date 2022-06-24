@@ -3,6 +3,7 @@ package manticore.machine.memory
 import Chisel._
 import chisel3.experimental.ChiselEnum
 import chisel3.stage.ChiselStage
+import firrtl.backends.experimental.smt.State
 
 /** Cache back-end interface. The backend interface connects to a module that
   * talks to the memory through a bus (e.g., AXI). Such a back-end should be
@@ -62,9 +63,10 @@ class CacheBackInterface(CacheLineBits: Int, AddressBits: Int) extends Bundle {
     waddr := 0.U
     raddr := 0.U
     wline := 0.U
-    cmd   := CacheBackendCommand.Read.id.U
+    //cmd   := CacheBackendCommand.Read.id.U
 
   }
+
 
   /** start a write-back-then-read operation
     *
@@ -86,6 +88,7 @@ class CacheBackInterface(CacheLineBits: Int, AddressBits: Int) extends Bundle {
     cmd   := CacheBackendCommand.WriteBack.id.U
     waddr := write_address
     raddr := read_address
+    
   }
 
   /** Start a read operation
@@ -255,7 +258,7 @@ class Cache extends Module {
     * cache. against
     */
   object StateValue extends ChiselEnum {
-    val Idle, ReadCached, HitCheck, WaitResponse, Flush, FlushRead, FlushCheck,
+    val Idle, ReadCached, HitCheck, WaitBeforeRead, WaitBeforeFlush ,WaitResponse, Flush, FlushRead, FlushCheck,
         FlushResponse, Reset = Value
   }
 
@@ -304,6 +307,7 @@ class Cache extends Module {
       Module(
         new SimpleDualPortMemory(
           ADDRESS_WIDTH = 12,
+          READ_LATENCY = 2,
           DATA_WIDTH = 72,
           STYLE =
             MemStyle.URAM // URAM has higher capacity and can not be initialized
@@ -419,7 +423,7 @@ class Cache extends Module {
             )
           )
           // read the requested line from the banks
-          decoded := StateValue.ReadCached
+          decoded := StateValue.WaitBeforeRead
         }.elsewhen(io.front.cmd === CacheCommand.Flush) {
 
           decoded := StateValue.Flush
@@ -432,6 +436,9 @@ class Cache extends Module {
         pstate := decoded
 
       }
+    }
+    is(StateValue.WaitBeforeRead){
+      pstate := StateValue.ReadCached
     }
     is(StateValue.ReadCached) {
       pstate := StateValue.HitCheck
@@ -532,6 +539,9 @@ class Cache extends Module {
     is(StateValue.Flush) {
 
       banks.foreach(b => b.module.io.raddr := flush_pointer)
+      pstate := StateValue.WaitBeforeFlush
+    }
+    is(StateValue.WaitBeforeFlush) {
       pstate := StateValue.FlushRead
     }
     is(StateValue.FlushRead) {
@@ -556,7 +566,7 @@ class Cache extends Module {
         } otherwise {
           banks.foreach { b => b.module.io.raddr := flush_pointer + 1.U }
           flush_pointer := flush_pointer + 1.U
-          pstate        := StateValue.FlushRead
+          pstate        := StateValue.WaitBeforeFlush
         }
       }
     }
@@ -572,7 +582,7 @@ class Cache extends Module {
         } otherwise {
           banks.foreach { b => b.module.io.raddr := flush_pointer + 1.U }
           flush_pointer := flush_pointer + 1.U
-          pstate        := StateValue.FlushRead
+          pstate        := StateValue.WaitBeforeFlush
         }
 
       }

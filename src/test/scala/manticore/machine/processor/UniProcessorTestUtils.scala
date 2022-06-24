@@ -209,6 +209,7 @@ object UniProcessorTestUtils {
       Module(
         new SimpleDualPortMemory(
           ADDRESS_WIDTH = util.log2Ceil(memory_size),
+          READ_LATENCY = 2,
           DATA_WIDTH = DataBits,
           INIT = rom_values
         )
