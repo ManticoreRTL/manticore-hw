@@ -48,7 +48,7 @@ class RegisterFileInterface(config: ISA) extends Bundle {
       mem_if.raddr := addr
       dout := mem_if.dout
     }
-
+// jj
   }
   class WriteIf extends Bundle {
     val addr = makeAddr
