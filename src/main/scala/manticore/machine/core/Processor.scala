@@ -123,9 +123,9 @@ class Processor(
 
   val array_memory = Module(
     new SimpleDualPortMemory(
-      ADDRESS_WIDTH = 14,
+      ADDRESS_WIDTH = 12,
       DATA_WIDTH = config.DataBits,
-      STYLE = MemStyle.URAM,
+      STYLE = MemStyle.BRAM,
       INIT = initial_array
     )
   )
@@ -453,7 +453,7 @@ object ProcessorEmitter extends App {
 
   def makeProcessor() =
     new Processor(
-      config = ManticoreBaseISA,
+      config = ManticoreFullISA,
       equations = equations,
       DimX = 16,
       DimY = 16

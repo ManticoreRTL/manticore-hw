@@ -115,7 +115,7 @@ class Decode(config: ISA) extends Module {
   opcode_regs.nop            := io.instruction === 0.U
   opcode_regs.cust           := (opcode === config.Custom.value.U)
   opcode_regs.arith          := is_arith
-  opcode_regs.mul            := is_arith && (funct === ISA.Functs.MUL2.id.U)
+  opcode_regs.mul            := is_arith && (funct === ISA.Functs.MUL2.id.U || funct === ISA.Functs.MUL2S.id.U)
   opcode_regs.mulh           := is_arith && (funct === ISA.Functs.MUL2H.id.U)
   opcode_regs.lload          := (opcode === config.LocalLoad.value.U)
   opcode_regs.lstore         := (opcode === config.LocalStore.value.U)

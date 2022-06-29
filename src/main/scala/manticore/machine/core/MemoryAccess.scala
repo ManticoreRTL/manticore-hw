@@ -111,6 +111,8 @@ class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
   lload_r := io.pipe_in.opcode.lload
   gload_r := io.pipe_in.opcode.gload
 
+  lload_r := io.pipe_in.opcode.lload
+  gload_r := io.pipe_in.opcode.gload
   if (config.WithGlobalMemory) {
     when(lload_r) {
       io.pipe_out.result := io.local_memory_interface.dout
