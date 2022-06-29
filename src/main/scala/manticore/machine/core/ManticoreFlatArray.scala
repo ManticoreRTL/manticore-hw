@@ -9,6 +9,31 @@ import manticore.machine.memory.CacheCommand
 import manticore.machine.memory.CacheConfig
 
 import scala.annotation.tailrec
+import manticore.machine.ISA
+
+/// registers written by the host
+class HostRegisters(config: ISA) extends Bundle {
+  val global_memory_instruction_base: UInt = UInt(64.W)
+  val value_change_symbol_table_base: UInt = UInt(64.W)
+  val value_change_log_base: UInt          = UInt(64.W)
+  val schedule_config: UInt                = UInt(64.W)
+  // |               schedule_config                  |
+  // +------------------------------------------------+
+  // |63            56|55                            0|
+  // +----------------+-------------------------------+
+  // |      CMD       |           CMD DATA            |
+  // -----------------+--------------------------------
+
+}
+
+/// registers written by the device, i.e., the compute grid
+class DeviceRegisters(config: ISA) extends Bundle {
+  val virtual_cycles: UInt    = UInt(64.W)
+  val bootloader_cycles: UInt = UInt(32.W) // for profiling
+  // val exception_id: Vec[UInt] = Vec(4, UInt(config.DataBits.W))
+  val exception_id: UInt     = UInt(32.W)
+  val execution_cycles: UInt = UInt(64.W)
+}
 
 class ManticoreFlatArrayInterface extends Bundle {
 
@@ -21,11 +46,11 @@ class ManticoreFlatArrayInterface extends Bundle {
   val memory_backend: MemoryReadWriteInterface = new MemoryReadWriteInterface(
     ManticoreFullISA
   )
-  val clock_inactive = Output(Bool())
-  val compute_clock  = Input(Clock())
-  val control_clock  = Input(Clock())
-  val clock_stabled  = Input(Bool())
-  val reset          = Input(Reset())
+  val clock_active  = Output(Bool())
+  val compute_clock = Input(Clock())
+  val control_clock = Input(Clock())
+  val clock_stabled = Input(Bool())
+  val reset         = Input(Reset())
 }
 
 object ClockDistribution {
@@ -70,34 +95,34 @@ object ClockDistribution {
     }
     val sols = findSolutions()
     // println(sols.map { _.toDouble * 0.125 })
-
-    sols match {
-      case x +: _ =>
-        val len = sols.length
-        // we take the midway solution to basically have a "balanced" jitter
-        // similar to the "balanced" option in the Vivado clocking wizard see AR75237
-        sols(len / 2) * 0.125
-      case _ =>
+    val lookup = Map(
+      200.0 -> 6.0,
+      225.0 -> 5.0,
+      250.0 -> 5.0,
+      280.0 -> 4.0,
+      300.0 -> 4.0,
+      350.0 -> 3.0,
+      400.0 -> 3.0,
+      450.0 -> 3.0,
+      500.0 -> 2.0
+    )
+    lookup.get(freqMhz) match {
+      case None =>
         throw new UnsupportedOperationException(
           s"Invalid frequency ${freqMhz} MHz"
         )
+      case Some(value) => value
     }
   }
 
 }
-class ClockDistribution(freqMhz: Double = 200.0)
-    extends BlackBox(
-      Map(
-        "M"            -> ClockDistribution.frequencyToParam(freqMhz),
-        "CLOCK_PERIOD" -> 1000.0 / freqMhz
-      )
-    )
+class ClockDistribution(freqMhz: Double = 200.0) extends BlackBox
     with HasBlackBoxResource {
   val io = IO(new Bundle {
     val root_clock         = Input(Clock())
     val compute_clock      = Output(Clock())
     val control_clock      = Output(Clock())
-    val compute_clock_en_n = Input(Bool())
+    val compute_clock_en   = Input(Bool())
     val locked             = Output(Bool())
   })
   addResource("/verilog/ClockDistribution.v")
@@ -118,16 +143,17 @@ class KernelControl extends Module {
     val schedule_config    = Input(UInt(64.W))
     val exception_id       = Input(UInt(32.W))
     val config_enable      = Output(Bool())
-    val clock_inactive     = Output(Bool())
-    val execution_active   = Input(Bool())
-    val soft_reset         = Output(Bool())
 
-    val clock_stabled     = Input(Bool())
+    val clock_active     = Output(Bool())
+    val execution_active = Input(Bool())
+    val soft_reset       = Output(Bool())
+
+    val clock_stabled = Input(Bool())
   })
 
-  val clock_inactive = RegInit(Bool(), false.B)
+  val clock_active = RegInit(Bool(), true.B)
 
-  io.clock_inactive := clock_inactive
+  io.clock_active := clock_active
 
   val start_reg: Bool = RegInit(Bool(), false.B)
   start_reg := io.start
@@ -136,13 +162,11 @@ class KernelControl extends Module {
 
   val dev_regs = Reg(new DeviceRegisters(ManticoreFullISA))
 
-  val command = Wire(UInt(8.W))
+  val command      = Wire(UInt(8.W))
   val command_data = Wire(UInt(56.W))
 
-  command := io.schedule_config.head(8)
+  command      := io.schedule_config.head(8)
   command_data := io.schedule_config.tail(8)
-
-
 
   object State extends ChiselEnum {
     val Idle, SoftReset, BootLoading, VirtualCycle, SignalDone = Value
@@ -194,19 +218,18 @@ class KernelControl extends Module {
         state            := State.SoftReset
         reset_counter    := 0.U
         soft_rest_source := true.B
-        clock_inactive   := false.B
+        clock_active     := true.B
 
         dev_regs.bootloader_cycles := 0.U
         dev_regs.virtual_cycles    := 0.U
         dev_regs.execution_cycles  := 0.U
         execution_active_old       := false.B
 
-
       }
     }
     is(State.SoftReset) {
-      reset_counter  := reset_counter + 1.U
-      clock_inactive := false.B
+      reset_counter := reset_counter + 1.U
+      clock_active  := true.B
       // since the reset takes many cycles, we have to keep the clock active.
       // Note that it is possible that while the reset is taking place some
       // programming is running on the master core and triggers an exception
@@ -224,7 +247,7 @@ class KernelControl extends Module {
       }
     }
     is(State.BootLoading) {
-      clock_inactive             := false.B
+      clock_active               := true.B
       dev_regs.bootloader_cycles := dev_regs.bootloader_cycles + 1.U
       when(io.boot_finished) {
         state := State.VirtualCycle
@@ -234,19 +257,19 @@ class KernelControl extends Module {
       dev_regs.execution_cycles := dev_regs.execution_cycles + 1.U
       // a program could only kill the clock if the controller is in the virtual
       // cycle state.
-      when(clock_inactive === false.B) {
-        clock_inactive := io.kill_clock | io.exception_occurred
+      when(clock_active === true.B) {
+        clock_active := !(io.kill_clock | io.exception_occurred)
       } otherwise {
         // when the clock is inactive, resume the clock on command
-        clock_inactive := !io.resume_clock
+        clock_active := io.resume_clock
       }
       config_enable_reg := false.B
-      when(!clock_inactive) {
+      when(clock_active) {
         // either the application has finished
         when(io.exception_occurred) {
           state                 := State.SignalDone
           dev_regs.exception_id := io.exception_id
-        } .elsewhen(command === 1.U && dev_regs.virtual_cycles === command_data) {
+        }.elsewhen(command === 1.U && dev_regs.virtual_cycles === command_data) {
           // or we have run out of time
           state                 := State.SignalDone
           dev_regs.exception_id := 0x10000.U // give some id that users can not
@@ -326,8 +349,7 @@ class LoadStoreIssue extends Module {
   }
 
   object State extends ChiselEnum {
-    val Idle, StartMemoryRequest, WaitForMemoryResponse, ResumeClock,
-        SignalDone =
+    val Idle, StartMemoryRequest, WaitForMemoryResponse, ResumeClock, SignalDone =
       Value
   }
   val state = RegInit(State.Type(), State.Idle)
@@ -513,7 +535,7 @@ class ManticoreFlatArray(
       Module(new KernelControl)
     }
 
-  io.clock_inactive := controller.io.clock_inactive
+  io.clock_active := controller.io.clock_active
 
   val bootloader =
     withClockAndReset(

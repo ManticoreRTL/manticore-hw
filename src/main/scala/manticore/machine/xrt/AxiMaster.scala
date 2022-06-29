@@ -27,9 +27,8 @@ class AxiMasterIF(params: AxiParameters = DefaultAxiParameters) extends Bundle {
   val RVALID = Input(Bool())
   val RREADY = Output(Bool())
   val RID    = Input(UInt(width = params.IdWidth.W))
-  val RLAST   = Input(Bool())
-  val RRESP = Input(UInt(2.W))
-
+  val RLAST  = Input(Bool())
+  val RRESP  = Input(UInt(2.W))
 
   val AWADDR  = Output(UInt(params.AddrWidth.W))
   val AWLEN   = Output(UInt(8.W))
@@ -51,8 +50,7 @@ class AxiMasterIF(params: AxiParameters = DefaultAxiParameters) extends Bundle {
 //   val
 }
 
-class AxiMasterUserIF(params: AxiParameters = DefaultAxiParameters)
-    extends Bundle {
+class AxiMasterUserIF(params: AxiParameters = DefaultAxiParameters) extends Bundle {
   // user interfaces
   val base_addr = Input(
     UInt(width = params.AddrWidth.W)
@@ -65,8 +63,7 @@ class AxiMasterUserIF(params: AxiParameters = DefaultAxiParameters)
 
 }
 
-class AxiMasterReader(params: AxiParameters = DefaultAxiParameters)
-    extends Module {
+class AxiMasterReader(params: AxiParameters = DefaultAxiParameters) extends Module {
 
   val io = IO(new Bundle {
     val user = new AxiMasterUserIF(params)
@@ -86,10 +83,22 @@ class AxiMasterReader(params: AxiParameters = DefaultAxiParameters)
   val user_raddr  = Reg(io.user.raddr.cloneType)
   val lane_select = Reg(Bool())
 
-  io.bus.ARVALID    := false.B
-  io.bus.ARID       := 0.U
-  io.bus.ARADDR     := DontCare
-  io.bus.RREADY     := true.B
+  io.bus.ARVALID := false.B
+  io.bus.ARID    := 0.U
+  io.bus.ARADDR  := DontCare
+  io.bus.RREADY  := true.B
+  // disable writing
+  io.bus.WDATA   := DontCare
+  io.bus.BURST   := DontCare
+  io.bus.WSTRB   := DontCare
+  io.bus.AWADDR  := DontCare
+  io.bus.AWLEN   := DontCare
+  io.bus.AWVALID := false.B
+  io.bus.WLAST   := false.B
+  io.bus.BREADY  := true.B
+  io.bus.WVALID  := false.B
+  io.bus.AWSIZE  := DontCare
+
   io.user.read_done := false.B
   io.user.rdata := Mux(
     lane_select,

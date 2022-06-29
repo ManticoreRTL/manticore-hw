@@ -7,12 +7,12 @@ import chiseltest._
 import manticore.machine.ManticoreBaseISA
 import manticore.machine.core.BareNoCBundle
 import manticore.machine.core.Fetch
-import org.scalatest.FlatSpec
-import org.scalatest.Matchers
 
 import scala.annotation.tailrec
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
-class FetchTester extends FlatSpec with Matchers with ChiselScalatestTester {
+class FetchTester extends AnyFlatSpec with Matchers with ChiselScalatestTester {
 
   val rdgen = scala.util.Random
   val NUM_TESTS = 2

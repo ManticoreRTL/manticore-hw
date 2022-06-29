@@ -63,7 +63,7 @@ class ManticoreFlatKernel(
     DimY: Int,
     enable_custom_alu: Boolean = true,
     debug_enable: Boolean = false,
-    freqMhz: Double = 200.0,
+    freqMhz: Double = 200.0
     // m_axi_path: Seq[String] =
     //   Seq() // path to m_axi implementation if exits, uses simulation models otherwise
 ) extends RawModule {
@@ -75,12 +75,12 @@ class ManticoreFlatKernel(
   val reset = Wire(Bool())
   reset := ~reset_n
 
-  val clock_distribution = Module(new ClockDistribution(freqMhz))
+  val clock_distribution = Module(new ClockDistribution())
 
   clock_distribution.io.root_clock := clock
 
   val m_axi_bank_0  = IO(new AxiMasterIF)
-  val s_axi_control = IO(new AxiSlave.AxiSlaveCorenterface())
+  val s_axi_control = IO(new AxiSlave.AxiSlaveCoreInterface())
   val interrupt     = IO(Output(Bool()))
 
   val slave =
@@ -118,7 +118,7 @@ class ManticoreFlatKernel(
   manticore.io.compute_clock := clock_distribution.io.compute_clock
   manticore.io.clock_stabled := clock_distribution.io.locked
 
-  clock_distribution.io.compute_clock_en_n := manticore.io.clock_inactive
+  clock_distribution.io.compute_clock_en := manticore.io.clock_active
 
   // val gateway: MemoryGateway = withClockAndReset(
   //   clock = clock_distribution.io.control_clock,
@@ -147,7 +147,7 @@ class ManticoreFlatKernel(
   // manticore.io.memory_backend.idle  := gateway.io.ap_idle
 
   axi_mreader.io.user.read_start := manticore.io.memory_backend.start & (~manticore.io.memory_backend.wen)
-  axi_mreader.io.user.raddr := manticore.io.memory_backend.addr // we address the memory using short addresse
+  axi_mreader.io.user.raddr      := manticore.io.memory_backend.addr // we address the memory using short addresse
 
   manticore.io.memory_backend.done  := axi_mreader.io.user.read_done
   manticore.io.memory_backend.rdata := axi_mreader.io.user.rdata
@@ -220,7 +220,7 @@ class ManticoreFlatSimKernel(
   io.kernel_ctrl.done := manticore.io.done
   io.kernel_ctrl.idle := manticore.io.idle
 
-  clock_distribution.io.compute_clock_en_n := manticore.io.clock_inactive
+  clock_distribution.io.compute_clock_en := manticore.io.clock_active
 
   val gateway: MemoryGatewaySim = withClockAndReset(
     clock = clock_distribution.io.control_clock,
@@ -238,8 +238,8 @@ class ManticoreFlatSimKernel(
     gateway.io.wdata := io.dmi.wdata
     gateway.io.addr  := io.dmi.addr
   } otherwise {
-    gateway.io.wen := manticore.io.memory_backend.wen
-    gateway.io.addr := manticore.io.memory_backend.addr // short-addressable memory
+    gateway.io.wen   := manticore.io.memory_backend.wen
+    gateway.io.addr  := manticore.io.memory_backend.addr // short-addressable memory
     gateway.io.wdata := manticore.io.memory_backend.wdata
   }
 
@@ -269,7 +269,7 @@ object PackageKernel {
       scripts_path: Path,
       kernel_xml_path: Path,
       xo_dir: Path,
-      target: String ,
+      target: String,
       platform: String,
       top_name: String = "ManticoreKernel",
       slave_interface: String = "s_axi_control",
@@ -357,9 +357,8 @@ object PackageKernel {
     val success =
       sys.process
         .Process(
-          command =
-            s"vivado -mode batch -source ${gen_xo_tcl_fp.toAbsolutePath().toString()} -tclargs " +
-              s"${xo_file.toAbsolutePath().toString} ${top_name} ${target} ${platform}",
+          command = s"vivado -mode batch -source ${gen_xo_tcl_fp.toAbsolutePath().toString()} -tclargs " +
+            s"${xo_file.toAbsolutePath().toString} ${top_name} ${target} ${platform}",
           cwd = xo_dir.toFile()
         )
         .!(ProcessLogger(println(_))) == 0
@@ -396,16 +395,15 @@ object BuildXclbin {
 
     Files.createDirectories(bin_dir)
 
-
     def getSystemInfo(): Int = {
-      val lscpu = "lscpu"
-      val cpu_matcher = raw"CPU\(s\):\s*(\d+)".r
-      val thread_matcher = raw"Thread\(s\) per core:\s*(\d+)".r
-      val stdout = new StringBuilder
-      var cpus = 0
+      val lscpu           = "lscpu"
+      val cpu_matcher     = raw"CPU\(s\):\s*(\d+)".r
+      val thread_matcher  = raw"Thread\(s\) per core:\s*(\d+)".r
+      val stdout          = new StringBuilder
+      var cpus            = 0
       var thread_per_core = 0
       Process("lscpu").! {
-        ProcessLogger{ ln =>
+        ProcessLogger { ln =>
           ln match {
             case cpu_matcher(x) =>
               cpus = x.toInt
@@ -413,7 +411,7 @@ object BuildXclbin {
           }
           ln match {
             case thread_matcher(x) => thread_per_core = x.toInt
-            case _ => // nothing
+            case _                 => // nothing
           }
         }
       }
@@ -428,7 +426,7 @@ object BuildXclbin {
 
     val clock_constraint = "" +
       s"--kernel_frequency 0:${freqMhz} "
-        // "--clock.defaultTolerance 0.1 "
+    // "--clock.defaultTolerance 0.1 "
     val xclbin_path =
       bin_dir.resolve(s"${top_name}.${target}.${platform}.xclbin")
     val max_threads = Runtime.getRuntime().availableProcessors()
@@ -459,7 +457,7 @@ object ManticoreKernelGenerator {
 
   val platformDevice = Map(
     "xilinx_u250_gen3x16_xdma_3_1_202020_1" -> "xcu250-figd2104-2l-e",
-    "xilinx_u200_gen3x16_xdma_1_202110_1"       -> "xcu200-fsgd2104-2-e"
+    "xilinx_u200_gen3x16_xdma_1_202110_1"   -> "xcu200-fsgd2104-2-e"
   )
 
   def apply(
@@ -473,8 +471,6 @@ object ManticoreKernelGenerator {
   ) = {
 
     val out_dir = Paths.get(target_dir)
-
-
 
     val hdl_dir = Files.createDirectories(out_dir.resolve("hdl"))
 

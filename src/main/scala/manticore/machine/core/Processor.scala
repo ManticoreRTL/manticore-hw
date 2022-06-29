@@ -124,6 +124,7 @@ class Processor(
     new SimpleDualPortMemory(
       ADDRESS_WIDTH = 12,
       DATA_WIDTH = config.DataBits,
+      READ_LATENCY = 2,
       STYLE = MemStyle.BRAM,
       INIT = initial_array
     )

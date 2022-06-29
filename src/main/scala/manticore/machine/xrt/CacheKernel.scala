@@ -95,7 +95,7 @@ class CacheKernel extends RawModule {
   }
   val m_axi_bank_0 = IO((new AxiMasterIF(axiParams)))
 
-  val s_axi_control = IO(new AxiSlave.AxiSlaveCorenterface())
+  val s_axi_control = IO(new AxiSlave.AxiSlaveCoreInterface())
   val interrupt     = IO(Output(Bool()))
   interrupt := false.B
   // val io = IO(
@@ -360,7 +360,7 @@ class CacheKernel extends RawModule {
       cache.io.front.cmd := withClock(clock) { commandReg }
       cache.io.front.addr := withClock(clock) {
         axiSlave.io.host_regs
-          .global_memory_instruction_base(CacheConfig.AddressBits, 0) 
+          .global_memory_instruction_base(CacheConfig.AddressBits, 0)
       }
       cache.io.front.wdata := withClock(clock) {
         axiSlave.io.host_regs.value_change_log_base(31, 0)
@@ -394,7 +394,7 @@ class CacheKernel extends RawModule {
             axiMaster.io.data_in    := withClock(clock) { cache.io.back.wline }
             axiMaster.io.burst_size := withClock(clock) { 1.U }
       }
-          
+
 
         // .elsewhen(cache.io.back.cmd === CacheBackendCommand.WriteBack.id.U) {
         //   trigger2 := withClock(clock){1.B}

@@ -16,7 +16,7 @@ import scala.annotation.tailrec
 
 object AxiSlave {
 
-  class AxiSlaveCorenterface(
+  class AxiSlaveCoreInterface(
       AxiSlaveAddrWidth: Int = 8,
       AxiSlaveDataWidth: Int = 32
   ) extends Bundle {
@@ -71,7 +71,7 @@ object AxiSlave {
       }.sum + 0x10
     )
 
-    val core = new AxiSlaveCorenterface(
+    val core = new AxiSlaveCoreInterface(
       AxiSlaveAddrWidth = AxiSlaveAddrWidth,
       AxiSlaveDataWidth = 32
     )
@@ -367,7 +367,7 @@ class AxiSlave(config: ISA) extends Module {
       old_value := host_controlled_regs((waddr >> 2) - (UserAddressBase >> 2).U)
       host_controlled_regs((waddr >> 2) - (UserAddressBase >> 2).U) :=
         (io.core.WDATA & wmask.asUInt()) | (old_value & !(wmask.asUInt()))
-    
+
   }
   }
   // when(io.host_regs.ele)

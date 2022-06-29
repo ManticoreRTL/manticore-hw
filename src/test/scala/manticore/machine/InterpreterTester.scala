@@ -1,14 +1,12 @@
 package manticore.machine
 
 import manticore.machine.assembly._
-import org.scalatest.FlatSpec
-import org.scalatest.Matchers
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 
 
-
-
-class InterpreterTester extends FlatSpec with Matchers{
+class InterpreterTester extends AnyFlatSpec with Matchers{
 
 
   behavior of "assembly interpreter"

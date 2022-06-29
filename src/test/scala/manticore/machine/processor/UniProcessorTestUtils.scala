@@ -13,7 +13,6 @@ import manticore.machine.ISA
 import manticore.machine.ManticoreBaseISA
 import manticore.machine.ManticoreFullISA
 import manticore.machine.core.BareNoCBundle
-import manticore.machine.core.ClockBuffer
 import manticore.machine.core.Processor
 import manticore.machine.core.ProcessorInterface
 import manticore.machine.memory.CacheBackInterface
@@ -26,6 +25,7 @@ import java.io.PrintWriter
 import java.nio.file.Files
 import java.nio.file.Path
 import scala.annotation.tailrec
+import manticore.machine.core.ClockDistribution
 
 object UniProcessorTestUtils {
 
@@ -157,10 +157,10 @@ object UniProcessorTestUtils {
     })
 
     val gated_clock: Clock = Wire(Clock())
-    val clock_buffer = Module(new ClockBuffer())
-    clock_buffer.io.I := clock
-    clock_buffer.io.CE := io.clock_enable_n
-    gated_clock := clock_buffer.io.O
+    val clock_buffer = Module(new ClockDistribution())
+    clock_buffer.io.root_clock := clock
+    clock_buffer.io.compute_clock_en := !io.clock_enable_n
+    gated_clock := clock_buffer.io.compute_clock
 
     withClockAndReset(clock = gated_clock, reset = reset) {
       val impl: Processor = Module(new Processor(config, DimX, DimY,
