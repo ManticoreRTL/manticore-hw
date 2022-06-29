@@ -3,6 +3,7 @@ package manticore.machine.xrt
 import chisel3._
 import chiseltest._
 import manticore.machine.xrt.CacheKernelWithSlave
+import manticore.machine.ManticoreFullISA
 import chisel3.tester.testableClock
 import chisel3.tester.testableData
 
@@ -15,7 +16,7 @@ class CacheKernelWithSlaveTester
     extends AnyFlatSpec
     with ChiselScalatestTester
     with Matchers {
-  val config = ???
+  val config = ManticoreFullISA
   val addrArray = new Array[Int](10000)
   val dataArray = new Array[Int](10000)
   behavior of "CacheKernelWithSlave"

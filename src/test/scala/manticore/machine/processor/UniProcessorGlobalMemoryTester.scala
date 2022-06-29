@@ -41,7 +41,7 @@ class UniProcessorGlobalMemoryTester extends AnyFlatSpec with Matchers with Chis
   val addr_mi = R(0)
   val addr_hi = R(0)
   val const_1 = R(1)
-  val const_0 = R(0)
+  val const_0 = R(2)
   val val_reg = R(3) // initially zero
   val program = Array[Instruction](
     GlobalLoad(val_reg, addr_hi, addr_mi, addr_lo),

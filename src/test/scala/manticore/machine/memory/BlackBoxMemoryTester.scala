@@ -75,7 +75,7 @@ class BlackBoxMemoryTester extends AnyFlatSpec with ChiselScalatestTester with M
 
 
 
-    test(new SimpleDualPortMemory(11, 16,16, 2, MemStyle.BRAM, filenameb.toString))
+    test(new SimpleDualPortMemory(11, 16, 16, 2, MemStyle.BRAM, filenameb.toString))
       .withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { dut =>
 
         // check initial values
