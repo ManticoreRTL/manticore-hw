@@ -131,12 +131,12 @@ object MemStyle extends Enumeration {
   val BRAM, URAM = Value
 }
 
-class SimpleDualPortMemoryInterface(val ADDRESS_WIDTH: Int, val DATA_WIDTH: Int)
+class SimpleDualPortMemoryInterface(val ADDRESS_WIDTH: Int, val DATA_WIDTH: Int, val DATA_OUT_WIDTH: Int=64)
     extends Bundle {
   private def dataInPort  = Input(UInt(DATA_WIDTH.W))
   private def controlPort = Input(Bool())
   private def addressPort = Input(UInt(ADDRESS_WIDTH.W))
-  private def dataOutPort = Output(UInt(DATA_WIDTH.W))
+  private def dataOutPort = Output(UInt(DATA_OUT_WIDTH.W))
   val raddr               = addressPort
   val dout                = dataOutPort
   val wen                 = controlPort
@@ -158,6 +158,7 @@ class AbstractDualPortMemory(
 class SimpleDualPortMemory(
     ADDRESS_WIDTH: Int,
     DATA_WIDTH: Int,
+    DATA_OUT_WIDTH: Int=64,
     READ_LATENCY: Int = 1,
     STYLE: MemStyle.MemSyle = MemStyle.BRAM,
     INIT: String = ""
@@ -170,7 +171,7 @@ class SimpleDualPortMemory(
       val raddr = Input(UInt(ADDRESS_WIDTH.W))
       val waddr = Input(UInt(ADDRESS_WIDTH.W))
       val din   = Input(UInt(DATA_WIDTH.W))
-      val dout  = Output(UInt(DATA_WIDTH.W))
+      val dout  = Output(UInt(DATA_OUT_WIDTH.W))
     }
     val io = IO(new VerilogInternalInterface)
   }
@@ -178,7 +179,8 @@ class SimpleDualPortMemory(
       extends VerilogMemory(
         Map(
           "ADDRESS_WIDTH" -> ADDRESS_WIDTH,
-          "DATA_WIDTH"    -> DATA_WIDTH,
+          "DATA_IN_WIDTH"    -> DATA_WIDTH,
+          "DATA_OUT_WIDTH"    -> DATA_OUT_WIDTH,
           "filename"      -> INIT
         )
       )

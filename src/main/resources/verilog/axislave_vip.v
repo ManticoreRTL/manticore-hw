@@ -160,6 +160,7 @@
 		
 	);
 
+    integer i=0;
 
 	// Burst length for transactions, in C_M_AXI_DATA_WIDTHs.
 	// Non-2^n lengths will eventually cause bursts across 4K address boundaries.
@@ -206,8 +207,16 @@
     reg [1:0]write_state;
     reg write_resp_state;
     reg [1:0]axi_rresp;
-
+	integer b_counter = 0;
     reg [CACHE_DATA_WIDTH:0] mem[MEM_SIZE:0];
+
+	initial
+	begin
+		for(i=0;i<MEM_SIZE;i++)
+		begin
+			mem[i] = 7;
+		end
+	end
 
 	// case (C_S_AXI_DATA_WIDTH)
 	// 8:
@@ -252,7 +261,6 @@
 	// end
 
 	// endcase	
-    integer i=0;
 	
 	//Burst LENgth is number of transaction beats, minus 1
 	//Size should be C_M_AXI_DATA_WIDTH, in 2^SIZE bytes, otherwise narrow bursts are used
@@ -287,6 +295,7 @@
             axi_awready <= 0;
             write_state <= 0;
             slave_write_txn_done <= 0;		    
+			b_counter <= 0;
         end 
 		else if(lock==0)
 		begin
@@ -296,7 +305,7 @@
 				axi_awready <= 1;
 				axi_wready	<= 1;
 			    slave_write_txn_done <= 0;		    
-
+				b_counter <= 0;
 				if(S_AXI_AWVALID==1)
 				begin
 					write_addr <= S_AXI_AWADDR;
@@ -308,15 +317,19 @@
 			2'b01:
 			begin
 				axi_awready <= 0;
-				if (S_AXI_WVALID == 1 & S_AXI_WLAST == 1)
+				if (S_AXI_WVALID == 1)
 				begin
+					b_counter <= b_counter +1;
 				    for(i=0;i<C_S_AXI_DATA_WIDTH/CACHE_DATA_WIDTH;i=i+1)
 				    begin
-					   mem[write_addr+i] = S_AXI_WDATA[(CACHE_DATA_WIDTH*(i))+:CACHE_DATA_WIDTH];
+					   mem[write_addr+i+b_counter*C_S_AXI_DATA_WIDTH/CACHE_DATA_WIDTH] = S_AXI_WDATA[(CACHE_DATA_WIDTH*(i))+:CACHE_DATA_WIDTH];
 					end
-					axi_wready <= 0;
-				    slave_write_txn_done <= 1;
-					write_state <= 0;
+					if (S_AXI_WLAST == 1)
+					begin
+						axi_wready <= 0;
+						slave_write_txn_done <= 1;
+						write_state <= 0;
+					end
 				end        
 			end
 			default:
@@ -352,12 +365,12 @@
 				if (S_AXI_BREADY == 1)
 				begin
 					axi_bvalid <= 0;
-					write_state <= 0;
+					write_resp_state <= 0;
 				end        
 			end
 			default:
 				begin
-					write_state <= 0;
+					write_resp_state <= 0;
 				end
 			endcase
 		end

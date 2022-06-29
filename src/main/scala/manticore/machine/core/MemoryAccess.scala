@@ -15,8 +15,7 @@ object MemoryAccess {
     val packet: NoCBundle = new NoCBundle(DimX, DimY, config)
     val write_back: Bool  = Bool()
     val rd: UInt          = UInt(config.IdBits.W)
-    val lload: Bool       = Bool()
-    val gload: Bool       = Bool()
+    
     val send: Bool        = Bool()
     val nop: Bool         = Bool()
     val mul: Bool         = Bool()
@@ -31,7 +30,7 @@ class MemoryInterface(config: ISA, DimX: Int, DimY: Int) extends Bundle {
   val local_memory_interface = Flipped(
     new SimpleDualPortMemoryInterface(
       ADDRESS_WIDTH = 12,
-      DATA_WIDTH = config.DataBits
+      DATA_WIDTH = config.DataBits,
     )
   )
   val global_memory_interface = Flipped(CacheConfig.frontInterface())
@@ -96,9 +95,7 @@ class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
   pipeIt(io.pipe_out.rd) {
     io.pipe_in.rd
   }
-  pipeIt(io.pipe_out.lload) {
-    io.pipe_in.opcode.lload
-  }
+ 
   pipeIt(io.pipe_out.nop) {
     io.pipe_in.opcode.nop
   }
@@ -108,25 +105,27 @@ class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
   pipeIt(io.pipe_out.mulh) {
     io.pipe_in.opcode.mulh
   }
+  val lload_r = Reg(Bool())
+  val gload_r = Reg(Bool())
+
+  lload_r := io.pipe_in.opcode.lload
+  gload_r := io.pipe_in.opcode.gload
 
   if (config.WithGlobalMemory) {
-    when(io.pipe_in.opcode.lload) {
+    when(lload_r) {
       io.pipe_out.result := io.local_memory_interface.dout
-    }.elsewhen(io.pipe_in.opcode.gload) {
+    }.elsewhen(gload_r) {
       io.pipe_out.result := io.global_memory_interface.rdata
     } otherwise {
       pipeIt(io.pipe_out.result) { io.pipe_in.result }
     }
   } else {
-    when(io.pipe_in.opcode.lload) {
+    when(lload_r) {
       io.pipe_out.result := io.local_memory_interface.dout
     } otherwise {
       pipeIt(io.pipe_out.result) { io.pipe_in.result }
     }
   }
 
-  pipeIt(io.pipe_out.gload) {
-    io.pipe_in.opcode.gload
-  }
 
 }

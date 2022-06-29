@@ -1,6 +1,7 @@
 package manticore.machine.core
 
 import Chisel._
+
 import chisel3.experimental.ChiselEnum
 import chisel3.stage.ChiselStage
 import manticore.machine.ISA

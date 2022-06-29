@@ -15,14 +15,14 @@ class CacheKernelWithSlaveTester
     extends AnyFlatSpec
     with ChiselScalatestTester
     with Matchers {
-
+  val config = ???
   val addrArray = new Array[Int](10000)
   val dataArray = new Array[Int](10000)
   behavior of "CacheKernelWithSlave"
 
   it should "perform direct slave memory read and write" in {
 
-    test(new CacheKernelWithSlave())
+    test(new CacheKernelWithSlave(config))
       .withAnnotations(Seq(VerilatorBackendAnnotation)) { dut =>
         val randGen  = new Random(3123)
         val randGen2 = new Random(5173)
@@ -64,7 +64,7 @@ class CacheKernelWithSlaveTester
 
   it should "perform AXI writes" in {
 
-    test(new CacheKernelWithSlave())
+    test(new CacheKernelWithSlave(config))
       .withAnnotations(Seq(VerilatorBackendAnnotation,WriteVcdAnnotation)) { dut =>
         val randGen  = new Random(7641)
         val randGen2 = new Random(9760)
@@ -123,7 +123,7 @@ class CacheKernelWithSlaveTester
 
   it should "perform AXI reads" in {
 
-    test(new CacheKernelWithSlave())
+    test(new CacheKernelWithSlave(config))
       .withAnnotations(Seq(VerilatorBackendAnnotation,WriteVcdAnnotation)) { dut =>
         val randGen  = new Random(7641)
         val randGen2 = new Random(9760)

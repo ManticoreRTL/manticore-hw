@@ -104,6 +104,8 @@ object UniProcessorTestUtils {
     programProcessor(instructions, epilogue_length, sleep_length, countdown, dut.io.packet_in, dut.clock)(stream_cond)
   }
 
+
+
   def programProcessor(instructions: Seq[Long], epilogue_length: Int, sleep_length: Int,
                        countdown: Int, packet_stream: BareNoCBundle, clock: Clock)(stream_cond: => Boolean): Unit = {
     val empty_packet = new BareNoCBundle(ManticoreBaseISA).Lit(

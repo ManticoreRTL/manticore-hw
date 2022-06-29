@@ -88,7 +88,7 @@ class FetchCoreInterface(config: ISA) extends Bundle {
   val memory_interface: SimpleDualPortMemoryInterface = Flipped(
     new SimpleDualPortMemoryInterface(
       ADDRESS_WIDTH = 12,
-      DATA_WIDTH = 64
+      DATA_WIDTH = 64,
     )
   )
 }

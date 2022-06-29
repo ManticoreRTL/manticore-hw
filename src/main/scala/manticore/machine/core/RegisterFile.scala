@@ -83,7 +83,7 @@ class RegisterFile(
     enable: Boolean = true
   ) = {
     if (enable) {
-      new SimpleDualPortMemory(ADDRESS_WIDTH = config.IdBits, DATA_WIDTH = config.DataBits, INIT = INIT)
+      new SimpleDualPortMemory(ADDRESS_WIDTH = config.IdBits, DATA_WIDTH = config.DataBits,INIT = INIT)
     } else {
       new DummyDualPortMemory(ADDRESS_WIDTH = config.IdBits, DATA_WIDTH = config.DataBits)
     }
