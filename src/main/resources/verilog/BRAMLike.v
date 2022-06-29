@@ -12,7 +12,7 @@ module BRAMLike #(
     // write port
     input                        wen,
     input  [ADDRESS_WIDTH - 1:0] waddr,
-    input  [   DATA_OUT_WIDTH - 1:0] din
+    input  [   DATA_IN_WIDTH - 1:0] din
 );
 
 `ifdef VERILATOR
