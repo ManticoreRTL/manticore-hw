@@ -21,6 +21,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import scala.collection.immutable.ListMap
+import chisel3.util.pla
 
 class MemoryPointers extends Bundle {
   val pointer_0: UInt = UInt(64.W)
@@ -72,17 +73,29 @@ class ManticoreFlatKernel(
   clock.suggestName("ap_clk")
   val reset_n = IO(Input(Bool()))
   reset_n.suggestName("ap_rst_n")
-  val reset = Wire(Bool())
-  reset := ~reset_n
-
-  val clock_distribution = Module(new ClockDistribution())
-
-  clock_distribution.io.root_clock := clock
+  // val reset = Wire(Bool())
+  // reset := ~reset_n
 
   val m_axi_bank_0  = IO(new AxiMasterIF)
   val s_axi_control = IO(new AxiSlave.AxiSlaveCoreInterface())
   val interrupt     = IO(Output(Bool()))
 
+  val clock_distribution = Module(new ClockDistribution())
+
+  clock_distribution.io.root_clock := clock
+
+  val m_axi_bank_0_clock_crossing = Module(new Axi4ClockConverter())
+  val s_axi_clock_crossing        = Module(new AxiLiteClockConverter())
+  m_axi_bank_0_clock_crossing.s_axi_aclk    := clock_distribution.io.control_clock
+  m_axi_bank_0_clock_crossing.s_axi_aresetn := clock_distribution.io.sync_rst_n
+  m_axi_bank_0_clock_crossing.m_axi_aclk    := clock // connect to shell clock
+  m_axi_bank_0_clock_crossing.m_axi_aresetn := reset_n
+  s_axi_clock_crossing.m_axi_aclk           := clock_distribution.io.compute_clock
+  s_axi_clock_crossing.m_axi_resetn         := clock_distribution.io.sync_rst_n
+  s_axi_clock_crossing.s_axi_aclk           := clock
+  s_axi_clock_crossing.s_axi_resetn         := reset_n
+
+  val reset = WireDefault(!clock_distribution.io.sync_rst_n)
   val slave =
     withClockAndReset(
       clock = clock_distribution.io.control_clock,
@@ -91,24 +104,10 @@ class ManticoreFlatKernel(
       Module(new AxiSlave(ManticoreFullISA))
     }
 
-  slave.io.core.AWADDR  := s_axi_control.AWADDR
-  slave.io.core.AWVALID := s_axi_control.AWVALID
-  s_axi_control.AWREADY := slave.io.core.AWREADY
-  slave.io.core.WDATA   := s_axi_control.WDATA
-  slave.io.core.WSTRB   := s_axi_control.WSTRB
-  slave.io.core.WVALID  := s_axi_control.WVALID
-  s_axi_control.WREADY  := slave.io.core.WREADY
-  s_axi_control.BRESP   := slave.io.core.BRESP
-  s_axi_control.BVALID  := slave.io.core.BVALID
-  slave.io.core.BREADY  := s_axi_control.BREADY
-  slave.io.core.ARADDR  := s_axi_control.ARADDR
-  slave.io.core.ARVALID := s_axi_control.ARVALID
-  s_axi_control.ARREADY := slave.io.core.ARREADY
-  s_axi_control.RDATA   := slave.io.core.RDATA
-  s_axi_control.RRESP   := slave.io.core.RRESP
-  s_axi_control.RVALID  := slave.io.core.RVALID
-  slave.io.core.RREADY  := s_axi_control.RREADY
-  interrupt             := slave.io.control.interrupt
+  slave.io.core <> s_axi_clock_crossing.m_axi
+  s_axi_control <> s_axi_clock_crossing.s_axi
+
+  interrupt := slave.io.control.interrupt
 
   val manticore =
     Module(new ManticoreFlatArray(DimX, DimY, debug_enable, enable_custom_alu))
@@ -134,7 +133,8 @@ class ManticoreFlatKernel(
     Module(new AxiMasterReader)
   }
 
-  axi_mreader.io.bus <> m_axi_bank_0
+  m_axi_bank_0_clock_crossing.m_axi <> m_axi_bank_0
+  axi_mreader.io.bus <> m_axi_bank_0_clock_crossing.s_axi
 
   axi_mreader.io.user.base_addr := slave.io.pointer_regs.pointer_0
 
@@ -260,10 +260,46 @@ class ManticoreFlatSimKernel(
 
 // }
 
+object GenerateIPs {
+
+  def apply(
+      ip_dir: Path,
+      scripts_path: Path,
+      part_number: String,
+      freq: String
+  ) = {
+
+    if (Files.exists(ip_dir)) {
+      scala.reflect.io.Directory(ip_dir.toFile()).deleteRecursively()
+    }
+
+    Files.createDirectories(ip_dir)
+    Files.createDirectories(scripts_path)
+
+    val fp     = scripts_path.resolve("gen_ip.tcl")
+    val writer = Files.newBufferedWriter(fp)
+    writer.write(scala.io.Source.fromResource("hls/gen_ip.tcl").mkString)
+    writer.close()
+
+    import scala.sys.process.{Process, ProcessLogger}
+    val cmd =
+      s"vivado -mode batch -source ${fp.toAbsolutePath()} -tclargs ${part_number} ${ip_dir.toAbsolutePath} ${freq}"
+    println(s"Running:\n${cmd}")
+    val ret = Process(
+      command = cmd,
+      cwd = ip_dir.toFile()
+    ).!(ProcessLogger(println(_)))
+    if (ret != 0) {
+      throw new Exception("Failed generating IPs")
+    }
+    ip_dir
+  }
+}
 object PackageKernel {
 
   def apply(
       verilog_path: Path,
+      ip_path: Path,
       packaged_path: Path,
       temp_kernel_package_path: Path,
       scripts_path: Path,
@@ -290,7 +326,8 @@ object PackageKernel {
         temp_project_path.toAbsolutePath().toString(),
       "@KERNEL_XML@" ->
         kernel_xml_path.toAbsolutePath().toString(),
-      "@SLAVE_INTERFACE@" -> slave_interface
+      "@SLAVE_INTERFACE@" -> slave_interface,
+      "@IP_PATH@"          -> ip_path.toAbsolutePath().toString()
     ) ++ master_interface.zipWithIndex.map { case (m, i) =>
       ("@MASTER_INTERFACE_" + i + "@") -> m
     }.toMap
@@ -368,6 +405,7 @@ object PackageKernel {
     xo_file
 
   }
+
 }
 
 object BuildXclbin {
@@ -424,8 +462,8 @@ object BuildXclbin {
       cpus / thread_per_core
     }
 
-    val clock_constraint = "" +
-      s"--kernel_frequency 0:${freqMhz} "
+    val clock_constraint = ""
+      // s"--kernel_frequency 0:${freqMhz} "
     // "--clock.defaultTolerance 0.1 "
     val xclbin_path =
       bin_dir.resolve(s"${top_name}.${target}.${platform}.xclbin")
@@ -491,8 +529,17 @@ object ManticoreKernelGenerator {
     xml_writer.write(scala.io.Source.fromResource("hls/kernel.xml").mkString)
     xml_writer.close()
 
+    val ip_path = out_dir.resolve("ip_location")
+    GenerateIPs(
+      ip_dir = ip_path,
+      scripts_path = out_dir.resolve("scripts"),
+      part_number = platformDevice(platform),
+      freq = freqMhz.toString()
+    )
+
     val xo_file = PackageKernel(
       verilog_path = hdl_dir,
+      ip_path = ip_path,
       packaged_path = out_dir.resolve("packaged"),
       temp_kernel_package_path = out_dir.resolve("temp_packaged"),
       scripts_path = out_dir.resolve("scripts"),

@@ -37,8 +37,8 @@ class MasterAXIFromFile(
       val data_in         = Input(UInt(C_M_AXI_DATA_WIDTH.W))
       val data_out        = Output(UInt(C_M_AXI_DATA_WIDTH.W))
       val burst_size      = Input(UInt(8.W))
-      val read_addr            = Input(UInt(C_M_AXI_ADDR_WIDTH.W))
-      val write_addr            = Input(UInt(C_M_AXI_ADDR_WIDTH.W))
+      val read_addr       = Input(UInt(C_M_AXI_ADDR_WIDTH.W))
+      val write_addr      = Input(UInt(C_M_AXI_ADDR_WIDTH.W))
       val cache_ready     = Input(Bool())
       val read_txn_done   = Output(Bool())
       val write_txn_done  = Output(Bool())
@@ -109,7 +109,7 @@ class CacheKernel extends RawModule {
   // )
   val MemoryBaseAddress: Long = 0x005000000000L
 
-  val cache             = withClockAndReset(clock, reset) { Module(new Cache) }
+  val cache = withClockAndReset(clock, reset) { Module(new Cache) }
 
   val axiSlave = withClockAndReset(clock, reset) {
     Module(new AxiSlave(ManticoreFullISA))
@@ -139,7 +139,7 @@ class CacheKernel extends RawModule {
   m_axi_bank_0.AWADDR  := axiMaster.io.M_AXI_AWADDR
   m_axi_bank_0.AWLEN   := axiMaster.io.M_AXI_AWLEN
   m_axi_bank_0.AWSIZE  := axiMaster.io.M_AXI_AWSIZE
-  m_axi_bank_0.BURST   := axiMaster.io.M_AXI_AWBURST
+  m_axi_bank_0.AWBURST := axiMaster.io.M_AXI_AWBURST
   m_axi_bank_0.AWVALID := axiMaster.io.M_AXI_AWVALID
   m_axi_bank_0.WDATA   := axiMaster.io.M_AXI_WDATA
   m_axi_bank_0.WSTRB   := axiMaster.io.M_AXI_WSTRB
@@ -197,14 +197,14 @@ class CacheKernel extends RawModule {
   val bootloader_cycles_temp = withClockAndReset(clock, reset) {
     RegInit(UInt(64.W), 0.U)
   }
-  val trigger        = withClockAndReset(clock, reset) { RegInit(Bool(), 0.B) }
-  val write_back_trigger       = withClockAndReset(clock, reset) { RegInit(Bool(), 0.B) }
-  val temp_addr       = withClockAndReset(clock, reset) { RegInit(UInt(CacheConfig.AddressBits.W), 0.U) }
-  val trigger2_temp  = withClockAndReset(clock, reset) { RegInit(Bool(), 0.B) }
-  val trigger3       = withClockAndReset(clock, reset) { RegInit(Bool(), 0.B) }
-  val trigger3_temp  = withClockAndReset(clock, reset) { RegInit(Bool(), 0.B) }
-  val txn_mode_temp  = withClockAndReset(clock, reset) { RegInit(Bool(), 0.B) }
-  val txn_start_temp = withClockAndReset(clock, reset) { RegInit(Bool(), 0.B) }
+  val trigger            = withClockAndReset(clock, reset) { RegInit(Bool(), 0.B) }
+  val write_back_trigger = withClockAndReset(clock, reset) { RegInit(Bool(), 0.B) }
+  val temp_addr          = withClockAndReset(clock, reset) { RegInit(UInt(CacheConfig.AddressBits.W), 0.U) }
+  val trigger2_temp      = withClockAndReset(clock, reset) { RegInit(Bool(), 0.B) }
+  val trigger3           = withClockAndReset(clock, reset) { RegInit(Bool(), 0.B) }
+  val trigger3_temp      = withClockAndReset(clock, reset) { RegInit(Bool(), 0.B) }
+  val txn_mode_temp      = withClockAndReset(clock, reset) { RegInit(Bool(), 0.B) }
+  val txn_start_temp     = withClockAndReset(clock, reset) { RegInit(Bool(), 0.B) }
   val temp_counter = withClockAndReset(clock, reset) {
     RegInit(UInt(32.W), 0.U)
   }
@@ -247,7 +247,7 @@ class CacheKernel extends RawModule {
   s_axi_control.BVALID  := axiSlave.io.core.BVALID
   s_axi_control.AWREADY := axiSlave.io.core.AWREADY
 
-  m_axi_bank_0.ARID := 0.U
+  // m_axi_bank_0.ARID := 0.U
 
   //m_axi_bank_0 := 0.U
 
@@ -384,17 +384,16 @@ class CacheKernel extends RawModule {
 
         when(cache.io.back.cmd === CacheBackendCommand.Read.id.U) {
           axiMaster.io.read_txn_start := withClock(clock) { 1.B }
-          axiMaster.io.read_addr       := withClock(clock) { cache.io.back.raddr*2.U}
-          cache.io.back.rline     := withClock(clock) { axiMaster.io.data_out }
-          axiMaster.io.burst_size := withClock(clock) { 1.U }
+          axiMaster.io.read_addr      := withClock(clock) { cache.io.back.raddr * 2.U }
+          cache.io.back.rline         := withClock(clock) { axiMaster.io.data_out }
+          axiMaster.io.burst_size     := withClock(clock) { 1.U }
         }
           .elsewhen(cache.io.back.cmd === CacheBackendCommand.Write.id.U) {
             axiMaster.io.write_txn_start := withClock(clock) { 1.B }
-            axiMaster.io.write_addr       := withClock(clock) { cache.io.back.waddr*2.U}
-            axiMaster.io.data_in    := withClock(clock) { cache.io.back.wline }
-            axiMaster.io.burst_size := withClock(clock) { 1.U }
-      }
-
+            axiMaster.io.write_addr      := withClock(clock) { cache.io.back.waddr * 2.U }
+            axiMaster.io.data_in         := withClock(clock) { cache.io.back.wline }
+            axiMaster.io.burst_size      := withClock(clock) { 1.U }
+          }
 
         // .elsewhen(cache.io.back.cmd === CacheBackendCommand.WriteBack.id.U) {
         //   trigger2 := withClock(clock){1.B}
@@ -417,20 +416,20 @@ class CacheKernel extends RawModule {
           ) {
             write_back_state             := WriteBackState.Write
             axiMaster.io.write_txn_start := withClock(clock) { 1.B }
-            axiMaster.io.write_addr       := withClock(clock) { cache.io.back.waddr*2.U}
-            axiMaster.io.data_in    := withClock(clock) { cache.io.back.wline }
-            axiMaster.io.burst_size := withClock(clock) { 1.U }
+            axiMaster.io.write_addr      := withClock(clock) { cache.io.back.waddr * 2.U }
+            axiMaster.io.data_in         := withClock(clock) { cache.io.back.wline }
+            axiMaster.io.burst_size      := withClock(clock) { 1.U }
           }
-          temp_addr       := withClock(clock) { cache.io.back.raddr*2.U}
+          temp_addr := withClock(clock) { cache.io.back.raddr * 2.U }
 
         }
         is(WriteBackState.Write) {
           when(axiMaster.io.write_txn_done === 1.B) {
             write_back_state            := WriteBackState.Read
             axiMaster.io.read_txn_start := withClock(clock) { 1.B }
-            axiMaster.io.read_addr   := withClock(clock) { temp_addr }
-            cache.io.back.rline := withClock(clock) { axiMaster.io.data_out }
-            axiMaster.io.burst_size := withClock(clock) { 1.U }
+            axiMaster.io.read_addr      := withClock(clock) { temp_addr }
+            cache.io.back.rline         := withClock(clock) { axiMaster.io.data_out }
+            axiMaster.io.burst_size     := withClock(clock) { 1.U }
 
           }
         }
@@ -438,8 +437,8 @@ class CacheKernel extends RawModule {
           when(axiMaster.io.read_txn_done === 1.B) {
             write_back_state := WriteBackState.Idle
             cache.io.back.done := withClock(clock) {
-        axiMaster.io.read_txn_done
-      }
+              axiMaster.io.read_txn_done
+            }
           }
         }
       }
@@ -470,7 +469,7 @@ class CacheKernel extends RawModule {
       // }
 
       when(cache.io.front.done) {
-        cacheReadData := withClock(clock) { cache.io.front.rdata }
+        cacheReadData                := withClock(clock) { cache.io.front.rdata }
         axiSlave.io.control.ap_ready := withClock(clock) { 1.B }
 
         state := withClock(clock) { KernelState.Done }
@@ -482,7 +481,7 @@ class CacheKernel extends RawModule {
       axiSlave.io.dev_regs.execution_cycles := withClock(clock) { 2.U }
       axiSlave.io.control.ap_done           := withClock(clock) { 1.B }
       axiSlave.io.dev_regs.exception_id     := withClock(clock) { 1.U }
-      state := withClock(clock) { KernelState.Idle }
+      state                                 := withClock(clock) { KernelState.Idle }
 
     }
 

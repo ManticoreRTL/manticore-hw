@@ -15,6 +15,7 @@
 #
 
 set path_to_hdl @VERILOG_PATH@
+set path_to_ips @IP_PATH@
 set path_to_packaged @PACKAGED_PATH@
 set path_to_tmp_project @TEMP_KERNEL_PACKAGE_PATH@
 set master_interface_0 @MASTER_INTERFACE_0@
@@ -25,7 +26,12 @@ set slave_interface @SLAVE_INTERFACE@
 
 
 create_project -force kernel_pack $path_to_tmp_project
-add_files -norecurse [glob $path_to_hdl/*.v $path_to_hdl/*.sv]
+add_files -norecurse [glob $path_to_hdl/*.v \
+                           $path_to_hdl/*.sv \
+                           $path_to_ips/axi4_clock_converter/axi4_clock_converter.xci \
+                           $path_to_ips/axi4lite_clock_converter/axi4lite_clock_converter.xci \
+                           $path_to_ips/clk_dist/clk_dist.xci]
+
 update_compile_order -fileset sources_1
 update_compile_order -fileset sim_1
 ipx::package_project -root_dir $path_to_packaged -vendor vlsc.epfl.com -library RTLKernel -taxonomy /KernelIP -import_files -set_current false
@@ -38,8 +44,10 @@ set_property core_revision 2 $core
 foreach up [ipx::get_user_parameters] {
   ipx::remove_user_parameter [get_property NAME $up] $core
 }
-ipx::associate_bus_interfaces -busif $master_interface_0 -clock ap_clk $core
-ipx::associate_bus_interfaces -busif $slave_interface -clock ap_clk $core
+ipx::associate_bus_interfaces -busif $master_interface_0 -clock ap_clk $core -reset ap_rst_n
+ipx::associate_bus_interfaces -busif $slave_interface -clock ap_clk $core -reset ap_rst_n
+
+
 
 
 set_property xpm_libraries {XPM_CDC XPM_MEMORY XPM_FIFO} $core

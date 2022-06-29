@@ -21,9 +21,6 @@ object AxiSlave {
       AxiSlaveDataWidth: Int = 32
   ) extends Bundle {
 
-    //val ACCLK    = Input(Clock()) // implicit
-    //val ARESET   = Input(Bool()) // implicit
-    // val ACLK_EN = Input(Bool()) // always enabled
     val AWADDR  = Input(UInt(AxiSlaveAddrWidth.W))
     val AWVALID = Input(Bool())
     val AWREADY = Output(Bool())
@@ -41,6 +38,16 @@ object AxiSlave {
     val RRESP   = Output(UInt(2.W))
     val RVALID  = Output(Bool())
     val RREADY  = Input(Bool())
+
+  }
+
+  class AxiSlaveInterface(
+      AxiSlaveAddrWidth: Int = 8,
+      AxiSlaveDataWidth: Int = 32
+  ) extends AxiSlaveCoreInterface(AxiSlaveAddrWidth, AxiSlaveDataWidth) {
+
+    val ACLK    = Input(Clock()) // implicit
+    val ARESETN   = Input(Bool()) // implicit
 
   }
   class AxiSlaveControlInterface extends Bundle {

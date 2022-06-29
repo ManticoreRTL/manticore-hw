@@ -116,14 +116,15 @@ object ClockDistribution {
   }
 
 }
-class ClockDistribution(freqMhz: Double = 200.0) extends BlackBox
-    with HasBlackBoxResource {
+class ClockDistribution extends BlackBox with HasBlackBoxResource {
   val io = IO(new Bundle {
-    val root_clock         = Input(Clock())
-    val compute_clock      = Output(Clock())
-    val control_clock      = Output(Clock())
-    val compute_clock_en   = Input(Bool())
-    val locked             = Output(Bool())
+    val root_clock       = Input(Clock())
+    val root_rst_n       = Input(Bool())  // rst_n coming from the root clock domain
+    val compute_clock    = Output(Clock())
+    val control_clock    = Output(Clock())
+    val compute_clock_en = Input(Bool())
+    val locked           = Output(Bool())
+    val sync_rst_n       = Output(Bool()) // reset that can be used in the output clock domains
   })
   addResource("/verilog/ClockDistribution.v")
 }

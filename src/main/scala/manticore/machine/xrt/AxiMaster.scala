@@ -16,24 +16,26 @@ object DefaultAxiParameters extends AxiParameters
 
 class AxiMasterIF(params: AxiParameters = DefaultAxiParameters) extends Bundle {
 
-  val ARID    = Output(UInt(width = params.IdWidth.W))
+  // val ARID    = Output(UInt(width = params.IdWidth.W))
   val ARADDR  = Output(UInt(width = params.AddrWidth.W))
   val ARVALID = Output(Bool())
   val ARREADY = Input(Bool())
   val ARLEN   = Output(UInt(8.W))
   val ARSIZE  = Output(UInt(3.W))
+  val ARBURST = Output(UInt(8.W))
 
   val RDATA  = Input(UInt(width = params.DataWidth.W))
   val RVALID = Input(Bool())
   val RREADY = Output(Bool())
-  val RID    = Input(UInt(width = params.IdWidth.W))
+  // val RID    = Input(UInt(width = params.IdWidth.W))
   val RLAST  = Input(Bool())
   val RRESP  = Input(UInt(2.W))
 
   val AWADDR  = Output(UInt(params.AddrWidth.W))
   val AWLEN   = Output(UInt(8.W))
+  val AWBURST = Output(UInt(8.W))
   val AWSIZE  = Output(UInt(3.W))
-  val BURST   = Output(UInt(2.W))
+
   val AWVALID = Output(Bool())
   val AWREADY = Input(Bool())
   val WDATA   = Output(UInt(params.DataWidth.W))
@@ -84,12 +86,13 @@ class AxiMasterReader(params: AxiParameters = DefaultAxiParameters) extends Modu
   val lane_select = Reg(Bool())
 
   io.bus.ARVALID := false.B
-  io.bus.ARID    := 0.U
-  io.bus.ARADDR  := DontCare
-  io.bus.RREADY  := true.B
+  // io.bus.ARID    := 0.U
+  io.bus.ARADDR := DontCare
+  io.bus.RREADY := true.B
   // disable writing
   io.bus.WDATA   := DontCare
-  io.bus.BURST   := DontCare
+  io.bus.AWBURST := 1.U
+  io.bus.ARBURST := 1.U
   io.bus.WSTRB   := DontCare
   io.bus.AWADDR  := DontCare
   io.bus.AWLEN   := DontCare
