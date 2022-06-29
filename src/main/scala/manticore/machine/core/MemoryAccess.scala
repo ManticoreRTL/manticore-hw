@@ -15,7 +15,6 @@ object MemoryAccess {
     val packet: NoCBundle = new NoCBundle(DimX, DimY, config)
     val write_back: Bool  = Bool()
     val rd: UInt          = UInt(config.IdBits.W)
-    
     val send: Bool        = Bool()
     val nop: Bool         = Bool()
     val mul: Bool         = Bool()
@@ -30,7 +29,7 @@ class MemoryInterface(config: ISA, DimX: Int, DimY: Int) extends Bundle {
   val local_memory_interface = Flipped(
     new SimpleDualPortMemoryInterface(
       ADDRESS_WIDTH = 12,
-      DATA_WIDTH = config.DataBits,
+      DATA_WIDTH = config.DataBits
     )
   )
   val global_memory_interface = Flipped(CacheConfig.frontInterface())
@@ -95,7 +94,7 @@ class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
   pipeIt(io.pipe_out.rd) {
     io.pipe_in.rd
   }
- 
+  
   pipeIt(io.pipe_out.nop) {
     io.pipe_in.opcode.nop
   }
@@ -107,9 +106,6 @@ class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
   }
   val lload_r = Reg(Bool())
   val gload_r = Reg(Bool())
-
-  lload_r := io.pipe_in.opcode.lload
-  gload_r := io.pipe_in.opcode.gload
 
   lload_r := io.pipe_in.opcode.lload
   gload_r := io.pipe_in.opcode.gload
