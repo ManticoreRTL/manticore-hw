@@ -94,7 +94,7 @@ class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
   pipeIt(io.pipe_out.rd) {
     io.pipe_in.rd
   }
-
+  
   pipeIt(io.pipe_out.nop) {
     io.pipe_in.opcode.nop
   }

@@ -213,7 +213,7 @@
     reg     temp=0;
     reg [1:0]read_state;
     reg [1:0]write_state;
-
+	reg [7:0]burst_size_temp;
 
 	case (C_M_AXI_DATA_WIDTH)
 	8:
@@ -303,7 +303,7 @@
 	//Read and Read Response (R)
 	assign M_AXI_RREADY	= axi_rready;
 	//Example design I/O
-	
+	integer counter = 0;
 	//Burst size in bytes
 	//assign burst_size_bytes	= C_M_AXI_BURST_LEN * C_M_AXI_DATA_WIDTH/8;
 
@@ -329,21 +329,25 @@
 				begin
 					axi_awvalid <= 1;
 					axi_awaddr <= write_addr;
-					axi_wdata_buffer <= data_in;
-					M_AXI_AWLEN	<= 0;
+					//axi_wdata_buffer <= data_in;
+					M_AXI_AWLEN	<= burst_size;
+					burst_size_temp <= burst_size;
 					write_state <= 1;
+					counter <= 0;
 				end
 			end
 			2'b01:
 			begin
-				if (M_AXI_AWREADY == 1)
-				begin
 					axi_awvalid <= 0;
-					axi_wdata <= axi_wdata_buffer;    
+					//axi_wdata_buffer <= data_in;
+					axi_wdata <= data_in;    
 					axi_wvalid <= 1;
-					axi_wlast <= 1;
-					write_state <= 2;
-				end        
+					counter <= counter + 1;
+					if (counter == burst_size_temp-1)
+					begin
+						axi_wlast <= 1;
+						write_state <= 2;
+					end       
 			end
 			2'b10:
 			begin
