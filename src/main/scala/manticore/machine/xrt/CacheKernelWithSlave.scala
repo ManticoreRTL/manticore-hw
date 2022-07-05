@@ -136,7 +136,7 @@ class CacheKernelWithSlave(config: ISA) extends Module {
       BigInt(rdgen.nextInt(1 << 16))
     }
   }
-  val clock_distribution = Module(new ClockDistribution(freqMhz = 200.0))
+  val clock_distribution = Module(new ClockDistribution())
   val processor = withClock(clock_distribution.io.compute_clock) {
     Module(new Processor(config, 16, 16, equations, initial_registers, "", "core", false, 0, true))
   }
@@ -151,15 +151,15 @@ class CacheKernelWithSlave(config: ISA) extends Module {
         CacheConfig.CacheLineBits
       )
     )
-  clock_distribution.io.compute_clock_en_n := 1.B
+  clock_distribution.io.compute_clock_en := 1.B
   val control_clock = clock_distribution.io.control_clock
 
-  val rdata_delay_register = withClock(control_clock){RegInit(UInt(CacheConfig.DataBits.W),0.U)}
-  clock_distribution.io.root_clock   := clock
-  cache.io.front.start               := withClock(clock_distribution.io.compute_clock) { processor.io.periphery.cache.start }
-  cache.io.front.cmd                 := withClock(clock_distribution.io.compute_clock) { processor.io.periphery.cache.cmd }
-  cache.io.front.addr                := withClock(clock_distribution.io.compute_clock) { processor.io.periphery.cache.addr }
-  cache.io.front.wdata               := withClock(clock_distribution.io.compute_clock) { processor.io.periphery.cache.wdata }
+  val rdata_delay_register = withClock(control_clock) { RegInit(UInt(CacheConfig.DataBits.W), 0.U) }
+  clock_distribution.io.root_clock := clock
+  cache.io.front.start := withClock(clock_distribution.io.compute_clock) { processor.io.periphery.cache.start }
+  cache.io.front.cmd   := withClock(clock_distribution.io.compute_clock) { processor.io.periphery.cache.cmd }
+  cache.io.front.addr  := withClock(clock_distribution.io.compute_clock) { processor.io.periphery.cache.addr }
+  cache.io.front.wdata := withClock(clock_distribution.io.compute_clock) { processor.io.periphery.cache.wdata }
   rdata_delay_register := withClock(control_clock) { cache.io.front.rdata }
   processor.io.periphery.cache.rdata := withClock(clock_distribution.io.compute_clock) { rdata_delay_register }
   processor.io.periphery.cache.idle  := withClock(clock_distribution.io.compute_clock) { cache.io.front.idle }
@@ -527,16 +527,16 @@ class CacheKernelWithSlave(config: ISA) extends Module {
   switch(processor_state) {
     is(ProcessorState.Active) {
       when(processor.io.periphery.dynamic_cycle === 1.B) {
-        clock_distribution.io.compute_clock_en_n := withClock(control_clock) { 1.B }
-        processor_state                          := withClock(control_clock) { ProcessorState.Dead }
+        clock_distribution.io.compute_clock_en := withClock(control_clock) { 0.B }
+        processor_state                        := withClock(control_clock) { ProcessorState.Dead }
       }
         .otherwise {
-          clock_distribution.io.compute_clock_en_n := withClock(control_clock) { 0.B }
+          clock_distribution.io.compute_clock_en := withClock(control_clock) { 1.B }
         }
     }
     is(ProcessorState.Dead) {
       when(state === KernelState.Done) {
-        clock_distribution.io.compute_clock_en_n := withClock(control_clock) { 0.B }
+        clock_distribution.io.compute_clock_en := withClock(control_clock) { 1.B }
         when(processor.io.periphery.dynamic_cycle === 0.B) {
           processor_state := withClock(control_clock) { ProcessorState.Active }
         }

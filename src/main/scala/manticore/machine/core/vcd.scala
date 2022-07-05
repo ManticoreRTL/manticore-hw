@@ -18,31 +18,30 @@ import scala.math
 import chisel3.util.Cat
 import java.io.Flushable
 
+object VcdConstants {
 
-object vcdConstants {
-  
-  val MemoryBaseAddress = 0x00000000
+  val MemoryBaseAddress  = 0x00000000
   val MemoryAddressWidth = 32
 
   //for BRAM
   val DataOutWidth = 64
-  val DataInWidth = 32
+  val DataInWidth  = 32
 
-  def MaxBramCapacity = 1024.U(32.W)
-  def KillClockThreshold = 768.U(32.W)  //0.75*MaxBramCapacity
-  def BurstLength = 128.U(8.W)
+  def MaxBramCapacity    = 1024.U(32.W)
+  def KillClockThreshold = 768.U(32.W) //0.75*MaxBramCapacity
+  def BurstLength        = 128.U(8.W)
 
-  //for BRAM 
+  //for BRAM
   // def DataOutWidth = 64.U(32.W)
   // def DataInWidth = 32.U(32.W)
 }
 
-class vcd(config: ISA) extends Module {
+class VcdEngine(config: ISA) extends Module {
 
   val axiParams = new AxiParameters {
     override val IdWidth: Int   = 1
-    override val AddrWidth: Int = vcdConstants.MemoryAddressWidth
-    override val DataWidth: Int = vcdConstants.DataOutWidth
+    override val AddrWidth: Int = VcdConstants.MemoryAddressWidth
+    override val DataWidth: Int = VcdConstants.DataOutWidth
   }
 
   val io = IO(new Bundle {
@@ -50,17 +49,17 @@ class vcd(config: ISA) extends Module {
     val valid        = Input(Bool())
     val data_in      = Input(UInt(config.DataBits.W))
     val m_axi_bank_0 = new AxiMasterIF(axiParams)
-    val kill_clock = Output(Bool())
+    val kill_clock   = Output(Bool())
   })
 
-  val clock_distribution = withClockAndReset(clock,reset) {Module(new ClockDistribution)}
+  val clock_distribution = withClockAndReset(clock, reset) { Module(new ClockDistribution) }
   clock_distribution.io.root_clock := clock
   val vcd_clock = clock_distribution.io.control_clock
 
-  
-
   val axiMaster = withClockAndReset(vcd_clock, reset) {
-    Module(new MasterAXIFromFile(vcdConstants.MemoryBaseAddress, vcdConstants.MemoryAddressWidth, vcdConstants.DataOutWidth))
+    Module(
+      new MasterAXIFromFile(VcdConstants.MemoryBaseAddress, VcdConstants.MemoryAddressWidth, VcdConstants.DataOutWidth)
+    )
   }
   val virtual_cycles = withClockAndReset(vcd_clock, reset) { RegInit(UInt(32.W), 0.U) }
   axiMaster.io.M_AXI_AWREADY := io.m_axi_bank_0.AWREADY
@@ -76,7 +75,7 @@ class vcd(config: ISA) extends Module {
   io.m_axi_bank_0.AWADDR  := axiMaster.io.M_AXI_AWADDR
   io.m_axi_bank_0.AWLEN   := axiMaster.io.M_AXI_AWLEN
   io.m_axi_bank_0.AWSIZE  := axiMaster.io.M_AXI_AWSIZE
-  io.m_axi_bank_0.BURST   := axiMaster.io.M_AXI_AWBURST
+  io.m_axi_bank_0.AWBURST := axiMaster.io.M_AXI_AWBURST
   io.m_axi_bank_0.AWVALID := axiMaster.io.M_AXI_AWVALID
   io.m_axi_bank_0.WDATA   := axiMaster.io.M_AXI_WDATA
   io.m_axi_bank_0.WSTRB   := axiMaster.io.M_AXI_WSTRB
@@ -106,7 +105,7 @@ class vcd(config: ISA) extends Module {
       new SimpleDualPortMemory(
         ADDRESS_WIDTH = config.IdBits,
         READ_LATENCY = 2,
-        DATA_WIDTH = vcdConstants.DataInWidth,
+        DATA_WIDTH = VcdConstants.DataInWidth,
         STYLE = MemStyle.URAM
       )
     )
@@ -116,17 +115,17 @@ class vcd(config: ISA) extends Module {
       new SimpleDualPortMemory(
         ADDRESS_WIDTH = config.IdBits,
         READ_LATENCY = 1,
-        DATA_WIDTH = vcdConstants.DataInWidth,
-        DATA_OUT_WIDTH = vcdConstants.DataOutWidth,
+        DATA_WIDTH = VcdConstants.DataInWidth,
+        DATA_OUT_WIDTH = VcdConstants.DataOutWidth,
         STYLE = MemStyle.BRAM
       )
     )
   }
 
   val virtual_cycle_complete = WireInit(Bool(), 0.B)
-  
-  val data_out_width_wire = WireInit(UInt(32.W), vcdConstants.DataOutWidth.U)
-  
+
+  val data_out_width_wire = WireInit(UInt(32.W), VcdConstants.DataOutWidth.U)
+
   val actual_burst_length = withClockAndReset(vcd_clock, reset) { RegInit(UInt(32.W), 256.U) }
   val flush_state         = withClockAndReset(vcd_clock, reset) { RegInit(FlushValue.Type(), FlushValue.Idle) }
   val fill_state          = withClockAndReset(vcd_clock, reset) { RegInit(FillValue.Type(), FillValue.Idle) }
@@ -147,18 +146,18 @@ class vcd(config: ISA) extends Module {
 
   val active_bram_size = withClockAndReset(vcd_clock, reset) { RegInit(UInt(32.W), 0.U) }
 
-  when(active_bram_size>=vcdConstants.KillClockThreshold){
-    clock_distribution.io.compute_clock_en_n := withClock(clock) {0.B}
-    io.kill_clock := withClock(clock) {1.B}
-  }.otherwise{
-    clock_distribution.io.compute_clock_en_n := withClock(clock) {1.B}
-        io.kill_clock := withClock(clock) {0.B}
+  when(active_bram_size >= VcdConstants.KillClockThreshold) {
+    clock_distribution.io.compute_clock_en := withClock(clock) { 1.B }
+    io.kill_clock                          := withClock(clock) { 1.B }
+  }.otherwise {
+    clock_distribution.io.compute_clock_en := withClock(clock) { 0.B }
+    io.kill_clock                          := withClock(clock) { 0.B }
   }
 
   when(start_pointer >= flush_pointer) {
     active_bram_size := withClock(vcd_clock) { start_pointer - flush_pointer }
   }.otherwise {
-    active_bram_size := withClock(vcd_clock) { (start_pointer - 0.U) + (vcdConstants.MaxBramCapacity - flush_pointer) }
+    active_bram_size := withClock(vcd_clock) { (start_pointer - 0.U) + (VcdConstants.MaxBramCapacity - flush_pointer) }
 
   }
 
@@ -173,7 +172,7 @@ class vcd(config: ISA) extends Module {
   current_value_uram.io.raddr := 0.B
   current_value_uram.io.din   := 0.B
 
-  io.m_axi_bank_0.ARID := DontCare
+  // io.m_axi_bank_0.ARID := DontCare
 
   switch(flush_state) {
     is(FlushValue.Idle) {
@@ -183,16 +182,16 @@ class vcd(config: ISA) extends Module {
       }
     }
     is(FlushValue.FlushActive) {
-      when(active_bram_size >= 2.U * vcdConstants.BurstLength) {
+      when(active_bram_size >= 2.U * VcdConstants.BurstLength) {
         axiMaster.io.write_addr      := withClock(vcd_clock) { mem_pointer }
-        axiMaster.io.burst_size      := withClock(vcd_clock) { vcdConstants.BurstLength }
-        actual_burst_length          := withClock(vcd_clock) { vcdConstants.BurstLength }
+        axiMaster.io.burst_size      := withClock(vcd_clock) { VcdConstants.BurstLength }
+        actual_burst_length          := withClock(vcd_clock) { VcdConstants.BurstLength }
         axiMaster.io.write_txn_start := withClock(vcd_clock) { 1.B }
-        mem_pointer                  := withClock(vcd_clock) { mem_pointer + vcdConstants.BurstLength * (data_out_width_wire / 16.U) }
-        flush_bram.io.raddr          := withClock(vcd_clock) { flush_pointer }
-        when(flush_pointer === vcdConstants.MaxBramCapacity - 2.U) {
+        mem_pointer := withClock(vcd_clock) { mem_pointer + VcdConstants.BurstLength * (data_out_width_wire / 16.U) }
+        flush_bram.io.raddr := withClock(vcd_clock) { flush_pointer }
+        when(flush_pointer === VcdConstants.MaxBramCapacity - 2.U) {
           flush_pointer := withClock(vcd_clock) { 0.U }
-        }.elsewhen(flush_pointer === vcdConstants.MaxBramCapacity - 1.U) {
+        }.elsewhen(flush_pointer === VcdConstants.MaxBramCapacity - 1.U) {
           flush_pointer := withClock(vcd_clock) { 1.U }
         }.otherwise {
           flush_pointer := withClock(vcd_clock) { flush_pointer + 2.U }
@@ -208,9 +207,9 @@ class vcd(config: ISA) extends Module {
         mem_pointer         := withClock(vcd_clock) { mem_pointer + active_bram_size * (data_out_width_wire / 8.U) }
         flush_bram.io.raddr := withClock(vcd_clock) { flush_pointer }
 
-        when(flush_pointer === vcdConstants.MaxBramCapacity - 2.U) {
+        when(flush_pointer === VcdConstants.MaxBramCapacity - 2.U) {
           flush_pointer := withClock(vcd_clock) { 0.U }
-        }.elsewhen(flush_pointer === vcdConstants.MaxBramCapacity - 1.U) {
+        }.elsewhen(flush_pointer === VcdConstants.MaxBramCapacity - 1.U) {
           flush_pointer := withClock(vcd_clock) { 1.U }
         }.otherwise {
           flush_pointer := withClock(vcd_clock) { flush_pointer + 2.U }
@@ -230,9 +229,9 @@ class vcd(config: ISA) extends Module {
 
       when(axiMaster.io.M_AXI_AWREADY === 1.B && axiMaster.io.M_AXI_AWVALID === 1.B) {
         flush_state := withClock(vcd_clock) { FlushValue.FlushBurst }
-        when(flush_pointer === vcdConstants.MaxBramCapacity - 2.U) {
+        when(flush_pointer === VcdConstants.MaxBramCapacity - 2.U) {
           flush_pointer := withClock(vcd_clock) { 0.U }
-        }.elsewhen(flush_pointer === vcdConstants.MaxBramCapacity - 1.U) {
+        }.elsewhen(flush_pointer === VcdConstants.MaxBramCapacity - 1.U) {
           flush_pointer := withClock(vcd_clock) { 1.U }
         }.otherwise {
           flush_pointer := withClock(vcd_clock) { flush_pointer + 2.U }
@@ -248,16 +247,16 @@ class vcd(config: ISA) extends Module {
       }.elsewhen(flush_pointer === start_pointer + 1.U) {
         flush_state   := withClock(vcd_clock) { FlushValue.Done }
         flush_pointer := withClock(vcd_clock) { flush_pointer - 1.U }
-      }.elsewhen(burst_counter === vcdConstants.BurstLength - 2.U) {
+      }.elsewhen(burst_counter === VcdConstants.BurstLength - 2.U) {
         flush_state := withClock(vcd_clock) { FlushValue.Done }
       }.otherwise {
         axiMaster.io.data_in := withClock(vcd_clock) { flush_bram.io.dout }
         burst_counter        := burst_counter + 1.U
 
         flush_bram.io.raddr := withClock(vcd_clock) { flush_pointer }
-        when(flush_pointer === vcdConstants.MaxBramCapacity - 2.U) {
+        when(flush_pointer === VcdConstants.MaxBramCapacity - 2.U) {
           flush_pointer := withClock(vcd_clock) { 0.U }
-        }.elsewhen(flush_pointer === vcdConstants.MaxBramCapacity - 1.U) {
+        }.elsewhen(flush_pointer === VcdConstants.MaxBramCapacity - 1.U) {
           flush_pointer := withClock(vcd_clock) { 1.U }
         }.otherwise {
           flush_pointer := withClock(vcd_clock) { flush_pointer + 2.U }
@@ -315,7 +314,7 @@ class vcd(config: ISA) extends Module {
     }
 
     is(FillValue.FillActive) {
-      when(current_value_uram.io.dout =/= temp_reg2(15, 0) && temp_reg2(30) === 1.B ) {
+      when(current_value_uram.io.dout =/= temp_reg2(15, 0) && temp_reg2(30) === 1.B) {
 
         pip_reg1 := withClock(vcd_clock) { Cat(1.U(1.W), temp_reg2(29, 0)) }
 
@@ -331,14 +330,14 @@ class vcd(config: ISA) extends Module {
         virtual_cycle_complete := { 1.B }
       }
 
-      when(io.kill_clock===0.U){
-      temp_reg1 := withClock(vcd_clock) { Cat(io.valid, 0.U(3.W), io.id_in, io.data_in) }
-      temp_reg2 := withClock(vcd_clock) { temp_reg1 }
+      when(io.kill_clock === 0.U) {
+        temp_reg1 := withClock(vcd_clock) { Cat(io.valid, 0.U(3.W), io.id_in, io.data_in) }
+        temp_reg2 := withClock(vcd_clock) { temp_reg1 }
       }
-      .otherwise{
-              temp_reg1 := withClock(vcd_clock) { Cat(0.U(1.W), 0.U(3.W), io.id_in, io.data_in) }
-      temp_reg2 := withClock(vcd_clock) { temp_reg1 }
-      }
+        .otherwise {
+          temp_reg1 := withClock(vcd_clock) { Cat(0.U(1.W), 0.U(3.W), io.id_in, io.data_in) }
+          temp_reg2 := withClock(vcd_clock) { temp_reg1 }
+        }
       when(io.valid === 1.B) {
         current_value_uram.io.raddr := withClock(vcd_clock) { io.id_in }
         current_value_uram.io.din   := withClock(vcd_clock) { temp_reg2(15, 0) }
@@ -352,7 +351,7 @@ class vcd(config: ISA) extends Module {
         flush_bram.io.wen   := withClock(vcd_clock) { 1.B }
         flush_bram.io.waddr := withClock(vcd_clock) { start_pointer }
         flush_bram.io.din   := withClock(vcd_clock) { pip_reg2 }
-        when(start_pointer === vcdConstants.MaxBramCapacity - 1.U) {
+        when(start_pointer === VcdConstants.MaxBramCapacity - 1.U) {
           start_pointer := withClock(vcd_clock) { 0.U }
 
         }
@@ -360,8 +359,8 @@ class vcd(config: ISA) extends Module {
             start_pointer := withClock(vcd_clock) { start_pointer + 1.U }
 
           }
-      }.otherwise{
-                flush_bram.io.wen   := withClock(vcd_clock) { 0.B }
+      }.otherwise {
+        flush_bram.io.wen := withClock(vcd_clock) { 0.B }
       }
 
       when(timeout_counter >= 2.U * virtual_cycles) {
