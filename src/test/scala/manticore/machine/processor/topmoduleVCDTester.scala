@@ -15,7 +15,6 @@ import manticore.machine.assembly.Instruction.Instruction
 import manticore.machine.assembly.Instruction.Nop
 import manticore.machine.assembly.Instruction.Predicate
 import manticore.machine.assembly.Instruction.R
-import manticore.machine.core.ClockBuffer
 import manticore.machine.core.Processor
 import manticore.machine.core.ProcessorInterface
 import manticore.machine.memory.CacheCommand
@@ -49,7 +48,7 @@ class topmoduleVCDTester extends AnyFlatSpec with Matchers with ChiselScalatestT
   //       dut.io.data_in.poke(virtual_cycles)
   //       dut.clock.step()
 
-        
+
   //       for (j <-0 until 20){
 
   //       for (i <- 0 until virtual_cycles) {
@@ -59,7 +58,7 @@ class topmoduleVCDTester extends AnyFlatSpec with Matchers with ChiselScalatestT
   //         dataArray(j*virtual_cycles+i) = randData
   //         dut.io.valid_in.poke(1.B)
 
-        
+
   //         dut.io.id_in.poke(randAddr)
   //         dut.io.data_in.poke(randData)
 
@@ -71,13 +70,13 @@ class topmoduleVCDTester extends AnyFlatSpec with Matchers with ChiselScalatestT
   //       for (i <- 0 until (500)) {
   //         dut.clock.step()
   //       }
-         
-          
 
-     
+
+
+
 
   //       for (i <- 0 until 20*virtual_cycles){
-        
+
   //         val randAddr = addrArray(i)
   //         val randData = dataArray(i)
   //         dut.io.mem_raddr.poke(i*2)
@@ -95,7 +94,7 @@ class topmoduleVCDTester extends AnyFlatSpec with Matchers with ChiselScalatestT
   //         println(randData)
   //         println(randAddr)
   //         println(out_id_hex)
-          
+
 
   //         // dut.io.mem_raddr.poke(2*(i))
   //         // dut.clock.step()
@@ -114,11 +113,11 @@ class topmoduleVCDTester extends AnyFlatSpec with Matchers with ChiselScalatestT
   //         // println(dut.io.mem_data_out.peek().litValue)
   //         // dut.io.mem_raddr.poke(2*(i+2)+1)
   //         // dut.clock.step()
-  //         // println(dut.io.mem_data_out.peek().litValue)  
+  //         // println(dut.io.mem_data_out.peek().litValue)
   //         }
-    
+
   //         val temp = s"${out_id_hex(1)}${out_id_hex(2)}${out_id_hex(3)}"
-          
+
   //         val temp_int = Integer.parseInt(temp,16)
   //         out_data should be(randData)
 
@@ -142,8 +141,8 @@ class topmoduleVCDTester extends AnyFlatSpec with Matchers with ChiselScalatestT
   //         // println(dut.io.mem_data_out.peek().litValue)
   //         // dut.io.mem_raddr.poke(515)
   //         // dut.clock.step()
-  //         // println(dut.io.mem_data_out.peek().litValue)    
-                
+  //         // println(dut.io.mem_data_out.peek().litValue)
+
   //         //}
   //       }
 
@@ -161,7 +160,7 @@ class topmoduleVCDTester extends AnyFlatSpec with Matchers with ChiselScalatestT
         dut.io.data_in.poke(virtual_cycles)
         dut.clock.step()
 
-        
+
         for (j <-0 until 20){
 
         for (i <- 0 until virtual_cycles) {
@@ -171,7 +170,7 @@ class topmoduleVCDTester extends AnyFlatSpec with Matchers with ChiselScalatestT
           dataArray(j*virtual_cycles+i) = randData
           dut.io.valid_in.poke(1.B)
 
-        
+
           dut.io.id_in.poke(randAddr)
           dut.io.data_in.poke(randData)
 
@@ -187,13 +186,13 @@ class topmoduleVCDTester extends AnyFlatSpec with Matchers with ChiselScalatestT
         for (i <- 0 until (500)) {
           dut.clock.step()
         }
-         
-          
 
-     
+
+
+
 
         for (i <- 0 until 20*virtual_cycles){
-        
+
           val randAddr = addrArray(i)
           val randData = dataArray(i)
           dut.io.mem_raddr.poke(i*2)
@@ -212,9 +211,9 @@ class topmoduleVCDTester extends AnyFlatSpec with Matchers with ChiselScalatestT
           println(randAddr)
           println(out_id_hex)
           }
-    
+
           val temp = s"${out_id_hex(1)}${out_id_hex(2)}${out_id_hex(3)}"
-          
+
           val temp_int = Integer.parseInt(temp,16)
           out_data should be(randData)
 

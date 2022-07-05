@@ -15,7 +15,6 @@ import manticore.machine.assembly.Instruction.Instruction
 import manticore.machine.assembly.Instruction.Nop
 import manticore.machine.assembly.Instruction.Predicate
 import manticore.machine.assembly.Instruction.R
-import manticore.machine.core.ClockBuffer
 import manticore.machine.core.Processor
 import manticore.machine.core.ProcessorInterface
 import manticore.machine.memory.CacheCommand
