@@ -147,7 +147,7 @@ class ManticoreFlatKernel(
   // manticore.io.memory_backend.idle  := gateway.io.ap_idle
 
   axi_mreader.io.user.read_start := manticore.io.memory_backend.start & (~manticore.io.memory_backend.wen)
-  axi_mreader.io.user.raddr      := manticore.io.memory_backend.addr // we address the memory using short addresse
+  axi_mreader.io.user.raddr      := manticore.io.memory_backend.addr // we address the memory using short addresses
 
   manticore.io.memory_backend.done  := axi_mreader.io.user.read_done
   manticore.io.memory_backend.rdata := axi_mreader.io.user.rdata
