@@ -18,29 +18,22 @@ module URAMLike #(
    (* ram_style = "ultra" *)
    reg [DATA_WIDTH - 1:0] memory [0: (1 << ADDRESS_WIDTH) - 1];
    reg [DATA_WIDTH - 1:0] dout_reg;
-   reg [DATA_WIDTH - 1:0] dout_reg_temp;
+   reg [DATA_WIDTH - 1:0] pipes [0: READ_LATENCY - 1];
    reg [ADDRESS_WIDTH - 1:0] addr_reg;
-   always @(posedge clock) 
+   integer i;
+   always @(posedge clock)
    begin
     if (wen) begin
       memory[waddr] <= din;
     end
-    dout_reg_temp <= memory[raddr];
-    dout_reg <= dout_reg_temp;
+    pipes[0] <= memory[raddr];
+    for (i = 1; i < READ_LATENCY ; i = i + 1) begin
+      pipes[i] <= pipes[i - 1];
+    end
    end
-   
-   if(READ_LATENCY==2)
-   begin
-    assign dout = dout_reg;     
-   end
-   else if(READ_LATENCY==1) 
-   begin
-    assign dout = dout_reg_temp;
-   end
-   else
-   begin
-    assign dout = dout_reg_temp; 
-   end
+
+  assign dout = pipes[READ_LATENCY - 1];
+
   //  assign dout = memory[addr_reg];
 `else
   xpm_memory_sdpram # (

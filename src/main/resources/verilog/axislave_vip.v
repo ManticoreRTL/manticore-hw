@@ -20,8 +20,8 @@
 		parameter integer C_S_AXI_ID_WIDTH	= 1,
 		// Width of Address Bus
 		parameter integer C_S_AXI_ADDR_WIDTH	= 32,
-		// Width of Data Bus 
-		// 2 in binary is 3'b010 which corresponds to 4 byte Data Width 
+		// Width of Data Bus
+		// 2 in binary is 3'b010 which corresponds to 4 byte Data Width
 		parameter integer C_S_AXI_DATA_WIDTH	= 16,
 		// Width of User Write Address Bus
 		parameter integer C_S_AXI_AWUSER_WIDTH	= 0,
@@ -59,7 +59,7 @@
 
 		// Burst size. This signal indicates the size of each transfer in the burst
 		input wire [2 : 0] S_AXI_AWSIZE,
-		// Burst type. The burst type and the size information, 
+		// Burst type. The burst type and the size information,
     // determine how the address for each transfer within the burst is calculated.
 		input wire [1 : 0] S_AXI_AWBURST,
 		// Lock type. Provides additional information about the
@@ -117,7 +117,7 @@
 		input wire [7 : 0] S_AXI_ARLEN,
 		// Burst size. This signal indicates the size of each transfer in the burst
 		input wire [2 : 0] S_AXI_ARSIZE,
-		// Burst type. The burst type and the size information, 
+		// Burst type. The burst type and the size information,
     // determine how the address for each transfer within the burst is calculated.
 		input wire [1 : 0] S_AXI_ARBURST,
 		// Lock type. Provides additional information about the
@@ -157,7 +157,7 @@
 		// Read ready. This signal indicates that the master can
     // accept the read data and response information.
 		input wire  S_AXI_RREADY
-		
+
 	);
 
     integer i=0;
@@ -167,14 +167,14 @@
 	//localparam integer C_MASTER_LENGTH	= 12;
 	// total number of burst transfers is master length divided by burst length and burst size
 	//localparam integer C_NO_BURSTS_REQ = C_MASTER_LENGTH-clogb2((C_M_AXI_BURST_LEN*C_M_AXI_DATA_WIDTH/8)-1);
-	// Example State machine to initialize counter, initialize write transactions, 
-	// initialize read transactions and comparison of read data with the 
+	// Example State machine to initialize counter, initialize write transactions,
+	// initialize read transactions and comparison of read data with the
 	// written data words.
-	
+
 	reg [C_S_AXI_DATA_WIDTH-1 : 0] 	axi_rdata;
 	reg [C_S_AXI_DATA_WIDTH-1 : 0]  write_data;
 	reg [C_S_AXI_DATA_WIDTH-1 : 0] 	read_data;
-	
+
 	reg [7:0]write_burst_size;
 	reg [7:0]read_burst_size;
 	reg [9:0]write_bus_size;
@@ -195,7 +195,7 @@
 	//The burst counters are used to track the number of burst transfers of C_M_AXI_BURST_LEN burst length needed to transfer 2^C_MASTER_LENGTH bytes of data.
 	//reg [C_NO_BURSTS_REQ : 0] 	write_burst_counter;
 	//reg [C_NO_BURSTS_REQ : 0] 	read_burst_counter;
-	
+
 	reg     slave_write_txn_done;
 	reg  	slave_read_txn_done;
 	reg  	error_reg;
@@ -222,49 +222,49 @@
 	// 8:
 	// begin
     //     assign S_AXI_ARSIZE	= 3'b000;
-    //     assign S_AXI_AWSIZE	= 3'b000;    
+    //     assign S_AXI_AWSIZE	= 3'b000;
 	// end
 	// 16:
 	// begin
 	//     assign S_AXI_ARSIZE	= 3'b001;
-    //     assign S_AXI_AWSIZE	= 3'b001; 
+    //     assign S_AXI_AWSIZE	= 3'b001;
 	// end
 	// 32:
 	// begin
 	//     assign S_AXI_ARSIZE	= 3'b010;
-    //     assign S_AXI_AWSIZE	= 3'b010; 
+    //     assign S_AXI_AWSIZE	= 3'b010;
 	// end
 	// 64:
 	// begin
 	//     assign S_AXI_ARSIZE	= 3'b011;
-    //     assign S_AXI_AWSIZE	= 3'b011; 
+    //     assign S_AXI_AWSIZE	= 3'b011;
 	// end
 	// 128:
 	// begin
 	//     assign S_AXI_ARSIZE	= 3'b100;
-    //     assign S_AXI_AWSIZE	= 3'b100; 
+    //     assign S_AXI_AWSIZE	= 3'b100;
 	// end
 	// 256:
 	// begin
 	//     assign S_AXI_ARSIZE	= 3'b101;
-    //     assign S_AXI_AWSIZE	= 3'b101; 
+    //     assign S_AXI_AWSIZE	= 3'b101;
 	// end
 	// 512:
 	// begin
 	//     assign S_AXI_ARSIZE	= 3'b110;
-    //     assign S_AXI_AWSIZE	= 3'b110; 
+    //     assign S_AXI_AWSIZE	= 3'b110;
 	// end
 	// 1024:
 	// begin
 	//     assign S_AXI_ARSIZE	= 3'b111;
-    //     assign S_AXI_AWSIZE	= 3'b111; 
+    //     assign S_AXI_AWSIZE	= 3'b111;
 	// end
 
-	// endcase	
-	
+	// endcase
+
 	//Burst LENgth is number of transaction beats, minus 1
 	//Size should be C_M_AXI_DATA_WIDTH, in 2^SIZE bytes, otherwise narrow bursts are used
-	
+
 
 	assign S_AXI_AWREADY	= axi_awready;
 	assign S_AXI_ARREADY	= axi_arready;
@@ -283,20 +283,20 @@
 	//INCR burst type is usually used, except for keyhole bursts
 	assign S_AXI_RVALID	= axi_rvalid;
 	//Example design I/O
-	
+
 	//Burst size in bytes
 	//assign burst_size_bytes	= C_M_AXI_BURST_LEN * C_M_AXI_DATA_WIDTH/8;
 
     always @(posedge S_AXI_ACLK)
-    begin  
+    begin
 		if (S_AXI_ARESETN == 0)
         begin
             axi_wready <= 0;
             axi_awready <= 0;
             write_state <= 0;
-            slave_write_txn_done <= 0;		    
+            slave_write_txn_done <= 0;
 			b_counter <= 0;
-        end 
+        end
 		else if(lock==0)
 		begin
 			case(write_state)
@@ -304,11 +304,11 @@
 			begin
 				axi_awready <= 1;
 				axi_wready	<= 1;
-			    slave_write_txn_done <= 0;		    
+			    slave_write_txn_done <= 0;
 				b_counter <= 0;
 				if(S_AXI_AWVALID==1)
 				begin
-					write_addr <= S_AXI_AWADDR;
+					write_addr <= (S_AXI_AWADDR >> (CACHE_DATA_WIDTH / 8 - 1));
 					write_burst_size <= S_AXI_AWLEN;
 					write_bus_size <= S_AXI_AWSIZE;
 					write_state <= 1;
@@ -330,7 +330,7 @@
 						slave_write_txn_done <= 1;
 						write_state <= 0;
 					end
-				end        
+				end
 			end
 			default:
 				begin
@@ -340,14 +340,14 @@
 			endcase
 		end
 	end
-	
+
 	always @(posedge S_AXI_ACLK)
-    begin  
+    begin
 		if (S_AXI_ARESETN == 0)
         begin
             axi_bvalid <= 0;
-            axi_bresp <= 0;	    
-        end 
+            axi_bresp <= 0;
+        end
 		else if(lock==0)
 		begin
 			case(write_resp_state)
@@ -366,7 +366,7 @@
 				begin
 					axi_bvalid <= 0;
 					write_resp_state <= 0;
-				end        
+				end
 			end
 			default:
 				begin
@@ -387,12 +387,12 @@
 			axi_rlast <= 0;
 			axi_rresp <= 0;
 		    read_state <= 0;
-        end 
+        end
 		else if(lock==0)
 		begin
 			case(read_state)
 				2'b00:
-				begin 
+				begin
 				    axi_arready <= 1;
 					slave_read_txn_done <= 0;
 					if(S_AXI_ARVALID==1)
@@ -400,7 +400,7 @@
 					    axi_arready <= 0;
 						for(i=0;i<C_S_AXI_DATA_WIDTH/CACHE_DATA_WIDTH;i=i+1)
                         begin
-                           axi_rdata[(CACHE_DATA_WIDTH*i)+:(CACHE_DATA_WIDTH)] <= mem[S_AXI_ARADDR+i];            
+                           axi_rdata[(CACHE_DATA_WIDTH*i)+:(CACHE_DATA_WIDTH)] <= mem[(S_AXI_ARADDR >> ((CACHE_DATA_WIDTH / 8) - 1)) + i];
                         end
                         axi_rvalid <= 1;
 						axi_rlast <= 1;
@@ -408,7 +408,7 @@
 						axi_arready <= 0;
 						read_state <= 1;
 					end
-				end        
+				end
 				2'b01:
 				begin
 					if(S_AXI_RREADY==1)
@@ -422,7 +422,7 @@
 				default:
 				begin
 					read_state <= 0;
-				end 
+				end
 			endcase
 		end
     end
@@ -430,12 +430,9 @@
     begin
         if(S_AXI_ARESETN == 0)
         begin
-            for(i=0;i<MEM_SIZE;i=i+1)
-            begin
-                mem[i]<=0;
-            end
+
         end
-        else 
+        else
         begin
             if(mem_wen==1)
             begin

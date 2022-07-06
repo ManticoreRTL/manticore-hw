@@ -3,7 +3,7 @@ package manticore.machine.memory
 import Chisel._
 import chisel3.experimental.ChiselEnum
 import chisel3.stage.ChiselStage
-import firrtl.backends.experimental.smt.State
+
 
 /** Cache back-end interface. The backend interface connects to a module that
   * talks to the memory through a bus (e.g., AXI). Such a back-end should be
@@ -88,7 +88,7 @@ class CacheBackInterface(CacheLineBits: Int, AddressBits: Int) extends Bundle {
     cmd   := CacheBackendCommand.WriteBack.id.U
     waddr := write_address
     raddr := read_address
-    
+
   }
 
   /** Start a read operation
@@ -258,7 +258,7 @@ class Cache extends Module {
     * cache. against
     */
   object StateValue extends ChiselEnum {
-    val Idle, ReadCached, HitCheck, WaitBeforeRead, WaitBeforeFlush ,WaitResponse, Flush, FlushRead, FlushCheck,
+    val Idle, WaitBeforeRead, ReadCached, HitCheck, WaitResponse, WaitBeforeFlush, Flush, FlushRead, FlushCheck,
         FlushResponse, Reset = Value
   }
 

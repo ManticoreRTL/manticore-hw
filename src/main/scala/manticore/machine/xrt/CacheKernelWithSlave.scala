@@ -50,7 +50,7 @@ class axislave_vip(
 
       val S_AXI_ARESETN = Input(Bool())
       val S_AXI_ACLK    = Input(Clock())
-      val S_AXI_AWADDR  = Input(UInt((log2Ceil(MEM_SIZE)).W))
+      val S_AXI_AWADDR  = Input(UInt(64.W))
       val S_AXI_AWLEN   = Input(UInt(8.W))
       val S_AXI_AWSIZE  = Input(UInt(3.W))
       val S_AXI_AWBURST = Input(UInt(2.W))
@@ -64,7 +64,7 @@ class axislave_vip(
       val S_AXI_BRESP   = Output(UInt(2.W))
       val S_AXI_BVALID  = Output(Bool())
       val S_AXI_BREADY  = Input(Bool())
-      val S_AXI_ARADDR  = Input(UInt((log2Ceil(MEM_SIZE)).W))
+      val S_AXI_ARADDR  = Input(UInt(64.W))
       val S_AXI_ARLEN   = Input(UInt(8.W))
       val S_AXI_ARSIZE  = Input(UInt(3.W))
       val S_AXI_ARVALID = Input(Bool())

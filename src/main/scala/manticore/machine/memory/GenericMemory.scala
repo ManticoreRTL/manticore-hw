@@ -131,12 +131,12 @@ object MemStyle extends Enumeration {
   val BRAM, URAM = Value
 }
 
-class SimpleDualPortMemoryInterface(val ADDRESS_WIDTH: Int, val DATA_WIDTH: Int, val DATA_OUT_WIDTH: Int=64)
+class SimpleDualPortMemoryInterface(val ADDRESS_WIDTH: Int, val DATA_WIDTH: Int)
     extends Bundle {
   private def dataInPort  = Input(UInt(DATA_WIDTH.W))
   private def controlPort = Input(Bool())
   private def addressPort = Input(UInt(ADDRESS_WIDTH.W))
-  private def dataOutPort = Output(UInt(DATA_OUT_WIDTH.W))
+  private def dataOutPort = Output(UInt(DATA_WIDTH.W))
   val raddr               = addressPort
   val dout                = dataOutPort
   val wen                 = controlPort
@@ -156,12 +156,11 @@ class AbstractDualPortMemory(
 }
 
 class SimpleDualPortMemory(
-    ADDRESS_WIDTH: Int,
-    DATA_WIDTH: Int,
-    DATA_OUT_WIDTH: Int=64,
-    READ_LATENCY: Int = 1,
-    STYLE: MemStyle.MemSyle = MemStyle.BRAM,
-    INIT: String = ""
+    val ADDRESS_WIDTH: Int,
+    val DATA_WIDTH: Int,
+    val READ_LATENCY: Int = 1,
+    val STYLE: MemStyle.MemSyle = MemStyle.BRAM,
+    val INIT: String = ""
 ) extends AbstractDualPortMemory(ADDRESS_WIDTH, DATA_WIDTH, READ_LATENCY, STYLE, INIT) {
   abstract class VerilogMemory(params: Map[String, Param])
       extends BlackBox(params) {
@@ -171,7 +170,7 @@ class SimpleDualPortMemory(
       val raddr = Input(UInt(ADDRESS_WIDTH.W))
       val waddr = Input(UInt(ADDRESS_WIDTH.W))
       val din   = Input(UInt(DATA_WIDTH.W))
-      val dout  = Output(UInt(DATA_OUT_WIDTH.W))
+      val dout  = Output(UInt(DATA_WIDTH.W))
     }
     val io = IO(new VerilogInternalInterface)
   }
@@ -180,7 +179,6 @@ class SimpleDualPortMemory(
         Map(
           "ADDRESS_WIDTH" -> ADDRESS_WIDTH,
           "DATA_IN_WIDTH"    -> DATA_WIDTH,
-          "DATA_OUT_WIDTH"    -> DATA_OUT_WIDTH,
           "filename"      -> INIT
         )
       )
@@ -214,7 +212,7 @@ class SimpleDualPortMemory(
 class DummyDualPortMemory(
     ADDRESS_WIDTH: Int,
     DATA_WIDTH: Int,
-    READ_LATENCY: Int = 1, 
+    READ_LATENCY: Int = 1,
     STYLE: MemStyle.MemSyle = MemStyle.BRAM,
     INIT: String = ""
 ) extends AbstractDualPortMemory(ADDRESS_WIDTH, DATA_WIDTH, READ_LATENCY, STYLE, INIT) {
