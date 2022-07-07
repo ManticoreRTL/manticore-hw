@@ -112,10 +112,17 @@ class ManticoreFlatKernel(
   val manticore =
     Module(new ManticoreFlatArray(DimX, DimY, debug_enable, enable_custom_alu))
 
+  val cache = withClockAndReset(clock = clock_distribution.io.control_clock, reset = reset) {
+    Module(new CacheSubsystem)
+  }
+
+
+
   manticore.io.reset         := reset
   manticore.io.control_clock := clock_distribution.io.control_clock
   manticore.io.compute_clock := clock_distribution.io.compute_clock
   manticore.io.clock_stabled := clock_distribution.io.locked
+
 
   clock_distribution.io.compute_clock_en := manticore.io.clock_active
 
@@ -176,8 +183,8 @@ class ManticoreFlatSimKernel(
   reset.suggestName("ap_rst")
 
   class KernelRegisters extends Bundle {
-    val host   = Input(new HostRegisters(ManticoreFullISA))
-    val device = Output(new DeviceRegisters(ManticoreFullISA))
+    val host   = Input(new HostRegisters)
+    val device = Output(new DeviceRegisters)
   }
   class KernelControl extends Bundle {
     val start: Bool = Input(Bool())

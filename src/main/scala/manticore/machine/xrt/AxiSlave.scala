@@ -61,9 +61,9 @@ object AxiSlave {
   }
   class AxiSlaveManticoreInterface(config: ISA) extends Bundle {
 
-    val host_regs    = Output(new HostRegisters(config))
+    val host_regs    = Output(new HostRegisters)
     val pointer_regs = Output(new MemoryPointers())
-    val dev_regs     = Input(new DeviceRegisters(config))
+    val dev_regs     = Input(new DeviceRegisters)
 
     val AxiSlaveAddrWidth = log2Ceil(
       (

@@ -12,7 +12,7 @@ import scala.annotation.tailrec
 import manticore.machine.ISA
 
 /// registers written by the host
-class HostRegisters(config: ISA) extends Bundle {
+class HostRegisters extends Bundle {
   val global_memory_instruction_base: UInt = UInt(64.W)
   val value_change_symbol_table_base: UInt = UInt(64.W)
   val value_change_log_base: UInt          = UInt(64.W)
@@ -27,7 +27,7 @@ class HostRegisters(config: ISA) extends Bundle {
 }
 
 /// registers written by the device, i.e., the compute grid
-class DeviceRegisters(config: ISA) extends Bundle {
+class DeviceRegisters extends Bundle {
   val virtual_cycles: UInt    = UInt(64.W)
   val bootloader_cycles: UInt = UInt(32.W) // for profiling
   // val exception_id: Vec[UInt] = Vec(4, UInt(config.DataBits.W))
@@ -37,8 +37,8 @@ class DeviceRegisters(config: ISA) extends Bundle {
 
 class ManticoreFlatArrayInterface extends Bundle {
 
-  val host_registers   = Input(new HostRegisters(ManticoreFullISA))
-  val device_registers = Output(new DeviceRegisters(ManticoreFullISA))
+  val host_registers   = Input(new HostRegisters)
+  val device_registers = Output(new DeviceRegisters)
 
   val start: Bool = Input(Bool())
   val done: Bool  = Output(Bool())
@@ -137,17 +137,18 @@ class KernelControl extends Module {
     val idle               = Output(Bool())
     val boot_start         = Output(Bool())
     val boot_finished      = Input(Bool())
-    val device_registers   = Output(new DeviceRegisters(ManticoreFullISA))
+    val device_registers   = Output(new DeviceRegisters)
     val kill_clock         = Input(Bool())
     val resume_clock       = Input(Bool())
     val exception_occurred = Input(Bool())
     val schedule_config    = Input(UInt(64.W))
     val exception_id       = Input(UInt(32.W))
     val config_enable      = Output(Bool())
-
-    val clock_active     = Output(Bool())
-    val execution_active = Input(Bool())
-    val soft_reset       = Output(Bool())
+    val cache_reset_start  = Output(Bool())
+    val cache_reset_done   = Input(Bool())
+    val clock_active       = Output(Bool())
+    val execution_active   = Input(Bool())
+    val soft_reset         = Output(Bool())
 
     val clock_stabled = Input(Bool())
   })
@@ -161,7 +162,7 @@ class KernelControl extends Module {
   val start_pulse: Bool = Wire(Bool())
   start_pulse := (!start_reg) & io.start
 
-  val dev_regs = Reg(new DeviceRegisters(ManticoreFullISA))
+  val dev_regs = Reg(new DeviceRegisters)
 
   val command      = Wire(UInt(8.W))
   val command_data = Wire(UInt(56.W))
@@ -170,7 +171,7 @@ class KernelControl extends Module {
   command_data := io.schedule_config.tail(8)
 
   object State extends ChiselEnum {
-    val Idle, SoftReset, BootLoading, VirtualCycle, SignalDone = Value
+    val Idle, SoftReset, CacheReset, BootLoading, VirtualCycle, SignalDone = Value
   }
 
   val state = RegInit(State.Type(), State.Idle)
@@ -213,6 +214,7 @@ class KernelControl extends Module {
       next
     }
 
+  io.cache_reset_start := false.B
   switch(state) {
     is(State.Idle) {
       when(start_pulse && io.clock_stabled) {
@@ -233,17 +235,25 @@ class KernelControl extends Module {
       clock_active  := true.B
       // since the reset takes many cycles, we have to keep the clock active.
       // Note that it is possible that while the reset is taking place some
-      // programming is running on the master core and triggers an exception
-      // which should normally kill the clock. To avoid this, we only let the
-      // master core issue any clock kill request if the controller is in the
+      // program is running on the master core and triggers an exception which
+      // should normally kill the clock. To avoid this, we only let the master
+      // core issue any clock kill request if the controller is in the
       // VirtualCycle state. This could easily happen when we are running
-      // initialization programs with very few initialization instructions.
-      // In other words, while we are trying to reset the manticore array to
-      // start the actual program, the initializer runs again and tries to kill
-      // the clock before reset reaches the processor and hence the processor
-      // may not properly reset!
+      // initialization programs with very few initialization instructions. In
+      // other words, while we are trying to reset the manticore array to start
+      // the actual program, the initializer runs again and tries to kill the
+      // clock before reset reaches the processor and hence the processor may
+      // not properly reset!
       when(reset_counter === ResetLatency.U) {
-        state         := State.BootLoading
+        state         := State.CacheReset
+
+      }
+    }
+    is(State.CacheReset) {
+      io.cache_reset_start := true.B
+      clock_active  := true.B // keep the clock active
+      when(io.cache_reset_done) {
+        state := State.BootLoading
         io.boot_start := true.B
       }
     }

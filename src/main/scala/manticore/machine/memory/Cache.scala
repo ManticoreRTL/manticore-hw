@@ -4,7 +4,6 @@ import Chisel._
 import chisel3.experimental.ChiselEnum
 import chisel3.stage.ChiselStage
 
-
 /** Cache back-end interface. The backend interface connects to a module that
   * talks to the memory through a bus (e.g., AXI). Such a back-end should be
   * able to perform a single read or a write-back accompanied by a read.
@@ -66,7 +65,6 @@ class CacheBackInterface(CacheLineBits: Int, AddressBits: Int) extends Bundle {
     //cmd   := CacheBackendCommand.Read.id.U
 
   }
-
 
   /** start a write-back-then-read operation
     *
@@ -171,8 +169,7 @@ class CacheFrontInterface(DataBits: Int, AddressBits: Int) extends Bundle {
   * @param AddressBits
   *   number of bits in a half-word address
   */
-class CacheInterface(DataBits: Int, CacheLineBits: Int, AddressBits: Int)
-    extends Bundle {
+class CacheInterface(DataBits: Int, CacheLineBits: Int, AddressBits: Int) extends Bundle {
   val front = new CacheFrontInterface(DataBits, AddressBits)
   val back  = new CacheBackInterface(CacheLineBits, AddressBits)
 }
@@ -309,8 +306,7 @@ class Cache extends Module {
           ADDRESS_WIDTH = 12,
           READ_LATENCY = 2,
           DATA_WIDTH = 72,
-          STYLE =
-            MemStyle.URAM // URAM has higher capacity and can not be initialized
+          STYLE = MemStyle.URAM // URAM has higher capacity and can not be initialized
         )
       ),
       i
@@ -437,7 +433,7 @@ class Cache extends Module {
 
       }
     }
-    is(StateValue.WaitBeforeRead){
+    is(StateValue.WaitBeforeRead) {
       pstate := StateValue.ReadCached
     }
     is(StateValue.ReadCached) {
