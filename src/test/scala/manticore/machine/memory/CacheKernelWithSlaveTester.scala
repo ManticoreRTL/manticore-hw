@@ -28,6 +28,7 @@ class CacheKernelWithSlaveTester
         val randGen  = new Random(3123)
         val randGen2 = new Random(5173)
 
+
         ////////writing directly to memory
         for (i <- 0 until 1000) {
           val randAddr = (randGen.nextInt(10000))
@@ -72,21 +73,21 @@ class CacheKernelWithSlaveTester
         dut.clock.setTimeout(0)
 
 
-        for (i <-0 until 1000) {
+        for (i <-0 until 10) {
           val randAddr = (randGen.nextInt(10000))
           addrArray(i) = randAddr
           val randData = (randGen2.nextInt(10000))
           dataArray(randAddr) = randData
 
           //////////writing to cache
-          dut.io.cache_data_in.poke(randData) //wdata
-          dut.io.lock.poke(0.B) //wdata
-          dut.io.cache_addr.poke(randAddr) //addr
-          dut.io.cache_cmd.poke(0.U) //cache_command
-          dut.io.cache_start.poke(1.U) //start
+          dut.io.cache_data_in.poke(randData) 
+          dut.io.lock.poke(0.B) 
+          dut.io.cache_addr.poke(randAddr) 
+          dut.io.cache_cmd.poke(0.U) 
+          dut.io.cache_start.poke(1.U) 
           dut.clock.step()
 
-          dut.io.cache_start.poke(0.U) //start
+          dut.io.cache_start.poke(0.U) 
 
 
 
@@ -97,11 +98,11 @@ class CacheKernelWithSlaveTester
         }
 
         //////flushing the cache
-        dut.io.lock.poke(0.B) //lock
-        dut.io.cache_cmd.poke(3.U) //cache command
-        dut.io.cache_start.poke(1.U) //start
+        dut.io.lock.poke(0.B) 
+        dut.io.cache_cmd.poke(3.U) 
+        dut.io.cache_start.poke(1.U) 
         dut.clock.step()
-        dut.io.cache_start.poke(0.U) //start
+        dut.io.cache_start.poke(0.U) 
 
 
         while (dut.io.cache_done.peek().litValue == 0) {
@@ -148,11 +149,11 @@ class CacheKernelWithSlaveTester
 
 
         //////resetting the cache
-        dut.io.lock.poke(0.B) //lock
-        dut.io.cache_cmd.poke(2.U) //cache command
-        dut.io.cache_start.poke(1.U) //start
+        dut.io.lock.poke(0.B) 
+        dut.io.cache_cmd.poke(2.U) 
+        dut.io.cache_start.poke(1.U) 
         dut.clock.step()
-        dut.io.cache_start.poke(0.U) //start
+        dut.io.cache_start.poke(0.U) 
 
 
         while (dut.io.cache_done.peek().litValue == 0) {
@@ -167,19 +168,19 @@ class CacheKernelWithSlaveTester
           val randData = dataArray(randAddr)
 
           dut.io.lock.poke(0.B)
-          dut.io.cache_addr.poke(randAddr) //addr
-          dut.io.cache_cmd.poke(1.U) //cache_command
-          dut.io.cache_start.poke(1.U) //start
+          dut.io.cache_addr.poke(randAddr) 
+          dut.io.cache_cmd.poke(1.U) 
+          dut.io.cache_start.poke(1.U) 
           dut.clock.step()
 
-          dut.io.cache_start.poke(0.U) //start
+          dut.io.cache_start.poke(0.U) 
 
 
 
           while (dut.io.cache_done.peek().litValue == 0) {
             dut.clock.step()
           }
-          val Out = dut.io.cache_data_out.peek().litValue //rdata
+          val Out = dut.io.cache_data_out.peek().litValue 
           Out should be (randData)
           dut.clock.step()
         }

@@ -179,6 +179,7 @@ class SimpleDualPortMemory(
         Map(
           "ADDRESS_WIDTH" -> ADDRESS_WIDTH,
           "DATA_IN_WIDTH"    -> DATA_WIDTH,
+          "DATA_OUT_WIDTH"    -> DATA_WIDTH,
           "filename"      -> INIT
         )
       )
@@ -208,6 +209,60 @@ class SimpleDualPortMemory(
   io.dout       := impl.io.dout
 
 }
+
+class VcdDualPortMemory(
+    val ADDRESS_WIDTH: Int,
+    val DATA_IN_WIDTH: Int,
+    val DATA_OUT_WIDTH:Int,
+    val READ_LATENCY: Int = 1,
+    val STYLE: MemStyle.MemSyle = MemStyle.BRAM,
+    val INIT: String = ""
+) extends Module {
+  
+      val io = IO (new Bundle {
+      val wen   = Input(Bool())
+      val clock = Input(Clock())
+      val raddr = Input(UInt(ADDRESS_WIDTH.W))
+      val waddr = Input(UInt(ADDRESS_WIDTH.W))
+      val din   = Input(UInt(DATA_IN_WIDTH.W))
+      val dout  = Output(UInt(DATA_OUT_WIDTH.W))
+    })
+  
+  class BRAMLike
+      extends BlackBox(
+        Map(
+          "ADDRESS_WIDTH" -> ADDRESS_WIDTH,
+          "DATA_IN_WIDTH"    -> DATA_IN_WIDTH,
+          "DATA_OUT_WIDTH"    -> DATA_OUT_WIDTH,
+          "filename"      -> INIT
+        )
+      )
+      with HasBlackBoxResource {
+        val io = IO(new Bundle {
+          val wen   = Input(Bool())
+      val clock = Input(Clock())
+      val raddr = Input(UInt(ADDRESS_WIDTH.W))
+      val waddr = Input(UInt(ADDRESS_WIDTH.W))
+      val din   = Input(UInt(DATA_IN_WIDTH.W))
+      val dout  = Output(UInt(DATA_OUT_WIDTH.W))
+        })
+
+
+    addResource("/verilog/BRAMLike.v")
+  }
+  
+
+  val impl = Module(new BRAMLike)
+
+  impl.io.clock := io.clock
+  impl.io.din   := io.din
+  impl.io.raddr := io.raddr
+  impl.io.wen   := io.wen
+  impl.io.waddr := io.waddr
+  io.dout       := impl.io.dout
+
+}
+
 
 class DummyDualPortMemory(
     ADDRESS_WIDTH: Int,

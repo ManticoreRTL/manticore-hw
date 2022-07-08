@@ -1,14 +1,14 @@
-`timescale 1 ns / 1 ps
+//`timescale 1 ns / 1 ps
 
-    function integer clogb2;
-    input [31:0] datain;
-    integer i;
-    begin
-        clogb2 = 0;
-        for(i = 0; 2**i < datain; i = i + 1)
-        clogb2 = i + 1;
-    end
-    endfunction
+    // function integer clogb2;
+    // input [31:0] datain;
+    // integer i;
+    // begin
+    //     clogb2 = 0;
+    //     for(i = 0; 2**i < datain; i = i + 1)
+    //     clogb2 = i + 1;
+    // end
+    // endfunction
 
 	module axislave_vip #
 	(
@@ -24,34 +24,30 @@
 		// 2 in binary is 3'b010 which corresponds to 4 byte Data Width
 		parameter integer C_S_AXI_DATA_WIDTH	= 16,
 		// Width of User Write Address Bus
-		parameter integer C_S_AXI_AWUSER_WIDTH	= 0,
+		parameter integer C_S_AXI_AWUSER_WIDTH	= 1,
 		// Width of User Read Address Bus
-		parameter integer C_S_AXI_ARUSER_WIDTH	= 0,
+		parameter integer C_S_AXI_ARUSER_WIDTH	= 1,
 		// Width of User Write Data Bus
-		parameter integer C_S_AXI_WUSER_WIDTH	= 0,
+		parameter integer C_S_AXI_WUSER_WIDTH	= 1,
 		// Width of User Read Data Bus
-		parameter integer C_S_AXI_RUSER_WIDTH	= 0,
+		parameter integer C_S_AXI_RUSER_WIDTH	= 1,
 		// Width of User Response Bus
-		parameter integer C_S_AXI_BUSER_WIDTH	= 0
+		parameter integer C_S_AXI_BUSER_WIDTH	= 1
 	)
 	(
 		// Initiate AXI transactions
-		//input wire [C_M_AXI_DATA_WIDTH-1 : 0] cache_data,
-		input wire  read_txn_start,
 		input wire  mem_wen,
 		input wire [CACHE_DATA_WIDTH-1:0]mem_data_in,
 		output reg [CACHE_DATA_WIDTH-1:0]mem_data_out,
-		input wire [clogb2(MEM_SIZE)-1:0]mem_raddr,
-		input wire [clogb2(MEM_SIZE)-1:0]mem_waddr,
-        input wire cache_ready,
+		input wire [$clog2(MEM_SIZE)-1:0]mem_raddr,
+		input wire [$clog2(MEM_SIZE)-1:0]mem_waddr,
 		input wire lock,
-		output reg  ERROR,
 		// Global Clock Signal.
 		input wire  S_AXI_ACLK,
 		// Global Reset Singal. This Signal is Active Low
 		input wire  S_AXI_ARESETN,
 		// Master Interface Write Address ID
-		input wire [1'b1<<C_S_AXI_ID_WIDTH-1 : 0] S_AXI_AWID,
+		// input wire [1'b1<<C_S_AXI_ID_WIDTH-1 : 0] S_AXI_AWID,
 		// Master Interface Write Address
 		input wire [C_S_AXI_ADDR_WIDTH-1 : 0] S_AXI_AWADDR,
 		// Burst length. The burst length gives the exact number of transfers in a burst
@@ -64,18 +60,18 @@
 		input wire [1 : 0] S_AXI_AWBURST,
 		// Lock type. Provides additional information about the
     // atomic characteristics of the transfer.
-		input wire  S_AXI_AWLOCK,
+		// input wire  S_AXI_AWLOCK,
 		// Memory type. This signal indicates how transactions
     // are required to progress through a system.
-		input wire [3 : 0] S_AXI_AWCACHE,
+		// input wire [3 : 0] S_AXI_AWCACHE,
 		// Protection type. This signal indicates the privilege
     // and security level of the transaction, and whether
     // the transaction is a data access or an instruction access.
-		input wire [2 : 0] S_AXI_AWPROT,
+		// input wire [2 : 0] S_AXI_AWPROT,
 		// Quality of Service, QoS identifier sent for each write transaction.
-		input wire [3 : 0] S_AXI_AWQOS,
+		// input wire [3 : 0] S_AXI_AWQOS,
 		// Optional User-defined signal in the write address channel.
-		input wire [C_S_AXI_AWUSER_WIDTH-1 : 0] S_AXI_AWUSER,
+		// input wire [C_S_AXI_AWUSER_WIDTH-1 : 0] S_AXI_AWUSER,
 		// Write address valid. This signal indicates that
     // the channel is signaling valid write address and control information.
 		input wire  S_AXI_AWVALID,
@@ -97,11 +93,11 @@
     // can accept the write data.
 		output wire  S_AXI_WREADY,
 		// Master Interface Write Response.
-		output wire [C_S_AXI_ID_WIDTH-1 : 0] S_AXI_BID,
+		// output wire [C_S_AXI_ID_WIDTH-1 : 0] S_AXI_BID,
 		// Write response. This signal indicates the status of the write transaction.
 		output wire [1 : 0] S_AXI_BRESP,
 		// Optional User-defined signal in the write response channel
-		input wire [C_S_AXI_BUSER_WIDTH-1 : 0] S_AXI_BUSER,
+		// input wire [C_S_AXI_BUSER_WIDTH-1 : 0] S_AXI_BUSER,
 		// Write response valid. This signal indicates that the
     // channel is signaling a valid write response.
 		output wire  S_AXI_BVALID,
@@ -109,7 +105,7 @@
     // can accept a write response.
 		input wire  S_AXI_BREADY,
 		// Master Interface Read Address.
-		input wire [C_S_AXI_ID_WIDTH-1 : 0] S_AXI_ARID,
+		// input wire [C_S_AXI_ID_WIDTH-1 : 0] S_AXI_ARID,
 		// Read address. This signal indicates the initial
     // address of a read burst transaction.
 		input wire [C_S_AXI_ADDR_WIDTH-1 : 0] S_AXI_ARADDR,
@@ -119,21 +115,21 @@
 		input wire [2 : 0] S_AXI_ARSIZE,
 		// Burst type. The burst type and the size information,
     // determine how the address for each transfer within the burst is calculated.
-		input wire [1 : 0] S_AXI_ARBURST,
+		// input wire [1 : 0] S_AXI_ARBURST,
 		// Lock type. Provides additional information about the
     // atomic characteristics of the transfer.
-		input wire  S_AXI_ARLOCK,
+		// input wire  S_AXI_ARLOCK,
 		// Memory type. This signal indicates how transactions
     // are required to progress through a system.
-		input wire [3 : 0] S_AXI_ARCACHE,
+		// input wire [3 : 0] S_AXI_ARCACHE,
 		// Protection type. This signal indicates the privilege
     // and security level of the transaction, and whether
     // the transaction is a data access or an instruction access.
-		input wire [2 : 0] S_AXI_ARPROT,
+		// input wire [2 : 0] S_AXI_ARPROT,
 		// Quality of Service, QoS identifier sent for each read transaction
-		input wire [3 : 0] S_AXI_ARQOS,
+		// input wire [3 : 0] S_AXI_ARQOS,
 		// Optional User-defined signal in the read address channel.
-		input wire [C_S_AXI_ARUSER_WIDTH-1 : 0] S_AXI_ARUSER,
+		// input wire [C_S_AXI_ARUSER_WIDTH-1 : 0] S_AXI_ARUSER,
 		// Write address valid. This signal indicates that
     // the channel is signaling valid read address and control information
 		input wire  S_AXI_ARVALID,
@@ -142,7 +138,7 @@
 		output wire  S_AXI_ARREADY,
 		// Read ID tag. This signal is the identification tag
     // for the read data group of signals generated by the slave.
-		output wire [C_S_AXI_ID_WIDTH-1 : 0] S_AXI_RID,
+		// output wire [C_S_AXI_ID_WIDTH-1 : 0] S_AXI_RID,
 		// Master Read Data
 		output wire [C_S_AXI_DATA_WIDTH-1 : 0] S_AXI_RDATA,
 		// Read response. This signal indicates the status of the read transfer
@@ -150,7 +146,7 @@
 		// Read last. This signal indicates the last transfer in a read burst
 		output wire  S_AXI_RLAST,
 		// Optional User-defined signal in the read address channel.
-		input wire [C_S_AXI_RUSER_WIDTH-1 : 0] S_AXI_RUSER,
+		// input wire [C_S_AXI_RUSER_WIDTH-1 : 0] S_AXI_RUSER,
 		// Read valid. This signal indicates that the channel
     // is signaling the required read data.
 		output wire  S_AXI_RVALID,

@@ -43,7 +43,7 @@ module BRAMLike #(
         dout_reg <= {memory[raddr+1],memory[raddr]};
       end
     end
-    else if(DATA_IN_WIDTH==DATA_IN_WIDTH)
+    else if(DATA_OUT_WIDTH==DATA_IN_WIDTH)
       dout_reg <= memory[raddr];
     // addr_reg <= raddr;
 

@@ -25,7 +25,6 @@ import manticore.machine.core.BareNoCBundle
 import java.io.File
 import java.nio.file.Paths
 import scala.annotation.tailrec
-import manticore.machine.xrt.CacheKernelWithSlave
 import manticore.machine.core.topmoduleVCD
 import scala.util.Random
 
@@ -154,6 +153,12 @@ class topmoduleVCDTester extends AnyFlatSpec with Matchers with ChiselScalatestT
         val randGen2 = new Random(5173)
         val randGen3 = new Random(6581)
         dut.clock.setTimeout(1000)
+
+        //initialising dut 
+
+
+
+
         val virtual_cycles = randGen3.nextInt(500)
         //println(virtual_cycles)
           dut.io.valid_in.poke(1.B)
@@ -195,13 +200,13 @@ class topmoduleVCDTester extends AnyFlatSpec with Matchers with ChiselScalatestT
 
           val randAddr = addrArray(i)
           val randData = dataArray(i)
-          dut.io.mem_raddr.poke(i*2)
+          dut.io.sim.raddr.poke(i*2)
           dut.clock.step()
-          val out_data = dut.io.mem_data_out.peek().litValue
+          val out_data = dut.io.sim.rdata.peek().litValue
           val randAddr_hex = randAddr.toHexString
-          dut.io.mem_raddr.poke(i*2+1)
+          dut.io.sim.raddr.poke(i*2+1)
           dut.clock.step()
-          val out_id = dut.io.mem_data_out.peek().litValue
+          val out_id = dut.io.sim.rdata.peek().litValue
           val out_id_hex = out_id.toString(16)
           if(out_data!==randData)
           {
@@ -213,6 +218,8 @@ class topmoduleVCDTester extends AnyFlatSpec with Matchers with ChiselScalatestT
           }
 
           val temp = s"${out_id_hex(1)}${out_id_hex(2)}${out_id_hex(3)}"
+          
+         
 
           val temp_int = Integer.parseInt(temp,16)
           out_data should be(randData)
