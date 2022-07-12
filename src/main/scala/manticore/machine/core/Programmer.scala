@@ -4,6 +4,7 @@ import Chisel._
 import chisel3.experimental.ChiselEnum
 import manticore.machine.ISA
 import manticore.machine.memory.CacheConfig
+import manticore.machine.memory.CacheCommand
 
 class ProgrammerInterface(config: ISA, DimX: Int, DimY: Int) extends Bundle {
 
@@ -28,11 +29,11 @@ class ProgrammerInterface(config: ISA, DimX: Int, DimY: Int) extends Bundle {
   val instruction_stream_base: UInt = Input(UInt(64.W))
   val start: Bool                   = Input(Bool())
   val finish: Bool                  = Input(Bool())
-//  val core_active: Vec[Bool] = Input(Vec(DimY * DimX, Bool()))
+
   val running: Bool = Output(Bool())
 
-//  val global_synch: Bool = Output(Bool())
-  val memory_backend = new MemoryReadWriteInterface(config)
+  val memory_backend = Flipped(CacheConfig.frontInterface())
+
 }
 
 class Programmer(config: ISA, DimX: Int, DimY: Int) extends Module {
@@ -132,7 +133,7 @@ class Programmer(config: ISA, DimX: Int, DimY: Int) extends Module {
   io.memory_backend.addr :=
     instruction_stream_addr_reg
 
-  io.memory_backend.wen := false.B
+  io.memory_backend.cmd := CacheCommand.Read
 
   enable_addr_increment := false.B
 

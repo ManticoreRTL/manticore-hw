@@ -5,6 +5,7 @@ import chisel3.util._
 import chisel3.experimental.ChiselEnum
 import manticore.machine.ManticoreFullISA
 import manticore.machine.memory.CacheConfig
+import manticore.machine.memory.CacheCommand
 
 object ManagementConstants {
 
@@ -54,9 +55,16 @@ class Management extends Module {
   val start_reg   = RegNext(io.start)
   val start_pulse = WireDefault((!start_reg) & io.start)
 
-  val dev_regs        = Reg(new DeviceRegisters)
-  val command         = WireDefault(io.schedule_config.head(7))                // the first 7 bit are the run command
-  val timeout_enabled = WireDefault(io.schedule_config.head(8).tail(1).asBool) // 8th bit, used to enable timeout
+  val dev_regs = Reg(new DeviceRegisters)
+
+  // |               schedule_config                  |
+  // +------------------------------------------------+
+  // |63            56|55                            0|
+  // +----------------+-------------------------------+
+  // |      CMD       |           CMD DATA            |
+  // -----------------+--------------------------------
+  val command         = WireDefault(io.schedule_config.head(8).tail(1))        // the first 7 bit are the run command
+  val timeout_enabled = WireDefault(io.schedule_config.head(8).head(1).asBool) // 8th bit, used to enable timeout
   val timeout         = WireDefault(io.schedule_config.tail(8))                // timeout value
 
   object State extends ChiselEnum {
@@ -88,9 +96,10 @@ class Management extends Module {
       curr
     }
   }
-
+  io.soft_reset := core_reset
   io.cache_reset_start := (state === sCacheReset)
   io.cache_flush_start := (state === sCacheFlush)
+  io.boot_start        := false.B
   switch(state) {
 
     is(sIdle) {
@@ -121,7 +130,8 @@ class Management extends Module {
     }
     is(sCacheResetWait) {
       when(io.cache_done) {
-        state := sBoot
+        state         := sBoot
+        io.boot_start := true.B
       }
       dev_regs.bootloader_cycles := dev_regs.bootloader_cycles + 1.U
     }
@@ -172,6 +182,8 @@ class Management extends Module {
     }
   }
 
+  io.device_registers := dev_regs
+
 }
 
 class MemoryIntercept extends Module {
@@ -185,6 +197,9 @@ class MemoryIntercept extends Module {
     val core          = CacheConfig.frontInterface()
     val boot          = CacheConfig.frontInterface()
     val config_enable = Input(Bool())
+
+    val cache_flush   = Input(Bool())
+    val cache_reset   = Input(Bool())
 
     val cache             = Flipped(CacheConfig.frontInterface())
     val core_kill_clock   = Output(Bool())
@@ -254,6 +269,15 @@ class MemoryIntercept extends Module {
   } otherwise {
     state := sIdle
     io.cache <> io.boot
+
+    when(io.cache_flush) {
+      io.cache.cmd := CacheCommand.Flush
+      io.cache.start := true.B
+    }.elsewhen(io.cache_reset) {
+      io.cache.cmd := CacheCommand.Reset
+      io.cache.start := true.B
+    }
+
     io.core_kill_clock   := false.B
     io.core_revive_clock := false.B
 

@@ -10,6 +10,7 @@ import manticore.machine.memory.CacheConfig
 
 import scala.annotation.tailrec
 import manticore.machine.ISA
+import chisel3.stage.ChiselStage
 
 /// registers written by the host
 class HostRegisters extends Bundle {
@@ -40,82 +41,17 @@ class ManticoreFlatArrayInterface extends Bundle {
   val host_registers   = Input(new HostRegisters)
   val device_registers = Output(new DeviceRegisters)
 
-  val start: Bool = Input(Bool())
-  val done: Bool  = Output(Bool())
-  val idle: Bool  = Output(Bool())
-  val memory_backend: MemoryReadWriteInterface = new MemoryReadWriteInterface(
-    ManticoreFullISA
-  )
-  val clock_active  = Output(Bool())
-  val compute_clock = Input(Clock())
-  val control_clock = Input(Clock())
-  val clock_stabled = Input(Bool())
-  val reset         = Input(Reset())
+  val start: Bool    = Input(Bool())
+  val done: Bool     = Output(Bool())
+  val idle: Bool     = Output(Bool())
+  val memory_backend = Flipped(CacheConfig.frontInterface())
+  val clock_active   = Output(Bool())
+  val compute_clock  = Input(Clock())
+  val control_clock  = Input(Clock())
+  val clock_stabled  = Input(Bool())
+  val reset          = Input(Reset())
 }
 
-object ClockDistribution {
-
-  /** Give a frequency in MHz, compute the MMCM_ADV parameter
-    *
-    * @param freqMhz
-    * @return
-    */
-  def frequencyToParam(freqMhz: Double): Double = {
-
-    require(freqMhz >= 10.0, "Minimum frequency is 10MHz")
-    require(freqMhz <= 775.0, "Maximum frequency is 775MHz")
-    // we need to compute the CLKFBOUT_MULT_F (M) parameter of the MMCM_ADV (see
-    // ug572, UltraScale Architecture Clocking resources) according to (Fin =
-    // FreqMhz):
-    // * Fvco = Fin * M / D
-    // * Fout = Fin * M / (D * O)
-    // where D is set to 1.0 and Fin = Fout and M = O is a multiple of 0.125 and also 2 <= M <= 128
-    // therefore we have:
-    // Fvco = Fin * M = Fin * 0.125 * n, where n is an integer 16 <= n <= 1024
-    // based on "75237 - What are the allowed MMCM input frequencies for secondary clock CLKIN2?"
-    // we know that 800Mhz <= Fvco <= 1600MHz
-
-    @tailrec
-    def findSolutions(
-        n: Int = 16,
-        sols: Seq[Int] = Seq.empty[Int]
-    ): Seq[Int] = {
-      // check if a solution exists
-      val vco = n.toDouble * 0.125 * freqMhz
-      if (n > 1024) {
-        sols
-      } else {
-        val next_sols = if (vco <= 1600.0 && vco >= 800.0) {
-          sols :+ n
-        } else {
-          sols
-        }
-        findSolutions(n + 1, next_sols)
-      }
-    }
-    val sols = findSolutions()
-    // println(sols.map { _.toDouble * 0.125 })
-    val lookup = Map(
-      200.0 -> 6.0,
-      225.0 -> 5.0,
-      250.0 -> 5.0,
-      280.0 -> 4.0,
-      300.0 -> 4.0,
-      350.0 -> 3.0,
-      400.0 -> 3.0,
-      450.0 -> 3.0,
-      500.0 -> 2.0
-    )
-    lookup.get(freqMhz) match {
-      case None =>
-        throw new UnsupportedOperationException(
-          s"Invalid frequency ${freqMhz} MHz"
-        )
-      case Some(value) => value
-    }
-  }
-
-}
 class ClockDistribution extends BlackBox with HasBlackBoxResource {
   val io = IO(new Bundle {
     val root_clock       = Input(Clock())
@@ -245,15 +181,15 @@ class KernelControl extends Module {
       // clock before reset reaches the processor and hence the processor may
       // not properly reset!
       when(reset_counter === ResetLatency.U) {
-        state         := State.CacheReset
+        state := State.CacheReset
 
       }
     }
     is(State.CacheReset) {
       io.cache_reset_start := true.B
-      clock_active  := true.B // keep the clock active
+      clock_active         := true.B // keep the clock active
       when(io.cache_reset_done) {
-        state := State.BootLoading
+        state         := State.BootLoading
         io.boot_start := true.B
       }
     }
@@ -537,14 +473,14 @@ class ManticoreFlatArray(
 
   val io = IO(new ManticoreFlatArrayInterface)
 
-  // val clock_distribution = Module(new ClockDistribution())
-
-  // clock_distribution.io.root_clock := clock
-
   val controller =
     withClockAndReset(reset = io.reset, clock = io.control_clock) {
-      Module(new KernelControl)
+      Module(new Management)
     }
+
+  val memory_intercept = withClockAndReset(clock = io.control_clock, reset = io.reset) {
+    Module(new MemoryIntercept)
+  }
 
   io.clock_active := controller.io.clock_active
 
@@ -568,13 +504,8 @@ class ManticoreFlatArray(
   bootloader.io.instruction_stream_base := io.host_registers.global_memory_instruction_base
     .pad(bootloader.io.instruction_stream_base.getWidth)
   bootloader.io.finish := false.B
-  val memory_intercept =
-    withClockAndReset(clock = io.control_clock, reset = io.reset) {
-      Module(new LoadStoreIssue())
-    }
 
-  // controller.io.kill_clock   := memory_intercept.io.kill_clock
-  controller.io.resume_clock := memory_intercept.io.resume_clock
+  controller.io.core_revive_clock := memory_intercept.io.core_revive_clock
 
   val debug_time =
     withClockAndReset(clock = io.control_clock, reset = io.reset) {
@@ -590,58 +521,35 @@ class ManticoreFlatArray(
       Module(new ComputeArray(dimx, dimy, debug_enable, enable_custom_alu, prefix_path))
     }
 
-  controller.io.kill_clock := compute_array.io.dynamic_cycle
+  controller.io.core_kill_clock  := compute_array.io.dynamic_cycle
+  controller.io.cache_done       := io.memory_backend.done
+
+  memory_intercept.io.cache_flush := controller.io.cache_flush_start
+  memory_intercept.io.cache_reset := controller.io.cache_reset_start
 
   compute_array.io.config_enable := controller.io.config_enable
   compute_array.io.config_packet := bootloader.io.packet_out
 
-  compute_array.io.mem_access <> memory_intercept.io.inbound
-  io.memory_backend <> memory_intercept.io.outbound
+  compute_array.io.mem_access <> memory_intercept.io.core
+  bootloader.io.memory_backend <> memory_intercept.io.boot
 
-  when(controller.io.config_enable) {
-    io.memory_backend.wen              := bootloader.io.memory_backend.wen
-    io.memory_backend.wdata            := bootloader.io.memory_backend.wdata
-    io.memory_backend.addr             := bootloader.io.memory_backend.addr
-    io.memory_backend.start            := bootloader.io.memory_backend.start
-    bootloader.io.memory_backend.done  := io.memory_backend.done
-    bootloader.io.memory_backend.idle  := io.memory_backend.idle
-    bootloader.io.memory_backend.rdata := io.memory_backend.rdata
+  io.memory_backend <> memory_intercept.io.cache
 
-    memory_intercept.io.outbound.done  := false.B
-    memory_intercept.io.outbound.idle  := false.B
-    memory_intercept.io.outbound.rdata := DontCare
+  memory_intercept.io.core_clock := io.compute_clock
 
-  } otherwise {
-    io.memory_backend.wen              := memory_intercept.io.outbound.wen
-    io.memory_backend.wdata            := memory_intercept.io.outbound.wdata
-    io.memory_backend.addr             := memory_intercept.io.outbound.addr
-    io.memory_backend.start            := memory_intercept.io.outbound.start
-    memory_intercept.io.outbound.done  := io.memory_backend.done
-    memory_intercept.io.outbound.idle  := io.memory_backend.idle
-    memory_intercept.io.outbound.rdata := io.memory_backend.rdata
+  memory_intercept.io.config_enable := controller.io.config_enable
 
-    bootloader.io.memory_backend.done  := false.B
-    bootloader.io.memory_backend.idle  := false.B
-    bootloader.io.memory_backend.rdata := DontCare
-  }
-
-  controller.io.exception_id       := compute_array.io.exception_id
-  controller.io.exception_occurred := compute_array.io.exception_occurred
-  controller.io.execution_active   := compute_array.io.execution_active
-  controller.io.schedule_config    := io.host_registers.schedule_config
-  controller.io.clock_stabled      := io.clock_stabled
+  controller.io.exception_id            := compute_array.io.exception_id
+  controller.io.core_exception_occurred := compute_array.io.exception_occurred
+  controller.io.execution_active        := compute_array.io.execution_active
+  controller.io.schedule_config         := io.host_registers.schedule_config
+  controller.io.clock_locked            := io.clock_stabled
 
 }
 
 object Gentest extends App {
 
-  // // new ChiselStage()
-  // //   .emitVerilog(new ManticoreFlatArray(2, 2), Array("-td", "gen-dir/flat"))
-  // new ChiselStage().emitVerilog(
-  //   new GatedPipeReg(new Bundle {
-  //     val x = UInt(32.W)
-  //     val y = UInt(32.W)
-  //   }),
-  //   Array("-td", "gen-dir/pipereg")
-  // )
+  new ChiselStage()
+    .emitVerilog(new ManticoreFlatArray(2, 2), Array("-td", "gen-dir/flat"))
+
 }
