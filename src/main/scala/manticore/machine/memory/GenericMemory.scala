@@ -178,8 +178,7 @@ class SimpleDualPortMemory(
       extends VerilogMemory(
         Map(
           "ADDRESS_WIDTH" -> ADDRESS_WIDTH,
-          "DATA_IN_WIDTH"    -> DATA_WIDTH,
-          "DATA_OUT_WIDTH"    -> DATA_WIDTH,
+          "DATA_WIDTH"    -> DATA_WIDTH,
           "filename"      -> INIT
         )
       )
@@ -218,7 +217,7 @@ class VcdDualPortMemory(
     val STYLE: MemStyle.MemSyle = MemStyle.BRAM,
     val INIT: String = ""
 ) extends Module {
-  
+
       val io = IO (new Bundle {
       val wen   = Input(Bool())
       val clock = Input(Clock())
@@ -227,7 +226,7 @@ class VcdDualPortMemory(
       val din   = Input(UInt(DATA_IN_WIDTH.W))
       val dout  = Output(UInt(DATA_OUT_WIDTH.W))
     })
-  
+
   class BRAMLike
       extends BlackBox(
         Map(
@@ -250,7 +249,7 @@ class VcdDualPortMemory(
 
     addResource("/verilog/BRAMLike.v")
   }
-  
+
 
   val impl = Module(new BRAMLike)
 
