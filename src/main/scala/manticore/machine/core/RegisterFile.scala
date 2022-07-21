@@ -27,10 +27,10 @@ import chisel3.stage.ChiselStage
 import chisel3.util.log2Ceil
 import manticore.machine.ISA
 import manticore.machine.ManticoreBaseISA
+import manticore.machine.memory.DummyDualPortMemory
 import manticore.machine.memory.GenericMemoryInterface
 import manticore.machine.memory.SimpleDualPortMemory
 import manticore.machine.memory.SimpleDualPortMemoryInterface
-import manticore.machine.memory.DummyDualPortMemory
 
 class RegisterFileInterface(config: ISA) extends Bundle {
   def makeAddr = Input(UInt(config.IdBits.W))
@@ -83,7 +83,12 @@ class RegisterFile(
     enable: Boolean = true
   ) = {
     if (enable) {
-      new SimpleDualPortMemory(ADDRESS_WIDTH = config.IdBits, DATA_WIDTH = config.DataBits,INIT = INIT)
+      new SimpleDualPortMemory(
+        ADDRESS_WIDTH = config.IdBits, 
+        DATA_WIDTH = config.DataBits, 
+        READ_LATENCY = 2, 
+        INIT = INIT
+      )
     } else {
       new DummyDualPortMemory(ADDRESS_WIDTH = config.IdBits, DATA_WIDTH = config.DataBits)
     }
