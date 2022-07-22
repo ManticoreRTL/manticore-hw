@@ -3,6 +3,7 @@ package manticore.machine.processor
 import chisel3._
 import chiseltest._
 import manticore.machine.ManticoreBaseISA
+import manticore.machine.UIntWide
 import manticore.machine.assembly.Assembler
 import manticore.machine.assembly.Instruction
 import manticore.machine.assembly.Instruction.Add2
@@ -16,13 +17,12 @@ import java.io.File
 import java.nio.file.Paths
 import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
-import manticore.machine.UIntWide
 
 class UniProcessorConfigureLutsTester extends AnyFlatSpec with Matchers with ChiselScalatestTester {
 
   val rdgen = new scala.util.Random(0)
 
-  val numTests = 400 // Set at will so long as num instructions < 4096
+  val numTests = 100 // Set at will so long as num instructions < 4096
 
   val numTestFuncts = 4 // Can not modify without explicitly adding a function in the code below.
 
@@ -235,6 +235,12 @@ class UniProcessorConfigureLutsTester extends AnyFlatSpec with Matchers with Chi
       functRegs.zip(all_functs).foreach { case (reg, funct) =>
         progLutCompute += Instruction.Custom(reg, funct, rs1, rs2, rs3, rs4)
       }
+
+      // Add Nops as the read latency was increased to 2
+      progLutCompute += Instruction.Nop()
+      progLutCompute += Instruction.Nop()
+      progLutCompute += Instruction.Nop()
+
       val funct_0_instrStr =
         s"${progLutCompute(progLutCompute.size - 4)}, rs1 = ${rs1_val}, rs2 = ${rs2_val}, rs3 = ${rs3_val}, rs4 = ${rs4_val}"
       val funct_1_instrStr =
