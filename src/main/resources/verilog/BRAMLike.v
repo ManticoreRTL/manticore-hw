@@ -1,6 +1,7 @@
 module BRAMLike #(
     parameter DATA_WIDTH = 16,
     parameter ADDRESS_WIDTH = 11,
+    parameter READ_LATENCY = 1,
     parameter filename = ""
 ) (
     input clock,
@@ -18,16 +19,22 @@ module BRAMLike #(
 
   (* ram_style = "block" *)
   reg [DATA_WIDTH - 1:0] memory[0:(1 << ADDRESS_WIDTH) - 1];
-  reg [DATA_WIDTH - 1:0] dout_reg;
+  // reg [DATA_WIDTH - 1:0] dout_reg;
+  reg [DATA_WIDTH - 1:0] pipes [0: READ_LATENCY - 1];
   // reg [ADDRESS_WIDTH - 1:0] addr_reg;
 
+  integer i;
   always @(posedge clock) begin
     if (wen) begin
       memory[waddr] <= din;
     end
-    dout_reg <= memory[raddr];
+    pipes[0] <= memory[raddr];
+    for (i = 1; i < READ_LATENCY; i = i + 1) begin 
+      pipes[i] <= pipes[i - 1];
+    end
+    // dout_reg <= memory[raddr];
   end
-  assign dout = dout_reg;
+  assign dout = pipes[READ_LATENCY - 1];
   //assign dout = memory[addr_reg];
 
   integer fd;
@@ -62,7 +69,7 @@ module BRAMLike #(
       .READ_DATA_WIDTH_B(DATA_WIDTH),  //positive integer
       .ADDR_WIDTH_B(ADDRESS_WIDTH),  //positive integer
       .READ_RESET_VALUE_B("0"),  //string
-      .READ_LATENCY_B(1),  //non-negative integer
+      .READ_LATENCY_B(READ_LATENCY),  //non-negative integer
       .WRITE_MODE_B("read_first")  //string; "write_first", "read_first", "no_change"
   ) bram_inst (
       // Common module ports

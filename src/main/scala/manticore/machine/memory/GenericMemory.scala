@@ -179,6 +179,7 @@ class SimpleDualPortMemory(
         Map(
           "ADDRESS_WIDTH" -> ADDRESS_WIDTH,
           "DATA_WIDTH"    -> DATA_WIDTH,
+          "READ_LATENCY"  -> READ_LATENCY,
           "filename"      -> INIT
         )
       )
