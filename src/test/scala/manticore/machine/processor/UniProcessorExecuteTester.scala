@@ -24,7 +24,7 @@ class UniProcessorExecuteTester extends AnyFlatSpec with Matchers with ChiselSca
 
   val rdgen = new scala.util.Random(0)
 
-  val numTests = 500 // Set at will so long as num instructions < 4096
+  val numTests = 200 // Set at will so long as num instructions < 4096
 
   // Populate the processor's registers with random values. We reserve the entry at
   // address numRegs-1 to store the result of the operation under test.
@@ -140,7 +140,7 @@ class UniProcessorExecuteTester extends AnyFlatSpec with Matchers with ChiselSca
 
       prog += instr
 
-      Range(0, 4).foreach { _ =>
+      Range(0, 7).foreach { _ =>
         prog += Instruction.Nop()
       }
 
