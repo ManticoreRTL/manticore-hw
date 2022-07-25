@@ -7,6 +7,7 @@ import manticore.machine.ManticoreBaseISA
 import manticore.machine.UIntWide
 import manticore.machine.assembly
 import manticore.machine.assembly.Assembler
+import manticore.machine.assembly.Instruction
 import manticore.machine.assembly.Instruction.Add2
 import manticore.machine.assembly.Instruction.Instruction
 import manticore.machine.assembly.Instruction.LocalLoad
@@ -30,60 +31,80 @@ import scala.collection.mutable.ArrayBuffer
 class UniProcessorLocalMemoryTester extends AnyFlatSpec with Matchers with ChiselScalatestTester {
 
   val rdgen = new scala.util.Random(0)
+  val numTests = 100
 
   // Populate the processor's registers with random values. 
   val initialRegs = ArrayBuffer.fill(ManticoreBaseISA.numRegs)(UIntWide(0, ManticoreBaseISA.DataBits))
   initialRegs(0) = UIntWide(rdgen.nextInt(1 << ManticoreBaseISA.IdBits), ManticoreBaseISA.DataBits) // base
+  initialRegs(1) = UIntWide(1, ManticoreBaseISA.DataBits) // predicate
   Range(1, initialRegs.size).foreach { addr =>
     initialRegs(addr) = UIntWide(rdgen.nextInt(1 << ManticoreBaseISA.DataBits), ManticoreBaseISA.DataBits)
   }
 
-  val base = R(0)
-  val rd = R(rdgen.between(1, ManticoreBaseISA.numRegs - 1))
-  val rs1 = R(rdgen.between(1, ManticoreBaseISA.numRegs - 1))
-  val rs2 = R(rdgen.between(1, ManticoreBaseISA.numRegs - 1))
+  def createProgram(): (
+    Seq[Instruction.Instruction], 
+    Seq[UIntWide]
+  ) = {
 
-  val rd_val = initialRegs(rd.index)
-  val rs1_val = initialRegs(rs1.index)
-  val rs2_val = initialRegs(rs2.index)
-  val offset  = rdgen.between(0, 1 << 10)
-  val program = Array[Instruction](
-    Add2(rd, rs1, rs2),
-    Nop(),
-    Nop(),
-    Nop(),
-    Nop(),
-    Nop(),
-    Nop(),
-    Nop(), // Predicate(const_1),
-    LocalStore(rd, base, offset),
-    Nop(),
-    Nop(),
-    Nop(),
-    Nop(),
-    Nop(),
-    Nop(),
-    Nop(),
-    LocalLoad(rd, base, offset),
-    Nop(),
-    Nop(),
-    Nop(),
-    Nop(),
-    Nop(),
-    Nop(),
-    Nop(),
-    Send(rd, rd, 1, 1),
-    Nop(),
-    Nop(),
-    Nop(),
-    Nop(),
-    Nop(),
-    Nop(),
-    Nop(),
-  )
-  val expectedSends = rs1_val + rs2_val
+    val prog = ArrayBuffer.empty[Instruction.Instruction]
+    val expectedSends = ArrayBuffer.empty[UIntWide]
 
-  val prog = program.toSeq
+    val rd = R(ManticoreBaseISA.numRegs - 1)
+
+    Range(0, numTests).foreach {_ => 
+    
+      val base = R(0)
+      val const_1 = R(1)
+      val rs1 = R(rdgen.between(2, ManticoreBaseISA.numRegs - 1))
+      val rs2 = R(rdgen.between(2, ManticoreBaseISA.numRegs - 1))
+
+      val rs1_val = initialRegs(rs1.index)
+      val rs2_val = initialRegs(rs2.index)
+      val offset  = rdgen.between(0, 1 << 10)
+      val program = Array[Instruction.Instruction](
+        Add2(rd, rs1, rs2),
+        Nop(),
+        Nop(),
+        Nop(),
+        Nop(),
+        Nop(),
+        Nop(),
+        Predicate(const_1),
+        LocalStore(rd, base, offset),
+        Nop(),
+        Nop(),
+        Nop(),
+        Nop(),
+        Nop(),
+        Nop(),
+        Nop(),
+        LocalLoad(rd, base, offset),
+        Nop(),
+        Nop(),
+        Nop(),
+        Nop(),
+        Nop(),
+        Nop(),
+        Nop(),
+        Send(rd, rd, 1, 1),
+        Nop(),
+        Nop(),
+        Nop(),
+        Nop(),
+        Nop(),
+        Nop(),
+        Nop()
+      )
+      val expected = rs1_val + rs2_val
+
+      prog ++= program 
+      expectedSends += expected
+    }
+
+    (prog.toSeq, expectedSends.toSeq)
+  }
+
+  val (prog, expectedSends) = createProgram()
   println(prog.mkString("\n"))
   println(s"num instructions = ${prog.size}")
 
@@ -141,16 +162,15 @@ class UniProcessorLocalMemoryTester extends AnyFlatSpec with Matchers with Chise
         }
       }
 
-      def executeAndCheck(expectedSends: UIntWide): Unit = {
+      def executeAndCheck(expectedSends: Seq[UIntWide]): Unit = {
         val checkOutput = dut.io.packet_out.valid.peek().litToBoolean
         val nextExpectedSends = if (checkOutput) {
           val received          = dut.io.packet_out.data.peekInt()
-          val expected = expectedSends
-          // val (expected, instr) = expectedSends.head
+          val expected = expectedSends.head
           println(s"Expected = ${expected.toBigInt}, received = ${received}")
           dut.io.packet_out.data.expect(expected.toBigInt)
           // We've consumed one expected value, so next time we must check for the rest of the sends only.
-          expectedSends
+          expectedSends.tail
         } else {
           // We did not see an active packet and therefore didn't check anything. We must continue to check
           // all the expected values.
@@ -158,9 +178,9 @@ class UniProcessorLocalMemoryTester extends AnyFlatSpec with Matchers with Chise
         }
 
         dut.clock.step()
-        // if (nextExpectedSends.nonEmpty) {
-        //   executeAndCheck(nextExpectedSends)
-        // }
+        if (nextExpectedSends.nonEmpty) {
+          executeAndCheck(nextExpectedSends)
+        }
       }
 
       dut.clock.setTimeout(10000)
