@@ -6,12 +6,13 @@ import chisel3.stage.ChiselStage
 import manticore.machine.ISA
 import manticore.machine.ManticoreBaseISA
 import manticore.machine.ManticoreFullISA
+import manticore.machine.core.alu.Multiplier
 import manticore.machine.memory.CacheConfig
 import manticore.machine.memory.CacheFrontInterface
 import manticore.machine.memory.MemStyle
 import manticore.machine.memory.SimpleDualPortMemory
+
 import scala.util.Random
-import manticore.machine.core.alu.Multiplier
 
 class NamedError(nameBits: Int) extends Bundle {
   val error: Bool = Bool()
@@ -392,7 +393,7 @@ class Processor(
   // decode --> multiplier
   multiplier.io.in0      := register_file.io.rs1.dout
   multiplier.io.in1      := register_file.io.rs2.dout
-  multiplier.io.valid_in := decode_stage.io.pipe_out.opcode.mul || decode_stage.io.pipe_out.opcode.mulh
+  multiplier.io.valid_in := RegNext(decode_stage.io.pipe_out.opcode.mul) || RegNext(decode_stage.io.pipe_out.opcode.mulh)
 
   // exec --> memory and write back implementation
   memory_stage.io.local_memory_interface <> array_memory.io
