@@ -82,6 +82,14 @@ class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
     dest    := pipereg
   }
 
+  def pipeIt2[T <: Data](dest: T)(source: T): Unit = {
+    val pipereg1 = Reg(chisel3.chiselTypeOf(source))
+    val pipereg2 = Reg(chisel3.chiselTypeOf(source))
+    pipereg1 := source 
+    pipereg2 := pipereg1
+    dest     := pipereg2
+  }
+
   pipeIt(io.pipe_out.write_back) {
     io.pipe_in.opcode.lload ||
     io.pipe_in.opcode.cust ||
