@@ -79,11 +79,11 @@ class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
   val lload_r = Reg(Bool())
   val gload_r = Reg(Bool())
 
-  // def pipeIt[T <: Data](dest: T)(source: T): Unit = {
-  //   val pipereg = Reg(chisel3.chiselTypeOf(source))
-  //   pipereg := source
-  //   dest    := pipereg
-  // }
+  def pipeIt[T <: Data](dest: T)(source: T): Unit = {
+    val pipereg = Reg(chisel3.chiselTypeOf(source))
+    pipereg := source
+    dest    := pipereg
+  }
 
   def pipeIt2[T <: Data](dest: T)(source: T): Unit = {
     val pipereg1 = Reg(chisel3.chiselTypeOf(source))
@@ -114,10 +114,10 @@ class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
   pipeIt2(io.pipe_out.mulh) {
     io.pipe_in.opcode.mulh
   }
-  pipeIt2(lload_r) {
+  pipeIt(lload_r) {
     io.pipe_in.opcode.lload
   }
-  pipeIt2(gload_r) {
+  pipeIt(gload_r) {
     io.pipe_in.opcode.gload
   }
 
