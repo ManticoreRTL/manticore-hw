@@ -30,33 +30,33 @@ import scala.collection.mutable.ArrayBuffer
 
 class UniProcessorLocalMemoryTester extends AnyFlatSpec with Matchers with ChiselScalatestTester {
 
-  val rdgen = new scala.util.Random(0)
+  val rdgen    = new scala.util.Random(0)
   val numTests = 100
 
-  // Populate the processor's registers with random values. 
+  // Populate the processor's registers with random values.
   val initialRegs = ArrayBuffer.fill(ManticoreBaseISA.numRegs)(UIntWide(0, ManticoreBaseISA.DataBits))
-  initialRegs(0) = UIntWide(rdgen.nextInt(1 << ManticoreBaseISA.IdBits), ManticoreBaseISA.DataBits) // base
-  initialRegs(1) = UIntWide(1, ManticoreBaseISA.DataBits) // predicate
-  Range(1, initialRegs.size).foreach { addr =>
-    initialRegs(addr) = UIntWide(rdgen.nextInt(1 << ManticoreBaseISA.DataBits), ManticoreBaseISA.DataBits)
+  // initialRegs(0) = UIntWide(rdgen.nextInt(1 << ManticoreBaseISA.IdBits), ManticoreBaseISA.DataBits) // base
+  initialRegs(0) = UIntWide(0, ManticoreBaseISA.DataBits) // base
+  initialRegs(1) = UIntWide(1, ManticoreBaseISA.DataBits)                                           // predicate
+  Range(2, initialRegs.size).foreach { i =>
+    initialRegs(i) = UIntWide(rdgen.nextInt(1 << ManticoreBaseISA.DataBits), ManticoreBaseISA.DataBits)
   }
 
   def createProgram(): (
-    Seq[Instruction.Instruction], 
-    Seq[UIntWide]
+      Seq[Instruction.Instruction],
+      Seq[UIntWide]
   ) = {
 
-    val prog = ArrayBuffer.empty[Instruction.Instruction]
+    val prog          = ArrayBuffer.empty[Instruction.Instruction]
     val expectedSends = ArrayBuffer.empty[UIntWide]
 
     val rd = R(ManticoreBaseISA.numRegs - 1)
 
-    Range(0, numTests).foreach {_ => 
-    
-      val base = R(0)
+    Range(0, numTests).foreach { _ =>
+      val base    = R(0)
       val const_1 = R(1)
-      val rs1 = R(rdgen.between(2, ManticoreBaseISA.numRegs - 1))
-      val rs2 = R(rdgen.between(2, ManticoreBaseISA.numRegs - 1))
+      val rs1     = R(rdgen.between(2, ManticoreBaseISA.numRegs - 1))
+      val rs2     = R(rdgen.between(2, ManticoreBaseISA.numRegs - 1))
 
       val rs1_val = initialRegs(rs1.index)
       val rs2_val = initialRegs(rs2.index)
@@ -97,7 +97,7 @@ class UniProcessorLocalMemoryTester extends AnyFlatSpec with Matchers with Chise
       )
       val expected = rs1_val + rs2_val
 
-      prog ++= program 
+      prog ++= program
       expectedSends += expected
     }
 
@@ -130,6 +130,7 @@ class UniProcessorLocalMemoryTester extends AnyFlatSpec with Matchers with Chise
       ) {
         Paths.get("test_data_dir" + File.separator + getTestName + File.separator + "ra.data").toAbsolutePath
       },
+      debug_enable = true,
       enable_custom_alu = false
     )
   }
@@ -165,7 +166,7 @@ class UniProcessorLocalMemoryTester extends AnyFlatSpec with Matchers with Chise
       def executeAndCheck(expectedSends: Seq[UIntWide]): Unit = {
         val checkOutput = dut.io.packet_out.valid.peek().litToBoolean
         val nextExpectedSends = if (checkOutput) {
-          val received          = dut.io.packet_out.data.peekInt()
+          val received = dut.io.packet_out.data.peekInt()
           val expected = expectedSends.head
           println(s"Expected = ${expected.toBigInt}, received = ${received}")
           dut.io.packet_out.data.expect(expected.toBigInt)
