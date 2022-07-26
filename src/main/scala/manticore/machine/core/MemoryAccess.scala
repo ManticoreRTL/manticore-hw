@@ -74,13 +74,16 @@ class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
   packet_reg.address := io.pipe_in.rd
   packet_reg.valid   := (io.pipe_in.opcode.send)
 
-  io.pipe_out.packet := packet_reg
+  io.pipe_out.packet := RegNext(packet_reg)
 
-  def pipeIt[T <: Data](dest: T)(source: T): Unit = {
-    val pipereg = Reg(chisel3.chiselTypeOf(source))
-    pipereg := source
-    dest    := pipereg
-  }
+  val lload_r = Reg(Bool())
+  val gload_r = Reg(Bool())
+
+  // def pipeIt[T <: Data](dest: T)(source: T): Unit = {
+  //   val pipereg = Reg(chisel3.chiselTypeOf(source))
+  //   pipereg := source
+  //   dest    := pipereg
+  // }
 
   def pipeIt2[T <: Data](dest: T)(source: T): Unit = {
     val pipereg1 = Reg(chisel3.chiselTypeOf(source))
@@ -90,7 +93,7 @@ class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
     dest     := pipereg2
   }
 
-  pipeIt(io.pipe_out.write_back) {
+  pipeIt2(io.pipe_out.write_back) {
     io.pipe_in.opcode.lload ||
     io.pipe_in.opcode.cust ||
     io.pipe_in.opcode.arith || {
@@ -99,37 +102,40 @@ class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
     io.pipe_in.opcode.set ||
     io.pipe_in.opcode.slice
   }
-  pipeIt(io.pipe_out.rd) {
+  pipeIt2(io.pipe_out.rd) {
     io.pipe_in.rd
   }
-  
-  pipeIt(io.pipe_out.nop) {
+  pipeIt2(io.pipe_out.nop) {
     io.pipe_in.opcode.nop
   }
-  pipeIt(io.pipe_out.mul) {
+  pipeIt2(io.pipe_out.mul) {
     io.pipe_in.opcode.mul
   }
-  pipeIt(io.pipe_out.mulh) {
+  pipeIt2(io.pipe_out.mulh) {
     io.pipe_in.opcode.mulh
   }
-  val lload_r = Reg(Bool())
-  val gload_r = Reg(Bool())
+  pipeIt2(lload_r) {
+    io.pipe_in.opcode.lload
+  }
+  pipeIt2(gload_r) {
+    io.pipe_in.opcode.gload
+  }
 
-  lload_r := io.pipe_in.opcode.lload
-  gload_r := io.pipe_in.opcode.gload
+  // Here we assume that both local and global memory has 
+  // read latency of 2 cycles
   if (config.WithGlobalMemory) {
     when(lload_r) {
       io.pipe_out.result := io.local_memory_interface.dout
     }.elsewhen(gload_r) {
       io.pipe_out.result := io.global_memory_interface.rdata
     } otherwise {
-      pipeIt(io.pipe_out.result) { io.pipe_in.result }
+      pipeIt2(io.pipe_out.result) { io.pipe_in.result }
     }
   } else {
     when(lload_r) {
       io.pipe_out.result := io.local_memory_interface.dout
     } otherwise {
-      pipeIt(io.pipe_out.result) { io.pipe_in.result }
+      pipeIt2(io.pipe_out.result) { io.pipe_in.result }
     }
   }
 
