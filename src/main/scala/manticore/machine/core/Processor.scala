@@ -368,11 +368,12 @@ class Processor(
   register_file.io.rs3.addr := decode_stage.io.pipe_out.rs3
   register_file.io.rs4.addr := decode_stage.io.pipe_out.rs4
 
-  multiplier_res_high := multiplier.io.out(2 * config.DataBits - 1, config.DataBits)
-  multiplier_res_low  := multiplier.io.out(config.DataBits - 1, 0)
+  // Put additional registers here because the read latency for local memory is now 2 cycles
+  multiplier_res_high := RegNext(multiplier.io.out(2 * config.DataBits - 1, config.DataBits))
+  multiplier_res_low  := RegNext(multiplier.io.out(config.DataBits - 1, 0))
 
   register_file.io.w.addr := memory_stage.io.pipe_out.rd
-  when(multiplier.io.valid_out) {
+  when(RegNext(multiplier.io.valid_out)) {
     register_file.io.w.din := Mux(memory_stage.io.pipe_out.mulh, multiplier_res_high, multiplier_res_low)
   } otherwise {
     register_file.io.w.din := memory_stage.io.pipe_out.result
