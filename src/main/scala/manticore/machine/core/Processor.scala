@@ -123,7 +123,7 @@ class Processor(
 
   val array_memory = Module(
     new SimpleDualPortMemory(
-      ADDRESS_WIDTH = 12,
+      ADDRESS_WIDTH = 14,
       DATA_WIDTH = config.DataBits,
       STYLE = MemStyle.URAMReal,
     )
