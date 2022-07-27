@@ -205,33 +205,34 @@ class ExecuteComb(
   pipe_out_reg.rd        := io.pipe_in.rd
   pipe_out_reg.immediate := RegNext(io.pipe_in.immediate)
 
-  io.pipe_out.opcode    := pipe_out_reg.opcode
-  io.pipe_out.data      := pipe_out_reg.data
+  // The ALUs now have latency of 2 cycles
+  io.pipe_out.opcode    := RegNext(pipe_out_reg.opcode)
+  io.pipe_out.data      := RegNext(pipe_out_reg.data)
   io.pipe_out.result    := pipe_out_reg.result
-  io.pipe_out.rd        := pipe_out_reg.rd
-  io.pipe_out.immediate := pipe_out_reg.immediate
+  io.pipe_out.rd        := RegNext(pipe_out_reg.rd)
+  io.pipe_out.immediate := RegNext(pipe_out_reg.immediate)
 
   when(RegNext(io.pipe_in.opcode.set_carry)) {
-    io.carry_rd := io.pipe_in.rd
+    io.carry_rd := RegNext(io.pipe_in.rd)
   } otherwise {
     // notice that rs4 needs to be registered before given to the output pipe
     rs4_reg     := io.pipe_in.rs4
-    io.carry_rd := rs4_reg
+    io.carry_rd := RegNext(rs4_reg)
   }
   when(RegNext(io.pipe_in.opcode.set_carry)) {
-    io.carry_din := RegNext(io.pipe_in.immediate(0))
+    io.carry_din := RegNext(RegNext(io.pipe_in.immediate(0)))
   } otherwise {
     io.carry_din := standard_alu.io.carry_out
   }
   io.carry_wen :=
-    (RegNext(io.pipe_in.opcode.arith) & (RegNext(io.pipe_in.funct) === ISA.Functs.ADDC.id.U)) | (RegNext(io.pipe_in.opcode.set_carry))
+    RegNext(RegNext(io.pipe_in.opcode.arith) & (RegNext(io.pipe_in.funct) === ISA.Functs.ADDC.id.U)) | (RegNext(io.pipe_in.opcode.set_carry))
 
   // enable/disable predicate
   when(RegNext(io.pipe_in.opcode.predicate)) {
     pred_reg := io.regs_in.rs1 === 1.U
   }
 
-  io.pipe_out.pred := pred_reg
+  io.pipe_out.pred := RegNext(pred_reg)
 
   if (config.WithGlobalMemory) {
     val gload_next = RegNext(io.pipe_in.opcode.gload)
@@ -244,7 +245,7 @@ class ExecuteComb(
     }
     gmem_if_reg.start := (gstore_next && pred_reg) | gload_next
     gmem_if_reg.wdata := io.regs_in.rs1
-    io.pipe_out.gmem  := gmem_if_reg
+    io.pipe_out.gmem  := RegNext(gmem_if_reg)
   }
 
   // print what's happenning

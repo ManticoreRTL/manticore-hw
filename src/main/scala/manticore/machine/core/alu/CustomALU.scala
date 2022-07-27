@@ -23,6 +23,7 @@ package manticore.machine.core.alu
 import Chisel._
 import chisel3.stage.ChiselStage
 import chisel3.util.HasBlackBoxResource
+
 import scala.util.Random
 
 class CustomAlu(
@@ -55,7 +56,7 @@ class CustomAlu(
     }
 
     // Select the output from one of the custom functions.
-    io.out := results(io.selector)
+    io.out := RegNext(results(io.selector))
 
   } else {
 

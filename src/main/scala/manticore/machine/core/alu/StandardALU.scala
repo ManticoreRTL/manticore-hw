@@ -3,9 +3,9 @@ package manticore.machine.core.alu
 import Chisel._
 import chisel3.stage.ChiselStage
 import manticore.machine.ISA
+import manticore.machine.ManticoreBaseISA
 
 import scala.language.implicitConversions
-import manticore.machine.ManticoreBaseISA
 
 class ALUInterface(DATA_BITS: Int) extends Bundle {
 
@@ -93,10 +93,10 @@ class StandardALUComb(DATA_BITS: Int) extends Module {
     }
   }
 
-  io.carry_out := sum_with_carry >> (DATA_BITS.U)
+  io.carry_out := RegNext(sum_with_carry >> (DATA_BITS.U))
 
   // The mask is used for instructions like slices.
-  io.out := alu_res & io.in.mask
+  io.out := RegNext(alu_res & io.in.mask)
 
 }
 

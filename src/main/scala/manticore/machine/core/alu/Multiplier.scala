@@ -38,7 +38,8 @@ class Multiplier(dataWidth: Int) extends Module {
   dsp.io.in1      := io.in1
   dsp.io.valid_in := io.valid_in
 
-  io.out       := dsp.io.out
-  io.valid_out := dsp.io.valid_out
+  // Add registers to cope with 2 cycle ALUs
+  io.out       := RegNext(dsp.io.out)
+  io.valid_out := RegNext(dsp.io.valid_out)
 
 }
