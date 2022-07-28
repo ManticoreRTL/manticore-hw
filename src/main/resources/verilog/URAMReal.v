@@ -36,24 +36,23 @@ module URAMReal #(
     // Xilinx HDL Language Template, version 2021.1
     // https://docs.xilinx.com/r/2021.1-English/ug974-vivado-ultrascale-libraries/URAM288_BASE
 
-    wire DBITERR_A, DBITERR_B, SBITERR_A, SBITERR_B;
-    wire [71:0] DOUT_A, DOUT_B;
-    wire [71:0] DIN_B;
-    wire [22:0] ADDR_A, ADDR_B;
-    wire [8:0] BWE_B;
+    wire [71:0] dout_a;
+    wire [71:0] din_b;
+    wire [22:0] addr_a, addr_b;
+    wire [8:0] bwe_b;
 
     // Port A is used for read
-    assign ADDR_A = {11'b0, raddr[ADDRESS_WIDTH - 1:2]};
+    assign addr_a = {11'b0, raddr[ADDRESS_WIDTH - 1:2]};
     assign dout = 
-        raddr[1:0] == 2'b11 ? DOUT_A[63:48] :
-        raddr[1:0] == 2'b10 ? DOUT_A[47:32] :
-        raddr[1:0] == 2'b01 ? DOUT_A[31:16] :
-        DOUT_A[15:0];
+        raddr[1:0] == 2'b11 ? dout_a[63:48] :
+        raddr[1:0] == 2'b10 ? dout_a[47:32] :
+        raddr[1:0] == 2'b01 ? dout_a[31:16] :
+        dout_a[15:0];
     
     // Port B is used for write
-    assign ADDR_B = {11'b0, waddr[ADDRESS_WIDTH - 1:2]};
-    assign DIN_B = {8'b0, din, din, din, din};
-    assign BWE_B = 
+    assign addr_b = {11'b0, waddr[ADDRESS_WIDTH - 1:2]};
+    assign din_b = {8'b0, din, din, din, din};
+    assign bwe_b = 
         waddr[1:0] == 2'b11 ? 8'b1100_0000 :
         waddr[1:0] == 2'b10 ? 8'b0011_0000 :
         waddr[1:0] == 2'b01 ? 8'b0000_1100 :
@@ -88,19 +87,19 @@ module URAMReal #(
         .USE_EXT_CE_A("FALSE"),            // Enable Port A external CE inputs for output registers
         .USE_EXT_CE_B("FALSE")             // Enable Port B external CE inputs for output registers
     ) URAM288_BASE_inst (
-        .DBITERR_A(DBITERR_A),               // 1-bit output: Port A double-bit error flag status
-        .DBITERR_B(DBITERR_B),               // 1-bit output: Port B double-bit error flag status
-        .DOUT_A(DOUT_A),                     // 72-bit output: Port A read data output
-        .DOUT_B(DOUT_B),                     // 72-bit output: Port B read data output
-        .SBITERR_A(SBITERR_A),               // 1-bit output: Port A single-bit error flag status
-        .SBITERR_B(SBITERR_B),               // 1-bit output: Port B single-bit error flag status
-        .ADDR_A(ADDR_A),                     // 23-bit input: Port A address
-        .ADDR_B(ADDR_B),                     // 23-bit input: Port B address
+        .DBITERR_A(),                        // 1-bit output: Port A double-bit error flag status
+        .DBITERR_B(),                        // 1-bit output: Port B double-bit error flag status
+        .DOUT_A(dout_a),                     // 72-bit output: Port A read data output
+        .DOUT_B(),                           // 72-bit output: Port B read data output
+        .SBITERR_A(),                        // 1-bit output: Port A single-bit error flag status
+        .SBITERR_B(),                        // 1-bit output: Port B single-bit error flag status
+        .ADDR_A(addr_a),                     // 23-bit input: Port A address
+        .ADDR_B(addr_b),                     // 23-bit input: Port B address
         .BWE_A(9'b0),                        // 9-bit input: Port A Byte-write enable
-        .BWE_B(BWE_B),                       // 9-bit input: Port B Byte-write enable
+        .BWE_B(bwe_b),                       // 9-bit input: Port B Byte-write enable
         .CLK(clock),                         // 1-bit input: Clock source
         .DIN_A(72'b0),                       // 72-bit input: Port A write data input
-        .DIN_B(DIN_B),                       // 72-bit input: Port B write data input
+        .DIN_B(din_b),                       // 72-bit input: Port B write data input
         .EN_A(1'b1),                         // 1-bit input: Port A enable
         .EN_B(1'b1),                         // 1-bit input: Port B enable
         .INJECT_DBITERR_A(1'b0),             // 1-bit input: Port A double-bit error injection
