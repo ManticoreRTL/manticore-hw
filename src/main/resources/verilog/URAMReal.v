@@ -1,23 +1,23 @@
 module URAMReal #(
-    parameter DATA_WIDTH = 16, 
-    parameter ADDRESS_WIDTH = 14,
-    parameter READ_LATENCY = 2
+    // parameter DATA_WIDTH = 16, 
+    parameter ADDRESS_WIDTH = 14
+    // parameter READ_LATENCY = 2
 ) (
     input clock, 
     // read port 
     input [ADDRESS_WIDTH - 1:0] raddr, 
-    output [DATA_WIDTH - 1:0] dout, 
+    output [15:0] dout, 
     // write port
     input wen,
     input [ADDRESS_WIDTH - 1:0] waddr, 
-    input [DATA_WIDTH - 1:0] din
+    input [15:0] din
 );
 
 `ifdef VERILATOR
     (* ram_style = "ultra" *)
-    reg [DATA_WIDTH - 1:0] memory [0: (1 << ADDRESS_WIDTH) - 1];
-    reg [DATA_WIDTH - 1:0] dout_reg;
-    reg [DATA_WIDTH - 1:0] pipes [0: READ_LATENCY - 1];
+    reg [15:0] memory [0: (1 << ADDRESS_WIDTH) - 1];
+    reg [15:0] dout_reg;
+    reg [15:0] pipes [0:1];
     reg [ADDRESS_WIDTH - 1:0] addr_reg;
     integer i;
     always @(posedge clock) begin
@@ -25,39 +25,39 @@ module URAMReal #(
             memory[waddr] <= din;
         end
         pipes[0] <= memory[raddr];
-        for (i = 1; i < READ_LATENCY ; i = i + 1) begin
+        for (i = 1; i < 2 ; i = i + 1) begin
             pipes[i] <= pipes[i - 1];
         end
     end
-    assign dout = pipes[READ_LATENCY - 1];
+    assign dout = pipes[1];
 `else 
-    // URAM288_BASE: 288K-bit High-Density Base Memory Building Block
-    //               UltraScale
-    // Xilinx HDL Language Template, version 2021.1
-    // https://docs.xilinx.com/r/2021.1-English/ug974-vivado-ultrascale-libraries/URAM288_BASE
-
     wire [71:0] dout_a;
     wire [71:0] din_b;
     wire [22:0] addr_a, addr_b;
     wire [8:0] bwe_b;
+    reg [ADDRESS_WIDTH - 1:0] raddr_reg1, raddr_reg2;
 
     // Port A is used for read
-    assign addr_a = {11'b0, raddr[ADDRESS_WIDTH - 1:2]};
+    assign addr_a = {{25 - ADDRESS_WIDTH{1'b0}}, raddr[ADDRESS_WIDTH - 1:2]};
     assign dout = 
-        raddr[1:0] == 2'b11 ? dout_a[63:48] :
-        raddr[1:0] == 2'b10 ? dout_a[47:32] :
-        raddr[1:0] == 2'b01 ? dout_a[31:16] :
+        raddr_reg2[1:0] == 2'b11 ? dout_a[63:48] :
+        raddr_reg2[1:0] == 2'b10 ? dout_a[47:32] :
+        raddr_reg2[1:0] == 2'b01 ? dout_a[31:16] :
         dout_a[15:0];
     
     // Port B is used for write
-    assign addr_b = {11'b0, waddr[ADDRESS_WIDTH - 1:2]};
+    assign addr_b = {{25 - ADDRESS_WIDTH{1'b0}}, waddr[ADDRESS_WIDTH - 1:2]};
     assign din_b = {8'b0, din, din, din, din};
     assign bwe_b = 
         waddr[1:0] == 2'b11 ? 8'b1100_0000 :
         waddr[1:0] == 2'b10 ? 8'b0011_0000 :
         waddr[1:0] == 2'b01 ? 8'b0000_1100 :
         8'b0000_0011;
-
+    
+    // URAM288_BASE: 288K-bit High-Density Base Memory Building Block
+    //               UltraScale
+    // Xilinx HDL Language Template, version 2021.1
+    // https://docs.xilinx.com/r/2021.1-English/ug974-vivado-ultrascale-libraries/URAM288_BASE
     URAM288_BASE #(
         .AUTO_SLEEP_LATENCY(8),            // Latency requirement to enter sleep mode
         .AVG_CONS_INACTIVE_CYCLES(10),     // Average consecutive inactive cycles when is SLEEP mode for power
@@ -118,5 +118,11 @@ module URAMReal #(
                                              // registers
         .SLEEP(1'b0)                         // 1-bit input: Dynamic power gating control
     );
+
+    always @(posedge clock) begin 
+        // Read latency is set to 2
+        raddr_reg1 <= raddr;
+        raddr_reg2 <= raddr_reg1;
+    end
 `endif 
 endmodule

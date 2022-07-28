@@ -198,8 +198,7 @@ class SimpleDualPortMemory(
   
   class URAMReal extends VerilogMemory(
     Map(
-      "ADDRESS_WIDTH" -> ADDRESS_WIDTH,
-      "DATA_WIDTH" -> DATA_WIDTH
+      "ADDRESS_WIDTH" -> ADDRESS_WIDTH
     )
   ) with HasBlackBoxResource {
     addResource("/verilog/URAMReal.v")
