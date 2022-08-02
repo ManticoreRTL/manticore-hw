@@ -55,10 +55,10 @@ module MultiplierDsp48 (
   input  [16 - 1 : 0] in1,
   input   [9 - 1 : 0] opmode,
   input   [4 - 1 : 0] alumode,
-  output [16 - 1 : 0] out,
-  // These ports are here to make simulations easier to understand.
-  input               valid_in,
-  output              valid_out
+  output [16 - 1 : 0] out
+  // // These ports are here to make simulations easier to understand.
+  // input               valid_in,
+  // output              valid_out
 );
 
 // Pipeline signal for simulations.
