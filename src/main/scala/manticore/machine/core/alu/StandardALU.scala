@@ -29,45 +29,51 @@ class StandardALUComb(DATA_BITS: Int) extends Module {
     require(DATA_BITS <= 16)
 
     val io = IO(new Bundle {
-      val clock   = Input(Clock())
-      val in0     = Input(UInt(DATA_BITS.W))
-      val in1     = Input(UInt(DATA_BITS.W))
-      val opmode  = Input(UInt(9.W))
-      val alumode = Input(UInt(4.W))
-      val out     = Output(UInt(DATA_BITS.W))
+      val clock    = Input(Clock())
+      val in0      = Input(UInt(DATA_BITS.W))
+      val in1      = Input(UInt(DATA_BITS.W))
+      val carryin  = Input(UInt(1.W))
+      val opmode   = Input(UInt(9.W))
+      val alumode  = Input(UInt(4.W))
+      val setinst  = Input(UInt(2.W))
+      val out      = Output(UInt(DATA_BITS.W))
+      val carryout = Output(UInt(1.W))
     })
 
     addResource("/verilog/AluDsp48/AluDsp48.v")
   }
 
-  val dsp = Module(new AluDsp48(DATA_BITS))
-
-  dsp.io.clock := clock
-  dsp.io.in0   := io.in.x
-  dsp.io.in1   := io.in.y
-
-  io.out := dsp.io.out
-
-  val opmode  = Wire(UInt(9.W))
-  val alumode = Wire(UInt(4.W))
-
-  dsp.io.opmode := opmode 
-  dsp.io.alumode := alumode
-
-  val shamnt         = Wire(UInt(log2Ceil(DATA_BITS).W))
-  val sum_res        = Wire(UInt((DATA_BITS + 1).W))
-  val sum_with_carry = Wire(UInt((DATA_BITS + 1).W))
-  val alu_res        = Wire(UInt(DATA_BITS.W))
-
-  def widened(w: UInt): UInt = {
-    val as_wider = Wire(UInt((DATA_BITS + 1).W))
-    as_wider := w
-    as_wider
+  def RegNext2[T <: Data](src: T): T = {
+    RegNext(RegNext(src))
   }
 
-  shamnt         := io.in.y(log2Ceil(DATA_BITS) - 1, 0)
-  sum_res        := widened(io.in.x) + widened(io.in.y)
-  sum_with_carry := sum_res + widened(io.in.carry)
+  val shamnt = Wire(UInt(log2Ceil(DATA_BITS).W))
+  // val sum_res        = Wire(UInt((DATA_BITS + 1).W))
+  // val sum_with_carry = Wire(UInt((DATA_BITS + 1).W))
+
+  val dsp       = Module(new AluDsp48(DATA_BITS))
+  val opmode    = Wire(UInt(9.W))
+  val alumode   = Wire(UInt(4.W))
+  val setinst   = Wire(UInt(2.W))
+  val without_dsp = Wire(Bool())
+
+  val alu_res = Wire(UInt(DATA_BITS.W))
+  // val carryout = Wire(UInt(1.W))
+
+  without_dsp := (io.funct == ISA.Functs.SLL.id.U ||
+    io.funct == ISA.Functs.SRL.id.U ||
+    io.funct == ISA.Functs.SRA.id.U ||
+    io.funct == ISA.Functs.MUX.id.U).asBool
+
+  // def widened(w: UInt): UInt = {
+  //   val as_wider = Wire(UInt((DATA_BITS + 1).W))
+  //   as_wider := w
+  //   as_wider
+  // }
+
+  shamnt := io.in.y(log2Ceil(DATA_BITS) - 1, 0)
+  // sum_res        := widened(io.in.x) + widened(io.in.y)
+  // sum_with_carry := sum_res + widened(io.in.carry)
 
   //                 | OPMODE[8:0] | ALUMODE[3:0] | Notes
   //   --------------|-------------|--------------|------------------------------
@@ -85,15 +91,18 @@ class StandardALUComb(DATA_BITS: Int) extends Module {
   //   sltu(b,c)     |  000110011  |     0011     | // Use subtraction. External circuit detects comparison result.
 
   switch(io.funct) {
+    // Most of the calculation are now done with DSP blocks
     is(ISA.Functs.ADD2.id.U) {
-      opmode := "b000110011".asUInt(9.W)
+      opmode  := "b000110011".asUInt(9.W)
       alumode := "b0000".asUInt(4.W)
-      alu_res := sum_res(DATA_BITS - 1, 0)
+      setinst := 0.asUInt(2.W)
+      // alu_res := sum_res(DATA_BITS - 1, 0)
     }
     is(ISA.Functs.SUB2.id.U) {
-      opmode := "b000110011".asUInt(9.W)
+      opmode  := "b000110011".asUInt(9.W)
       alumode := "b0011".asUInt(4.W)
-      alu_res := io.in.x - io.in.y
+      setinst := 0.asUInt(2.W)
+      // alu_res := io.in.x - io.in.y
     }
     // The multiplier is handled through a parallel path to the Execute and Memory
     // stages. We leave this code here commented out for documentation purposes.
@@ -104,62 +113,85 @@ class StandardALUComb(DATA_BITS: Int) extends Module {
     //   alu_res := io.in.x * io.in.y
     // }
     is(ISA.Functs.AND2.id.U) {
-      opmode := "b000110011".asUInt(9.W)
+      opmode  := "b000110011".asUInt(9.W)
       alumode := "b1100".asUInt(4.W)
+      setinst := 0.asUInt(2.W)
       // alu_res := io.in.x & io.in.y
     }
     is(ISA.Functs.OR2.id.U) {
-      opmode := "b000111011".asUInt(9.W)
+      opmode  := "b000111011".asUInt(9.W)
       alumode := "b0011".asUInt(4.W)
+      setinst := 0.asUInt(2.W)
       // alu_res := io.in.x | io.in.y
     }
     is(ISA.Functs.XOR2.id.U) {
-      opmode := "b000110011".asUInt(9.W)
+      opmode  := "b000110011".asUInt(9.W)
       alumode := "b0100".asUInt(4.W)
+      setinst := 0.asUInt(2.W)
       // alu_res := io.in.x ^ io.in.y
     }
-    is(ISA.Functs.SLL.id.U) {
-      alu_res := io.in.x << shamnt
-    }
-    is(ISA.Functs.SRL.id.U) {
-      alu_res := io.in.x >> shamnt
-    }
-    is(ISA.Functs.SRA.id.U) {
-      alu_res := (io.in.x.asSInt >> shamnt).asUInt
-    }
     is(ISA.Functs.SEQ.id.U) {
-      opmode := "b000110011".asUInt(9.W)
+      opmode  := "b000110011".asUInt(9.W)
       alumode := "b0011".asUInt(4.W)
+      setinst := 1.asUInt(2.W)
       // alu_res := (io.in.x === io.in.y).asUInt
     }
     is(ISA.Functs.SLTU.id.U) {
-      opmode := "b000110011".asUInt(9.W)
+      opmode  := "b000110011".asUInt(9.W)
       alumode := "b0011".asUInt(4.W)
+      setinst := 2.asUInt(2.W)
       // alu_res := (io.in.x < io.in.y).asUInt
     }
     is(ISA.Functs.SLTS.id.U) {
-      opmode := "b000110011".asUInt(9.W)
+      opmode  := "b000110011".asUInt(9.W)
       alumode := "b0011".asUInt(4.W)
+      setinst := 3.asUInt(2.W)
       // alu_res := (io.in.x.asSInt < io.in.y.asSInt).asUInt
+    }
+    is(ISA.Functs.ADDC.id.U) {
+      opmode  := "b000110011".asUInt(9.W)
+      alumode := "b0000".asUInt(4.W)
+      setinst := 0.asUInt(2.W)
+      // alu_res := sum_with_carry(DATA_BITS - 1, 0)
+    }
+
+    // The shift and mux operations are calculated without DSP
+    is(ISA.Functs.SLL.id.U) {
+      alu_res := RegNext2(io.in.x << shamnt)
+    }
+    is(ISA.Functs.SRL.id.U) {
+      alu_res := RegNext2(io.in.x >> shamnt)
+    }
+    is(ISA.Functs.SRA.id.U) {
+      alu_res := RegNext2((io.in.x.asSInt >> shamnt).asUInt)
     }
     is(ISA.Functs.MUX.id.U) {
       when(io.in.select) {
-        alu_res := io.in.y
+        alu_res := RegNext2(io.in.y)
       } otherwise {
-        alu_res := io.in.x
+        alu_res := RegNext2(io.in.x)
       }
-    }
-    is(ISA.Functs.ADDC.id.U) {
-      opmode := "b000110011".asUInt(9.W)
-      alumode := "b0000".asUInt(4.W)
-      // alu_res := sum_with_carry(DATA_BITS - 1, 0)
     }
   }
 
-  io.carry_out := RegNext(sum_with_carry >> (DATA_BITS.U))
+  dsp.io.clock   := clock
+  dsp.io.in0     := io.in.x
+  dsp.io.in1     := io.in.y
+  dsp.io.carryin := io.in.carry
+  dsp.io.opmode  := opmode
+  dsp.io.alumode := alumode
+  dsp.io.setinst := setinst
+
+  when(!without_dsp) {
+    alu_res := dsp.io.out
+  }
 
   // The mask is used for instructions like slices.
-  io.out := RegNext(alu_res & io.in.mask)
+  io.out       := alu_res & RegNext2(io.in.mask)
+  io.carry_out := dsp.io.carryout
+
+  // io.carry_out := RegNext(sum_with_carry >> (DATA_BITS.U))
+  // io.out := RegNext(alu_res & io.in.mask)
 
 }
 

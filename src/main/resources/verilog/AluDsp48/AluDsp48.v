@@ -53,9 +53,16 @@ module MultiplierDsp48 (
   input               clock,
   input  [16 - 1 : 0] in0,
   input  [16 - 1 : 0] in1,
+  input               carryin,
   input   [9 - 1 : 0] opmode,
   input   [4 - 1 : 0] alumode,
-  output [16 - 1 : 0] out
+  input   [2 - 1 : 0] setinst, 
+  // 0: non-set instruction
+  // 1: SEQ instruction
+  // 2: SLTU instruction
+  // 3: SLTS instruction
+  output [16 - 1 : 0] out,
+  output              carryout
   // // These ports are here to make simulations easier to understand.
   // input               valid_in,
   // output              valid_out
@@ -85,11 +92,21 @@ end
   wire [18 - 1 : 0] b_in;
   wire [48 - 1 : 0] c_in;
   wire [48 - 1 : 0] p_out;
+  wire  [4 - 1 : 0] carryout4;
+  wire              ismatch;
 
-  assign b_in = {2'b0, in0};
-  assign c_in = {32'b0, in1};
+  assign b_in = 
+    setinst == 2'b11 ? { {2{in0[15]}}, in0 } : // sign extension required for SLTS
+    {2'b0, in0};
+  assign c_in = 
+    setinst == 2'b11 ? { {32{in1[15]}}, in1 } : // sign extension required for SLTS
+    {32'b0, in1};
 
-  assign out = p_out[16 - 1 : 0];
+  assign out = 
+    setinst == 2'b00 ? p_out[16 - 1 : 0] : // non-set inst
+    setinst == 2'b01 ? {15'b0, ismatch}  : // SEQ
+    {15'b0, p_out[47]};                    // SLTU, SLTS
+  assign carryout = carryout4[3];
 
   DSP48E2 #(
     // Feature Control Attributes: Data Path Selection
@@ -99,14 +116,14 @@ end
     .B_INPUT("DIRECT"),                // Selects B input source, "DIRECT" (B port) or "CASCADE" (BCIN port)
     .PREADDINSEL("A"),                 // Selects input to pre-adder (A, B)
     .RND(48'h000000000000),            // Rounding Constant
-    .USE_MULT("MULTIPLY"),             // Select multiplier usage (DYNAMIC, MULTIPLY, NONE)
+    .USE_MULT("NONE"),                 // Select multiplier usage (DYNAMIC, MULTIPLY, NONE)
     .USE_SIMD("ONE48"),                // SIMD selection (FOUR12, ONE48, TWO24)
     .USE_WIDEXOR("FALSE"),             // Use the Wide XOR function (FALSE, TRUE)
     .XORSIMD("XOR24_48_96"),           // Mode of operation for the Wide XOR (XOR12, XOR24_48_96)
     // Pattern Detector Attributes: Pattern Detection Configuration
     .AUTORESET_PATDET("NO_RESET"),     // NO_RESET, RESET_MATCH, RESET_NOT_MATCH
     .AUTORESET_PRIORITY("RESET"),      // Priority of AUTORESET vs. CEP (CEP, RESET).
-    .MASK(48'h3fffffffffff),           // 48-bit mask value for pattern detect (1=ignore)
+    .MASK(48'h3fffffff0000),           // 48-bit mask value for pattern detect (1=ignore)
     .PATTERN(48'h000000000000),        // 48-bit pattern match for pattern detect
     .SEL_MASK("MASK"),                 // C, MASK, ROUNDING_MODE1, ROUNDING_MODE2
     .SEL_PATTERN("PATTERN"),           // Select pattern value (C, PATTERN)
@@ -133,14 +150,14 @@ end
     .ALUMODEREG(0),                    // Pipeline stages for ALUMODE (0-1)
     .AREG(0),                          // Pipeline stages for A (0-2)
     .BCASCREG(2),                      // Number of pipeline stages between B/BCIN and BCOUT (0-2)
-    .BREG(2),                          // Pipeline stages for B (0-2)
-    .CARRYINREG(0),                    // Pipeline stages for CARRYIN (0-1)
-    .CARRYINSELREG(0),                 // Pipeline stages for CARRYINSEL (0-1)
+    .BREG(0),                          // Pipeline stages for B (0-2)
+    .CARRYINREG(1),                    // Pipeline stages for CARRYIN (0-1)
+    .CARRYINSELREG(1),                 // Pipeline stages for CARRYINSEL (0-1)
     .CREG(0),                          // Pipeline stages for C (0-1)
     .DREG(0),                          // Pipeline stages for D (0-1)
     .INMODEREG(0),                     // Pipeline stages for INMODE (0-1)
     .MREG(1),                          // Multiplier pipeline stages (0-1)
-    .OPMODEREG(0),                     // Pipeline stages for OPMODE (0-1)
+    .OPMODEREG(1),                     // Pipeline stages for OPMODE (0-1)
     .PREG(0)                           // Number of pipeline stages for P (0-1)
   )
   DSP48E2_inst (
@@ -153,10 +170,10 @@ end
     // Control outputs: Control Inputs/Status Bits
     .OVERFLOW(),                       // 1-bit output: Overflow in add/acc
     .PATTERNBDETECT(),                 // 1-bit output: Pattern bar detect
-    .PATTERNDETECT(),                  // 1-bit output: Pattern detect
+    .PATTERNDETECT(ismatch),                  // 1-bit output: Pattern detect
     .UNDERFLOW(),                      // 1-bit output: Underflow in add/acc
     // Data outputs: Data Ports
-    .CARRYOUT(),                       // 4-bit output: Carry
+    .CARRYOUT(carryout4),              // 4-bit output: Carry
     .P(p_out),                         // 48-bit output: Primary data
     .XOROUT(),                         // 8-bit output: XOR data
     // Cascade inputs: Cascade Ports
@@ -175,15 +192,15 @@ end
     .A(30'b0),                         // 30-bit input: A data
     .B(b_in),                          // 18-bit input: B data
     .C(c_in),                          // 48-bit input: C data
-    .CARRYIN(1'b0),                    // 1-bit input: Carry-in
+    .CARRYIN(carryin),                    // 1-bit input: Carry-in
     .D(27'b0),                         // 27-bit input: D data
     // Reset/Clock Enable inputs: Reset/Clock Enable Inputs
     .CEA1(1'b0),                       // 1-bit input: Clock enable for 1st stage AREG
     .CEA2(1'b0),                       // 1-bit input: Clock enable for 2nd stage AREG
     .CEAD(1'b0),                       // 1-bit input: Clock enable for ADREG
     .CEALUMODE(1'b1),                  // 1-bit input: Clock enable for ALUMODE
-    .CEB1(1'b1),                       // 1-bit input: Clock enable for 1st stage BREG
-    .CEB2(1'b1),                       // 1-bit input: Clock enable for 2nd stage BREG
+    .CEB1(1'b0),                       // 1-bit input: Clock enable for 1st stage BREG
+    .CEB2(1'b0),                       // 1-bit input: Clock enable for 2nd stage BREG
     .CEC(1'b1),                        // 1-bit input: Clock enable for CREG
     .CECARRYIN(1'b1),                  // 1-bit input: Clock enable for CARRYINREG
     .CECTRL(1'b1),                     // 1-bit input: Clock enable for OPMODEREG and CARRYINSELREG
