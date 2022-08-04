@@ -58,12 +58,13 @@ class StandardALUComb(DATA_BITS: Int) extends Module {
   val without_dsp = Wire(Bool())
 
   val alu_res = Wire(UInt(DATA_BITS.W))
+  val shift_out = Wire(UInt(DATA_BITS.W))
   // val carryout = Wire(UInt(1.W))
 
-  without_dsp := (io.funct == ISA.Functs.SLL.id.U ||
-    io.funct == ISA.Functs.SRL.id.U ||
-    io.funct == ISA.Functs.SRA.id.U ||
-    io.funct == ISA.Functs.MUX.id.U).asBool
+  without_dsp := (io.funct === ISA.Functs.SLL.id.U ||
+    io.funct === ISA.Functs.SRL.id.U ||
+    io.funct === ISA.Functs.SRA.id.U ||
+    io.funct === ISA.Functs.MUX.id.U).asBool
 
   // def widened(w: UInt): UInt = {
   //   val as_wider = Wire(UInt((DATA_BITS + 1).W))
@@ -85,7 +86,6 @@ class StandardALUComb(DATA_BITS: Int) extends Module {
   //   add(b,c)      |  000110011  |     0000     | ug579 pg 30, 32 // W = 0, X = A:B, Y = 0, Z = C // P = Z + W + X + Y + CIN
   //   addc(b,c,cin) |  000110011  |     0000     | ug579 pg 30, 32 // W = 0, X = A:B, Y = 0, Z = C // P = Z + W + X + Y + CIN
   //   sub(b,c)      |  000110011  |     0011     | ug579 pg 30, 32 // W = 0, X = A:B, Y = 0, Z = C // P = Z - (W + X + Y + CIN)
-  //   mul(a,b)      |  000000101  |     0000     | ug579 pg 29     // W = 0, X = M  , Y = M, Z = 0 // P = X * Y                 // ALUMODE does not matter and we set it to ADD
   //   seq(b,c)      |  000110011  |     0011     | // Use subtraction. External circuit detects comparison result.
   //   slts(b,c)     |  000110011  |     0011     | // Use subtraction. External circuit detects comparison result.
   //   sltu(b,c)     |  000110011  |     0011     | // Use subtraction. External circuit detects comparison result.
@@ -120,7 +120,7 @@ class StandardALUComb(DATA_BITS: Int) extends Module {
     }
     is(ISA.Functs.OR2.id.U) {
       opmode  := "b000111011".asUInt(9.W)
-      alumode := "b0011".asUInt(4.W)
+      alumode := "b1100".asUInt(4.W)
       setinst := 0.asUInt(2.W)
       // alu_res := io.in.x | io.in.y
     }
@@ -157,19 +157,19 @@ class StandardALUComb(DATA_BITS: Int) extends Module {
 
     // The shift and mux operations are calculated without DSP
     is(ISA.Functs.SLL.id.U) {
-      alu_res := RegNext2(io.in.x << shamnt)
+      shift_out := io.in.x << shamnt
     }
     is(ISA.Functs.SRL.id.U) {
-      alu_res := RegNext2(io.in.x >> shamnt)
+      shift_out := io.in.x >> shamnt
     }
     is(ISA.Functs.SRA.id.U) {
-      alu_res := RegNext2((io.in.x.asSInt >> shamnt).asUInt)
+      shift_out := (io.in.x.asSInt >> shamnt).asUInt
     }
     is(ISA.Functs.MUX.id.U) {
       when(io.in.select) {
-        alu_res := RegNext2(io.in.y)
+        shift_out := io.in.y
       } otherwise {
-        alu_res := RegNext2(io.in.x)
+        shift_out := io.in.x
       }
     }
   }
@@ -182,8 +182,10 @@ class StandardALUComb(DATA_BITS: Int) extends Module {
   dsp.io.alumode := alumode
   dsp.io.setinst := setinst
 
-  when(!without_dsp) {
+  when(!RegNext2(without_dsp)) {
     alu_res := dsp.io.out
+  } otherwise {
+    alu_res := RegNext2(shift_out)
   }
 
   // The mask is used for instructions like slices.

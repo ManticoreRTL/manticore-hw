@@ -195,15 +195,15 @@ class ExecuteComb(
   }
 
   when(RegNext(io.pipe_in.opcode.cust)) {
-    pipe_out_reg.result := custom_alu.io.out
+    pipe_out_reg.result := RegNext(custom_alu.io.out)
   } otherwise {
     pipe_out_reg.result := standard_alu.io.out
   }
 
-  pipe_out_reg.opcode    := RegNext(io.pipe_in.opcode)
-  pipe_out_reg.data      := io.regs_in.rs2
-  pipe_out_reg.rd        := io.pipe_in.rd
-  pipe_out_reg.immediate := RegNext(io.pipe_in.immediate)
+  pipe_out_reg.opcode    := RegNext(RegNext(io.pipe_in.opcode))
+  pipe_out_reg.data      := RegNext(io.regs_in.rs2)
+  pipe_out_reg.rd        := RegNext(io.pipe_in.rd)
+  pipe_out_reg.immediate := RegNext(RegNext(io.pipe_in.immediate))
 
   // The ALUs now have latency of 2 cycles
   io.pipe_out.opcode    := RegNext(pipe_out_reg.opcode)
@@ -213,26 +213,26 @@ class ExecuteComb(
   io.pipe_out.immediate := RegNext(pipe_out_reg.immediate)
 
   when(RegNext(io.pipe_in.opcode.set_carry)) {
-    io.carry_rd := RegNext(io.pipe_in.rd)
+    io.carry_rd := RegNext(RegNext(io.pipe_in.rd))
   } otherwise {
     // notice that rs4 needs to be registered before given to the output pipe
     rs4_reg     := io.pipe_in.rs4
-    io.carry_rd := RegNext(rs4_reg)
+    io.carry_rd := RegNext(RegNext(rs4_reg))
   }
   when(RegNext(io.pipe_in.opcode.set_carry)) {
-    io.carry_din := RegNext(RegNext(io.pipe_in.immediate(0)))
+    io.carry_din := RegNext(RegNext(RegNext(io.pipe_in.immediate(0))))
   } otherwise {
-    io.carry_din := standard_alu.io.carry_out
+    io.carry_din := RegNext(standard_alu.io.carry_out)
   }
   io.carry_wen :=
-    RegNext(RegNext(io.pipe_in.opcode.arith) & (RegNext(io.pipe_in.funct) === ISA.Functs.ADDC.id.U)) | (RegNext(io.pipe_in.opcode.set_carry))
+    RegNext(RegNext(RegNext(io.pipe_in.opcode.arith) & (RegNext(io.pipe_in.funct) === ISA.Functs.ADDC.id.U)) | (RegNext(io.pipe_in.opcode.set_carry)))
 
   // enable/disable predicate
   when(RegNext(io.pipe_in.opcode.predicate)) {
     pred_reg := io.regs_in.rs1 === 1.U
   }
 
-  io.pipe_out.pred := RegNext(pred_reg)
+  io.pipe_out.pred := RegNext(RegNext(pred_reg))
 
   if (config.WithGlobalMemory) {
     val gload_next = RegNext(io.pipe_in.opcode.gload)
@@ -245,7 +245,7 @@ class ExecuteComb(
     }
     gmem_if_reg.start := (gstore_next && pred_reg) | gload_next
     gmem_if_reg.wdata := io.regs_in.rs1
-    io.pipe_out.gmem  := RegNext(gmem_if_reg)
+    io.pipe_out.gmem  := RegNext(RegNext(gmem_if_reg))
   }
 
   // print what's happenning

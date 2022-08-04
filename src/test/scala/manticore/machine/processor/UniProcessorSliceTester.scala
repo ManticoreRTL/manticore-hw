@@ -3,6 +3,7 @@ package manticore.machine.processor
 import chisel3._
 import chiseltest._
 import manticore.machine.ManticoreBaseISA
+import manticore.machine.UIntWide
 import manticore.machine.assembly.Assembler
 import manticore.machine.assembly.Instruction
 import manticore.machine.assembly.Instruction.Add2
@@ -16,13 +17,12 @@ import java.io.File
 import java.nio.file.Paths
 import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
-import manticore.machine.UIntWide
 
 class UniProcessorSliceTester extends AnyFlatSpec with Matchers with ChiselScalatestTester{
 
   val rdgen = new scala.util.Random(0)
 
-  val numTests = 600 // Set at will so long as num instructions < 4096
+  val numTests = 300 // Set at will so long as num instructions < 4096
 
   // Populate the processor's registers with random values. We reserve the entry at
   // address numRegs-1 to store the result of the operation under test.
@@ -59,7 +59,7 @@ class UniProcessorSliceTester extends AnyFlatSpec with Matchers with ChiselScala
 
       prog += instr
 
-      Range(0, 4).foreach { _ =>
+      Range(0, 8).foreach { _ =>
         prog += Instruction.Nop()
       }
 

@@ -42,14 +42,13 @@
 //   add(b,c)      |  000110011  |     0000     | ug579 pg 30, 32 // W = 0, X = A:B, Y = 0, Z = C // P = Z + W + X + Y + CIN
 //   addc(b,c,cin) |  000110011  |     0000     | ug579 pg 30, 32 // W = 0, X = A:B, Y = 0, Z = C // P = Z + W + X + Y + CIN
 //   sub(b,c)      |  000110011  |     0011     | ug579 pg 30, 32 // W = 0, X = A:B, Y = 0, Z = C // P = Z - (W + X + Y + CIN)
-//   mul(a,b)      |  000000101  |     0000     | ug579 pg 29     // W = 0, X = M  , Y = M, Z = 0 // P = X * Y                 // ALUMODE does not matter and we set it to ADD
 //   seq(b,c)      |  000110011  |     0011     | // Use subtraction. External circuit detects comparison result.
 //   slts(b,c)     |  000110011  |     0011     | // Use subtraction. External circuit detects comparison result.
 //   sltu(b,c)     |  000110011  |     0011     | // Use subtraction. External circuit detects comparison result.
 //   ```
 //   - SLL, SRL, SRA are handled by a dedicated unit outside the DSP.
 
-module MultiplierDsp48 (
+module AluDsp48 (
   input               clock,
   input  [16 - 1 : 0] in0,
   input  [16 - 1 : 0] in1,
@@ -69,26 +68,39 @@ module MultiplierDsp48 (
 );
 
 // Pipeline signal for simulations.
-reg valid_d1, valid_d2;
-assign valid_out = valid_d2;
-always @(posedge clock) begin
-  valid_d1 <= valid_in;
-  valid_d2 <= valid_d1;
-end
+// reg valid_d1, valid_d2;
+// assign valid_out = valid_d2;
+// always @(posedge clock) begin
+//   valid_d1 <= valid_in;
+//   valid_d2 <= valid_d1;
+// end
 
 `ifdef VERILATOR
 
-  reg [32 - 1 : 0] res_d1, res_d2;
+  reg [16 - 1 : 0] res_d1, res_d2, res_d3;
+  wire [16 - 1 : 0] result;
+  wire signed [16 - 1 : 0] in0s, in1s;
+
   assign out = res_d2;
+  assign in0s = in0;
+  assign in1s = in1;
+  assign result = 
+    (opmode == 9'b000110011 && alumode == 4'b1100) ? in0 & in1 :
+    (opmode == 9'b000111011 && alumode == 4'b1100) ? in0 | in1 :
+    (opmode == 9'b000110011 && alumode == 4'b0100) ? in0 ^ in1 :
+    (opmode == 9'b000110011 && alumode == 4'b0000) ? in0 + in1 + carryin :
+    (setinst == 2'b01) ? {15'b0, in0 == in1} :
+    (setinst == 2'b10) ? {15'b0, in0 < in1} :
+    (setinst == 2'b11) ? {15'b0, in0s < in1s} :
+    in0 - in1; // opmode == 9'b000110011 && alumode == 4'b0011
   always @(posedge clock) begin
     // Extend to 32 bits to ensure full-precision multiplication result.
-    res_d1 <= {16'b0, in0} * {16'b0, in1};
+    res_d1 <= result;
     res_d2 <= res_d1;
+    res_d3 <= res_d2;
   end
 
 `else
-
-  // DSP48E2 instance.
   wire [18 - 1 : 0] b_in;
   wire [48 - 1 : 0] c_in;
   wire [48 - 1 : 0] p_out;

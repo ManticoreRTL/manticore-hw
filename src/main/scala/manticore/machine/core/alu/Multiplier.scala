@@ -31,6 +31,10 @@ class Multiplier(dataWidth: Int) extends Module {
     addResource("/verilog/MultiplierDsp48/MultiplierDsp48.v")
   }
 
+  def RegNext2[T <: Data](src: T): T = {
+    RegNext(RegNext(src))
+  }
+
   val dsp = Module(new MultiplierDsp48(dataWidth))
 
   dsp.io.clock    := clock
@@ -38,8 +42,8 @@ class Multiplier(dataWidth: Int) extends Module {
   dsp.io.in1      := io.in1
   dsp.io.valid_in := io.valid_in
 
-  // Add registers to cope with 2 cycle ALUs
-  io.out       := RegNext(dsp.io.out)
-  io.valid_out := RegNext(dsp.io.valid_out)
+  // Add registers to cope with 3 cycle ALUs
+  io.out       := RegNext2(dsp.io.out)
+  io.valid_out := RegNext2(dsp.io.valid_out)
 
 }
