@@ -43,8 +43,8 @@
 //   addc(b,c,cin) |  000110011  |     0000     | ug579 pg 30, 32 // W = 0, X = A:B, Y = 0, Z = C // P = Z + W + X + Y + CIN
 //   sub(b,c)      |  000110011  |     0011     | ug579 pg 30, 32 // W = 0, X = A:B, Y = 0, Z = C // P = Z - (W + X + Y + CIN)
 //   seq(b,c)      |  000110011  |     0011     | // Use subtraction. External circuit detects comparison result.
-//   slts(b,c)     |  000110011  |     0011     | // Use subtraction. External circuit detects comparison result.
 //   sltu(b,c)     |  000110011  |     0011     | // Use subtraction. External circuit detects comparison result.
+//   slts(b,c)     |  000110011  |     0011     | // Use subtraction. External circuit detects comparison result.
 //   ```
 //   - SLL, SRL, SRA are handled by a dedicated unit outside the DSP.
 
@@ -61,23 +61,23 @@ module AluDsp48 (
   // 2: SLTU instruction
   // 3: SLTS instruction
   output [16 - 1 : 0] out,
-  output              carryout
+  output              carryout,
   // // These ports are here to make simulations easier to understand.
-  // input               valid_in,
-  // output              valid_out
+  input               valid_in,
+  output              valid_out
 );
 
 // Pipeline signal for simulations.
-// reg valid_d1, valid_d2;
-// assign valid_out = valid_d2;
-// always @(posedge clock) begin
-//   valid_d1 <= valid_in;
-//   valid_d2 <= valid_d1;
-// end
+  reg valid_d1, valid_d2;
+  assign valid_out = valid_d2;
+  always @(posedge clock) begin
+    valid_d1 <= valid_in;
+    valid_d2 <= valid_d1;
+  end
 
 `ifdef VERILATOR
 
-  reg [16 - 1 : 0] res_d1, res_d2, res_d3;
+  reg [16 - 1 : 0] res_d1, res_d2;
   wire [16 - 1 : 0] result;
   wire signed [16 - 1 : 0] in0s, in1s;
 
@@ -97,7 +97,6 @@ module AluDsp48 (
     // Extend to 32 bits to ensure full-precision multiplication result.
     res_d1 <= result;
     res_d2 <= res_d1;
-    res_d3 <= res_d2;
   end
 
 `else
@@ -160,15 +159,15 @@ module AluDsp48 (
     .ACASCREG(2),                      // Number of pipeline stages between A/ACIN and ACOUT (0-2)
     .ADREG(0),                         // Pipeline stages for pre-adder (0-1)
     .ALUMODEREG(0),                    // Pipeline stages for ALUMODE (0-1)
-    .AREG(0),                          // Pipeline stages for A (0-2)
+    .AREG(2),                          // Pipeline stages for A (0-2)
     .BCASCREG(2),                      // Number of pipeline stages between B/BCIN and BCOUT (0-2)
-    .BREG(0),                          // Pipeline stages for B (0-2)
+    .BREG(2),                          // Pipeline stages for B (0-2)
     .CARRYINREG(1),                    // Pipeline stages for CARRYIN (0-1)
     .CARRYINSELREG(1),                 // Pipeline stages for CARRYINSEL (0-1)
     .CREG(0),                          // Pipeline stages for C (0-1)
     .DREG(0),                          // Pipeline stages for D (0-1)
     .INMODEREG(0),                     // Pipeline stages for INMODE (0-1)
-    .MREG(1),                          // Multiplier pipeline stages (0-1)
+    .MREG(0),                          // Multiplier pipeline stages (0-1)
     .OPMODEREG(1),                     // Pipeline stages for OPMODE (0-1)
     .PREG(0)                           // Number of pipeline stages for P (0-1)
   )
@@ -207,16 +206,16 @@ module AluDsp48 (
     .CARRYIN(carryin),                    // 1-bit input: Carry-in
     .D(27'b0),                         // 27-bit input: D data
     // Reset/Clock Enable inputs: Reset/Clock Enable Inputs
-    .CEA1(1'b0),                       // 1-bit input: Clock enable for 1st stage AREG
-    .CEA2(1'b0),                       // 1-bit input: Clock enable for 2nd stage AREG
+    .CEA1(1'b1),                       // 1-bit input: Clock enable for 1st stage AREG
+    .CEA2(1'b1),                       // 1-bit input: Clock enable for 2nd stage AREG
     .CEAD(1'b0),                       // 1-bit input: Clock enable for ADREG
     .CEALUMODE(1'b1),                  // 1-bit input: Clock enable for ALUMODE
-    .CEB1(1'b0),                       // 1-bit input: Clock enable for 1st stage BREG
-    .CEB2(1'b0),                       // 1-bit input: Clock enable for 2nd stage BREG
+    .CEB1(1'b1),                       // 1-bit input: Clock enable for 1st stage BREG
+    .CEB2(1'b1),                       // 1-bit input: Clock enable for 2nd stage BREG
     .CEC(1'b1),                        // 1-bit input: Clock enable for CREG
     .CECARRYIN(1'b1),                  // 1-bit input: Clock enable for CARRYINREG
     .CECTRL(1'b1),                     // 1-bit input: Clock enable for OPMODEREG and CARRYINSELREG
-    .CED(1'b0),                        // 1-bit input: Clock enable for DREG
+    .CED(1'b1),                        // 1-bit input: Clock enable for DREG
     .CEINMODE(1'b0),                   // 1-bit input: Clock enable for INMODEREG
     .CEM(1'b1),                        // 1-bit input: Clock enable for MREG
     .CEP(1'b1),                        // 1-bit input: Clock enable for PREG

@@ -87,8 +87,8 @@ class StandardALUComb(DATA_BITS: Int) extends Module {
   //   addc(b,c,cin) |  000110011  |     0000     | ug579 pg 30, 32 // W = 0, X = A:B, Y = 0, Z = C // P = Z + W + X + Y + CIN
   //   sub(b,c)      |  000110011  |     0011     | ug579 pg 30, 32 // W = 0, X = A:B, Y = 0, Z = C // P = Z - (W + X + Y + CIN)
   //   seq(b,c)      |  000110011  |     0011     | // Use subtraction. External circuit detects comparison result.
-  //   slts(b,c)     |  000110011  |     0011     | // Use subtraction. External circuit detects comparison result.
   //   sltu(b,c)     |  000110011  |     0011     | // Use subtraction. External circuit detects comparison result.
+  //   slts(b,c)     |  000110011  |     0011     | // Use subtraction. External circuit detects comparison result.
 
   switch(io.funct) {
     // Most of the calculation are now done with DSP blocks
