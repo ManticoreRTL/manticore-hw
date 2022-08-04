@@ -9,7 +9,7 @@ module Main ();
     // inputs, so we use a logic instead of wire (so we can assign a value in the testbench).
     logic [W - 1 : 0] in0 = 0;
     logic [W - 1 : 0] in1 = 0;
-    logic carryin = 0;
+    logic             carryin = 0;
     logic [9 - 1 : 0] opmode = 0;
     logic [4 - 1 : 0] alumode = 0;
     logic [2 - 1 : 0] setinst = 0;
@@ -35,8 +35,8 @@ module Main ();
     //   addc(b,c,cin) |  000110011  |     0000     | ug579 pg 30, 32 // W = 0, X = A:B, Y = 0, Z = C // P = Z + W + X + Y + CIN
     //   sub(b,c)      |  000110011  |     0011     | ug579 pg 30, 32 // W = 0, X = A:B, Y = 0, Z = C // P = Z - (W + X + Y + CIN)
     //   seq(b,c)      |  000110011  |     0011     | // Use subtraction. External circuit detects comparison result.
-    //   slts(b,c)     |  000110011  |     0011     | // Use subtraction. External circuit detects comparison result.
     //   sltu(b,c)     |  000110011  |     0011     | // Use subtraction. External circuit detects comparison result.
+    //   slts(b,c)     |  000110011  |     0011     | // Use subtraction. External circuit detects comparison result.
 
     // The DSP has a 2-cycle latency. We therefore need to store the intermediate values
     // to check the result after a delay when the inputs are fed.
@@ -376,10 +376,10 @@ module Main ();
         @(posedge clock);
         @(posedge clock);
         forever begin 
-            @(posedge clock) testAnd; 
+            // @(posedge clock) testAnd; 
             // @(posedge clock) testOr; 
             // @(posedge clock) testXor; 
-            // @(posedge clock) testAdd; 
+            @(posedge clock) testAdd; 
             // @(posedge clock) testSub;
             // @(posedge clock) testSeq; 
             // @(posedge clock) testSltu; 

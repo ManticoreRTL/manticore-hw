@@ -156,20 +156,20 @@ module AluDsp48 (
     .IS_RSTM_INVERTED(1'b0),           // Optional inversion for RSTM
     .IS_RSTP_INVERTED(1'b0),           // Optional inversion for RSTP
     // Register Control Attributes: Pipeline Register Configuration
-    .ACASCREG(2),                      // Number of pipeline stages between A/ACIN and ACOUT (0-2)
+    .ACASCREG(0),                      // Number of pipeline stages between A/ACIN and ACOUT (0-2)
     .ADREG(0),                         // Pipeline stages for pre-adder (0-1)
     .ALUMODEREG(0),                    // Pipeline stages for ALUMODE (0-1)
-    .AREG(2),                          // Pipeline stages for A (0-2)
-    .BCASCREG(2),                      // Number of pipeline stages between B/BCIN and BCOUT (0-2)
-    .BREG(2),                          // Pipeline stages for B (0-2)
+    .AREG(0),                          // Pipeline stages for A (0-2)
+    .BCASCREG(1),                      // Number of pipeline stages between B/BCIN and BCOUT (0-2)
+    .BREG(1),                          // Pipeline stages for B (0-2)
     .CARRYINREG(1),                    // Pipeline stages for CARRYIN (0-1)
     .CARRYINSELREG(1),                 // Pipeline stages for CARRYINSEL (0-1)
-    .CREG(0),                          // Pipeline stages for C (0-1)
+    .CREG(1),                          // Pipeline stages for C (0-1)
     .DREG(0),                          // Pipeline stages for D (0-1)
     .INMODEREG(0),                     // Pipeline stages for INMODE (0-1)
     .MREG(0),                          // Multiplier pipeline stages (0-1)
     .OPMODEREG(1),                     // Pipeline stages for OPMODE (0-1)
-    .PREG(0)                           // Number of pipeline stages for P (0-1)
+    .PREG(1)                           // Number of pipeline stages for P (0-1)
   )
   DSP48E2_inst (
     // Cascade outputs: Cascade Ports
@@ -181,7 +181,7 @@ module AluDsp48 (
     // Control outputs: Control Inputs/Status Bits
     .OVERFLOW(),                       // 1-bit output: Overflow in add/acc
     .PATTERNBDETECT(),                 // 1-bit output: Pattern bar detect
-    .PATTERNDETECT(ismatch),                  // 1-bit output: Pattern detect
+    .PATTERNDETECT(ismatch),           // 1-bit output: Pattern detect
     .UNDERFLOW(),                      // 1-bit output: Underflow in add/acc
     // Data outputs: Data Ports
     .CARRYOUT(carryout4),              // 4-bit output: Carry
@@ -195,7 +195,7 @@ module AluDsp48 (
     .PCIN(48'b0),                      // 48-bit input: P cascade
     // Control inputs: Control Inputs/Status Bits
     .ALUMODE(alumode),                 // 4-bit input: ALU control
-    .CARRYINSEL(3'b0),                 // 3-bit input: Carry select
+    .CARRYINSEL(3'b000),               // 3-bit input: Carry select
     .CLK(clock),                       // 1-bit input: Clock
     .INMODE(5'b10001),                 // 5-bit input: INMODE control
     .OPMODE(opmode),                   // 9-bit input: Operation mode
@@ -203,7 +203,7 @@ module AluDsp48 (
     .A(30'b0),                         // 30-bit input: A data
     .B(b_in),                          // 18-bit input: B data
     .C(c_in),                          // 48-bit input: C data
-    .CARRYIN(carryin),                    // 1-bit input: Carry-in
+    .CARRYIN(carryin),                 // 1-bit input: Carry-in
     .D(27'b0),                         // 27-bit input: D data
     // Reset/Clock Enable inputs: Reset/Clock Enable Inputs
     .CEA1(1'b1),                       // 1-bit input: Clock enable for 1st stage AREG
@@ -217,7 +217,7 @@ module AluDsp48 (
     .CECTRL(1'b1),                     // 1-bit input: Clock enable for OPMODEREG and CARRYINSELREG
     .CED(1'b1),                        // 1-bit input: Clock enable for DREG
     .CEINMODE(1'b0),                   // 1-bit input: Clock enable for INMODEREG
-    .CEM(1'b1),                        // 1-bit input: Clock enable for MREG
+    .CEM(1'b0),                        // 1-bit input: Clock enable for MREG
     .CEP(1'b1),                        // 1-bit input: Clock enable for PREG
     .RSTA(1'b0),                       // 1-bit input: Reset for AREG
     .RSTALLCARRYIN(1'b0),              // 1-bit input: Reset for CARRYINREG
