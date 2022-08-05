@@ -29,7 +29,7 @@
 //       - We can set C[47:16] = 0, C[15:0] = arg2
 //
 // - Final table of control signals:
-//   INMODE[4:0]     = 10001 (selects A1 and B1 when configuring AREG(2) and BREG(2))
+//   INMODE[4:0]     = 10001 (selects A1 and B1 when configuring AREG(1) and BREG(1))
 //   CARRYINSEL[2:0] = 000   (always selects carry-in signal)
 //   ```
 //                 | OPMODE[8:0] | ALUMODE[3:0] | Notes
@@ -105,20 +105,24 @@ module AluDsp48 (
   wire [48 - 1 : 0] p_out;
   wire  [4 - 1 : 0] carryout4;
   wire              ismatch;
+  wire              res_slts; 
   reg               carryin_reg; 
+  reg               in0msb_reg0, in0msb_reg1, in0msb_reg2;
+  reg               in1msb_reg0, in1msb_reg1, in1msb_reg2;
 
-  assign b_in = 
-    setinst == 2'b11 ? { {2{in1[15]}}, in1 } : // sign extension required for SLTS
-    {2'b0, in1};
-  assign c_in = 
-    setinst == 2'b11 ? { {32{in0[15]}}, in0 } : // sign extension required for SLTS
-    {32'b0, in0};
+  assign b_in = {2'b0, in1};
+  assign c_in = {32'b0, in0};
 
   assign out = 
-    setinst == 2'b00 ? p_out[16 - 1 : 0] : // non-set inst
-    setinst == 2'b01 ? {15'b0, ismatch}  : // SEQ
-    {15'b0, p_out[47]};                    // SLTU, SLTS
+    setinst == 2'b00 ? p_out[16 - 1 : 0]  : // non-set inst
+    setinst == 2'b01 ? {15'b0, ismatch}   : // SEQ
+    setinst == 2'b10 ? {15'b0, p_out[47]} : // SLTU
+    {15'b0, res_slts};                      // SLTS
   assign carryout = p_out[16];
+  assign res_slts = 
+    (in0msb_reg2 & !in1msb_reg2) | 
+    (p_out[15] & (!in0msb_reg2 ^ in1msb_reg2));
+  // condition to be in0 < in1 (signed)
 
   always @(posedge clock) begin 
     carryin_reg <= carryin;
@@ -129,6 +133,14 @@ module AluDsp48 (
     // making the CARRYIN signal inconsistent with operands of addition
     // (B and C in our case) in terms of timing.
     // As a way around, we add a register outside the DSP.
+
+    in0msb_reg0 <= in0[15];
+    in0msb_reg1 <= in0msb_reg0;
+    in0msb_reg2 <= in0msb_reg1;
+
+    in1msb_reg0 <= in1[15];
+    in1msb_reg1 <= in1msb_reg0;
+    in1msb_reg2 <= in1msb_reg1;
   end
 
   DSP48E2 #(

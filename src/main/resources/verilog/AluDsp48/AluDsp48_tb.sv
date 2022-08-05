@@ -337,7 +337,10 @@ module Main ();
         alumode = 4'b0011;
         setinst = 2'b11;
 
-        expected[1] <= expected[0];
+        // As it takes one cycle to assign value to in0s and in1s, we skip expected[0] 
+        // and put the expected value directly to expected[1]
+        expected[0] <= 16'b0;
+        expected[1] <= (in0s < in1s);
         expected[2] <= expected[1];
 
         // Calling urandom_range(0, 9) instead of urandom_range(0, 1) simply to have
@@ -347,6 +350,8 @@ module Main ();
             // $urandom_range returns an INCLUSIVE range.
             in0 = $urandom_range(1, 65535);
             in1 = $urandom_range(1, 65535);
+            // in0s = in0;
+            // in1s = in1;
             carryin = 0;
         end else begin
             valid_in <= 0;
@@ -354,8 +359,6 @@ module Main ();
             in1 = 0;
             carryin = 0;
         end
-
-        expected[0] <= (in0s < in1s);
 
         if (valid_out == 1) begin
             cnt <= cnt + 1;
@@ -378,13 +381,14 @@ module Main ();
         @(posedge clock);
         @(posedge clock);
         forever begin 
-            @(posedge clock) testAnd; 
-            @(posedge clock) testOr; 
-            @(posedge clock) testXor; 
-            @(posedge clock) testAdd; 
-            @(posedge clock) testSub;
-            @(posedge clock) testSeq; 
-            @(posedge clock) testSltu; 
+            // uncomment only one of below
+            // @(posedge clock) testAnd; 
+            // @(posedge clock) testOr; 
+            // @(posedge clock) testXor; 
+            // @(posedge clock) testAdd; 
+            // @(posedge clock) testSub;
+            // @(posedge clock) testSeq; 
+            // @(posedge clock) testSltu; 
             @(posedge clock) testSlts;  
         end
     end
