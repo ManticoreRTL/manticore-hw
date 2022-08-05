@@ -6,6 +6,7 @@ import chisel3.stage.ChiselStage
 import chisel3.util.Cat
 import chisel3.util.is
 import chisel3.util.log2Ceil
+import chisel3.util.pla
 import chisel3.util.switch
 import manticore.machine.ManticoreFullISA
 import manticore.machine.core.ClockDistribution
@@ -21,7 +22,6 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import scala.collection.immutable.ListMap
-import chisel3.util.pla
 
 class MemoryPointers extends Bundle {
   val pointer_0: UInt = UInt(64.W)
@@ -443,6 +443,7 @@ object BuildXclbin {
     val cpus = getSystemInfo() max 12
     val command =
       s"v++ --link -g -t ${target} --platform ${platform} --save-temps " +
+        s"--optimize 3 " +
         s"--vivado.synth.jobs ${cpus} --vivado.impl.jobs ${cpus} " +
         s"${clock_constraint} -o ${xclbin_path.toAbsolutePath.toString} " +
         s"${xo_path.toAbsolutePath.toString}"
