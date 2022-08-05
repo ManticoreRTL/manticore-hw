@@ -108,11 +108,11 @@ module AluDsp48 (
   reg               carryin_reg; 
 
   assign b_in = 
-    setinst == 2'b11 ? { {2{in0[15]}}, in0 } : // sign extension required for SLTS
-    {2'b0, in0};
+    setinst == 2'b11 ? { {2{in1[15]}}, in1 } : // sign extension required for SLTS
+    {2'b0, in1};
   assign c_in = 
-    setinst == 2'b11 ? { {32{in1[15]}}, in1 } : // sign extension required for SLTS
-    {32'b0, in1};
+    setinst == 2'b11 ? { {32{in0[15]}}, in0 } : // sign extension required for SLTS
+    {32'b0, in0};
 
   assign out = 
     setinst == 2'b00 ? p_out[16 - 1 : 0] : // non-set inst
