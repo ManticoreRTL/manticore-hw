@@ -146,11 +146,11 @@ module AluDsp48 (
     // Pattern Detector Attributes: Pattern Detection Configuration
     .AUTORESET_PATDET("NO_RESET"),     // NO_RESET, RESET_MATCH, RESET_NOT_MATCH
     .AUTORESET_PRIORITY("RESET"),      // Priority of AUTORESET vs. CEP (CEP, RESET).
-    .MASK(48'h3fffffffffff),           // 48-bit mask value for pattern detect (1=ignore)
+    .MASK(48'h3fffffff0000),           // 48-bit mask value for pattern detect (1=ignore)
     .PATTERN(48'h000000000000),        // 48-bit pattern match for pattern detect
     .SEL_MASK("MASK"),                 // C, MASK, ROUNDING_MODE1, ROUNDING_MODE2
     .SEL_PATTERN("PATTERN"),           // Select pattern value (C, PATTERN)
-    .USE_PATTERN_DETECT("NO_PATDET"),  // Enable pattern detect (NO_PATDET, PATDET)
+    .USE_PATTERN_DETECT("PATDET"),     // Enable pattern detect (NO_PATDET, PATDET)
     // Programmable Inversion Attributes: Specifies built-in programmable inversion on specific pins
     .IS_ALUMODE_INVERTED(4'b0000),     // Optional inversion for ALUMODE
     .IS_CARRYIN_INVERTED(1'b0),        // Optional inversion for CARRYIN
@@ -215,7 +215,7 @@ module AluDsp48 (
     .A(30'b0),                         // 30-bit input: A data
     .B(b_in),                          // 18-bit input: B data
     .C(c_in),                          // 48-bit input: C data
-    .CARRYIN(carryin_reg),                 // 1-bit input: Carry-in
+    .CARRYIN(carryin_reg),             // 1-bit input: Carry-in
     .D(27'b0),                         // 27-bit input: D data
     // Reset/Clock Enable inputs: Reset/Clock Enable Inputs
     .CEA1(1'b1),                       // 1-bit input: Clock enable for 1st stage AREG

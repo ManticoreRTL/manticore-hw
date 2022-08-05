@@ -267,8 +267,10 @@ module Main ();
         if ($urandom_range(0, 9) == 3) begin
             valid_in <= 1;
             // $urandom_range returns an INCLUSIVE range.
-            in0 = $urandom_range(1, 65535);
-            in1 = $urandom_range(1, 65535);
+            // set smaller upper bound than other tests so that we have enough number
+            // of positive (equal) samples
+            in0 = $urandom_range(1, 5);
+            in1 = $urandom_range(1, 5);
             carryin = 0;
         end else begin
             valid_in <= 0;
@@ -376,14 +378,14 @@ module Main ();
         @(posedge clock);
         @(posedge clock);
         forever begin 
-            // @(posedge clock) testAnd; 
-            // @(posedge clock) testOr; 
-            // @(posedge clock) testXor; 
+            @(posedge clock) testAnd; 
+            @(posedge clock) testOr; 
+            @(posedge clock) testXor; 
             @(posedge clock) testAdd; 
-            // @(posedge clock) testSub;
-            // @(posedge clock) testSeq; 
-            // @(posedge clock) testSltu; 
-            // @(posedge clock) testSlts;  
+            @(posedge clock) testSub;
+            @(posedge clock) testSeq; 
+            @(posedge clock) testSltu; 
+            @(posedge clock) testSlts;  
         end
     end
 
