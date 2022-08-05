@@ -105,6 +105,7 @@ module AluDsp48 (
   wire [48 - 1 : 0] p_out;
   wire  [4 - 1 : 0] carryout4;
   wire              ismatch;
+  reg               carryin_reg; 
 
   assign b_in = 
     setinst == 2'b11 ? { {2{in0[15]}}, in0 } : // sign extension required for SLTS
@@ -117,7 +118,18 @@ module AluDsp48 (
     setinst == 2'b00 ? p_out[16 - 1 : 0] : // non-set inst
     setinst == 2'b01 ? {15'b0, ismatch}  : // SEQ
     {15'b0, p_out[47]};                    // SLTU, SLTS
-  assign carryout = carryout4[3];
+  assign carryout = p_out[16];
+
+  always @(posedge clock) begin 
+    carryin_reg <= carryin;
+    // The CARRYIN of DSP48E2 should have two cycle latency when the 
+    // CARRYINREG and PREG are enabled. However, our observation with 
+    // Vivado simulation suggests that CARRYINREG is not used even if 
+    // the associated attribute and input (CECARRYIN) are set to 1, 
+    // making the CARRYIN signal inconsistent with operands of addition
+    // (B and C in our case) in terms of timing.
+    // As a way around, we add a register outside the DSP.
+  end
 
   DSP48E2 #(
     // Feature Control Attributes: Data Path Selection
@@ -134,7 +146,7 @@ module AluDsp48 (
     // Pattern Detector Attributes: Pattern Detection Configuration
     .AUTORESET_PATDET("NO_RESET"),     // NO_RESET, RESET_MATCH, RESET_NOT_MATCH
     .AUTORESET_PRIORITY("RESET"),      // Priority of AUTORESET vs. CEP (CEP, RESET).
-    .MASK(48'h3fffffff0000),           // 48-bit mask value for pattern detect (1=ignore)
+    .MASK(48'h3fffffffffff),           // 48-bit mask value for pattern detect (1=ignore)
     .PATTERN(48'h000000000000),        // 48-bit pattern match for pattern detect
     .SEL_MASK("MASK"),                 // C, MASK, ROUNDING_MODE1, ROUNDING_MODE2
     .SEL_PATTERN("PATTERN"),           // Select pattern value (C, PATTERN)
@@ -156,10 +168,10 @@ module AluDsp48 (
     .IS_RSTM_INVERTED(1'b0),           // Optional inversion for RSTM
     .IS_RSTP_INVERTED(1'b0),           // Optional inversion for RSTP
     // Register Control Attributes: Pipeline Register Configuration
-    .ACASCREG(0),                      // Number of pipeline stages between A/ACIN and ACOUT (0-2)
+    .ACASCREG(1),                      // Number of pipeline stages between A/ACIN and ACOUT (0-2)
     .ADREG(0),                         // Pipeline stages for pre-adder (0-1)
-    .ALUMODEREG(0),                    // Pipeline stages for ALUMODE (0-1)
-    .AREG(0),                          // Pipeline stages for A (0-2)
+    .ALUMODEREG(1),                    // Pipeline stages for ALUMODE (0-1)
+    .AREG(1),                          // Pipeline stages for A (0-2)
     .BCASCREG(1),                      // Number of pipeline stages between B/BCIN and BCOUT (0-2)
     .BREG(1),                          // Pipeline stages for B (0-2)
     .CARRYINREG(1),                    // Pipeline stages for CARRYIN (0-1)
@@ -203,12 +215,12 @@ module AluDsp48 (
     .A(30'b0),                         // 30-bit input: A data
     .B(b_in),                          // 18-bit input: B data
     .C(c_in),                          // 48-bit input: C data
-    .CARRYIN(carryin),                 // 1-bit input: Carry-in
+    .CARRYIN(carryin_reg),                 // 1-bit input: Carry-in
     .D(27'b0),                         // 27-bit input: D data
     // Reset/Clock Enable inputs: Reset/Clock Enable Inputs
     .CEA1(1'b1),                       // 1-bit input: Clock enable for 1st stage AREG
     .CEA2(1'b1),                       // 1-bit input: Clock enable for 2nd stage AREG
-    .CEAD(1'b0),                       // 1-bit input: Clock enable for ADREG
+    .CEAD(1'b1),                       // 1-bit input: Clock enable for ADREG
     .CEALUMODE(1'b1),                  // 1-bit input: Clock enable for ALUMODE
     .CEB1(1'b1),                       // 1-bit input: Clock enable for 1st stage BREG
     .CEB2(1'b1),                       // 1-bit input: Clock enable for 2nd stage BREG
@@ -216,8 +228,8 @@ module AluDsp48 (
     .CECARRYIN(1'b1),                  // 1-bit input: Clock enable for CARRYINREG
     .CECTRL(1'b1),                     // 1-bit input: Clock enable for OPMODEREG and CARRYINSELREG
     .CED(1'b1),                        // 1-bit input: Clock enable for DREG
-    .CEINMODE(1'b0),                   // 1-bit input: Clock enable for INMODEREG
-    .CEM(1'b0),                        // 1-bit input: Clock enable for MREG
+    .CEINMODE(1'b1),                   // 1-bit input: Clock enable for INMODEREG
+    .CEM(1'b1),                        // 1-bit input: Clock enable for MREG
     .CEP(1'b1),                        // 1-bit input: Clock enable for PREG
     .RSTA(1'b0),                       // 1-bit input: Reset for AREG
     .RSTALLCARRYIN(1'b0),              // 1-bit input: Reset for CARRYINREG
