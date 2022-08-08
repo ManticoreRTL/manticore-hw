@@ -9,15 +9,17 @@ module Main ();
     // inputs, so we use a logic instead of wire (so we can assign a value in the testbench).
     logic [W - 1 : 0] in0 = 0;
     logic [W - 1 : 0] in1 = 0;
+    logic [W - 1 : 0] in2 = 0; // only used for MUL
     logic             carryin = 0;
     logic [9 - 1 : 0] opmode = 0;
     logic [4 - 1 : 0] alumode = 0;
     logic [2 - 1 : 0] setinst = 0;
     logic             valid_in = 0;
     // outputs, so we use a wire instead of logic.
-    wire [W - 1 : 0] out;
-    wire             carryout;
-    wire             valid_out;
+    wire   [W - 1 : 0] out;
+    wire [2*W - 1 : 0] mul_out;
+    wire               carryout;
+    wire               valid_out;
 
     // signed wires used to verify the SLTS instruction
     wire signed [W - 1 : 0] in0s, in1s;
@@ -34,13 +36,16 @@ module Main ();
     //   add(b,c)      |  000110011  |     0000     | ug579 pg 30, 32 // W = 0, X = A:B, Y = 0, Z = C // P = Z + W + X + Y + CIN
     //   addc(b,c,cin) |  000110011  |     0000     | ug579 pg 30, 32 // W = 0, X = A:B, Y = 0, Z = C // P = Z + W + X + Y + CIN
     //   sub(b,c)      |  000110011  |     0011     | ug579 pg 30, 32 // W = 0, X = A:B, Y = 0, Z = C // P = Z - (W + X + Y + CIN)
+    //   mul(a,b)      |  000000101  |     0000     | ug579 pg 29     // W = 0, X = M  , Y = M, Z = 0 // P = X * Y                 
+    //                 |             |              | (ALUMODE does not matter and we set it to ADD)
     //   seq(b,c)      |  000110011  |     0011     | // Use subtraction. External circuit detects comparison result.
     //   sltu(b,c)     |  000110011  |     0011     | // Use subtraction. External circuit detects comparison result.
     //   slts(b,c)     |  000110011  |     0011     | // Use subtraction. External circuit detects comparison result.
 
     // The DSP has a 2-cycle latency. We therefore need to store the intermediate values
     // to check the result after a delay when the inputs are fed.
-    logic [W - 1 : 0] expected [0:2];
+    logic   [W - 1 : 0] expected [0:2];
+    logic [2*W - 1 : 0] mul_expected [0:2];
 
     // Testbench signals
     logic              clock = 0;
@@ -54,11 +59,13 @@ module Main ();
         .clock(clock),
         .in0(in0),
         .in1(in1),
+        .in2(in2),
         .carryin(carryin),
         .opmode(opmode),
         .alumode(alumode),
         .setinst(setinst),
         .out(out),
+        .mul_out(mul_out),
         .carryout(carryout),
         .valid_in(valid_in),
         .valid_out(valid_out)
@@ -254,6 +261,44 @@ module Main ();
         end
     endtask
 
+    task testMul;
+        opmode = 9'b000000101;
+        alumode = 4'b0000;
+        setinst = 2'b00;
+
+        mul_expected[1] <= mul_expected[0];
+        mul_expected[2] <= mul_expected[1];
+
+        // Calling urandom_range(0, 9) instead of urandom_range(0, 1) simply to have
+        // longer delays between operations in the simulation.
+        if ($urandom_range(0, 9) == 3) begin
+            valid_in <= 1;
+            // $urandom_range returns an INCLUSIVE range.
+            in1 = $urandom_range(1, 65535);
+            in2 = $urandom_range(1, 65535);
+            carryin = 0;
+        end else begin
+            valid_in <= 0;
+            in1 = 0;
+            in2 = 0;
+            carryin = 0;
+        end
+
+        mul_expected[0] <= (in1 * in2);
+
+        if (valid_out == 1) begin
+            cnt <= cnt + 1;
+            if (mul_out != mul_expected[2]) begin
+                $display("[MUL] [%d] Expected %d but got %d", cnt, mul_expected[2], out);
+                // $finish;
+            end
+        end
+
+        if (cnt == TEST_SIZE - 1) begin
+            $finish;
+        end
+    endtask
+
     task testSeq;
         opmode = 9'b000110011;
         alumode = 4'b0011;
@@ -387,6 +432,7 @@ module Main ();
             // @(posedge clock) testXor; 
             // @(posedge clock) testAdd; 
             // @(posedge clock) testSub;
+            // @(posedge clock) testMul;
             // @(posedge clock) testSeq; 
             // @(posedge clock) testSltu; 
             @(posedge clock) testSlts;  

@@ -42,6 +42,8 @@
 //   add(b,c)      |  000110011  |     0000     | ug579 pg 30, 32 // W = 0, X = A:B, Y = 0, Z = C // P = Z + W + X + Y + CIN
 //   addc(b,c,cin) |  000110011  |     0000     | ug579 pg 30, 32 // W = 0, X = A:B, Y = 0, Z = C // P = Z + W + X + Y + CIN
 //   sub(b,c)      |  000110011  |     0011     | ug579 pg 30, 32 // W = 0, X = A:B, Y = 0, Z = C // P = Z - (W + X + Y + CIN)
+//   mul(a,b)      |  000000101  |     0000     | ug579 pg 29     // W = 0, X = M  , Y = M, Z = 0 // P = X * Y                 
+//                 |             |              | (ALUMODE does not matter and we set it to ADD)
 //   seq(b,c)      |  000110011  |     0011     | // Use subtraction. External circuit detects comparison result.
 //   sltu(b,c)     |  000110011  |     0011     | // Use subtraction. External circuit detects comparison result.
 //   slts(b,c)     |  000110011  |     0011     | // Use subtraction. External circuit detects comparison result.
@@ -50,8 +52,9 @@
 
 module AluDsp48 (
   input               clock,
-  input  [16 - 1 : 0] in0,
-  input  [16 - 1 : 0] in1,
+  input  [16 - 1 : 0] in0, // C
+  input  [16 - 1 : 0] in1, // B
+  input  [16 - 1 : 0] in2, // A (only for MUL)
   input               carryin,
   input   [9 - 1 : 0] opmode,
   input   [4 - 1 : 0] alumode,
@@ -61,6 +64,7 @@ module AluDsp48 (
   // 2: SLTU instruction
   // 3: SLTS instruction
   output [16 - 1 : 0] out,
+  output [32 - 1 : 0] mul_out, // multiplication has wider bit width than others
   output              carryout,
   // // These ports are here to make simulations easier to understand.
   input               valid_in,
@@ -82,6 +86,7 @@ module AluDsp48 (
   wire signed [16 - 1 : 0] in0s, in1s;
 
   assign out = res_d2;
+  assign mul_out = in0 * in1;
   assign in0s = in0;
   assign in1s = in1;
   assign result = 
@@ -102,6 +107,7 @@ module AluDsp48 (
 `else
   wire [18 - 1 : 0] b_in;
   wire [48 - 1 : 0] c_in;
+  wire [30 - 1 : 0] a_in;
   wire [48 - 1 : 0] p_out;
   wire  [4 - 1 : 0] carryout4;
   wire              ismatch;
@@ -110,7 +116,8 @@ module AluDsp48 (
   reg               in0msb_reg0, in0msb_reg1, in0msb_reg2;
   reg               in1msb_reg0, in1msb_reg1, in1msb_reg2;
 
-  assign b_in = {2'b0, in1};
+  assign a_in = {14'b0, in2};
+  assign b_in = { 2'b0, in1};
   assign c_in = {32'b0, in0};
 
   assign out = 
@@ -118,6 +125,7 @@ module AluDsp48 (
     setinst == 2'b01 ? {15'b0, ismatch}   : // SEQ
     setinst == 2'b10 ? {15'b0, p_out[47]} : // SLTU
     {15'b0, res_slts};                      // SLTS
+  assign mul_out = p_out[32 - 1 : 0];
   assign carryout = p_out[16];
   assign res_slts = 
     (in0msb_reg2 & !in1msb_reg2) | 
@@ -151,7 +159,7 @@ module AluDsp48 (
     .B_INPUT("DIRECT"),                // Selects B input source, "DIRECT" (B port) or "CASCADE" (BCIN port)
     .PREADDINSEL("A"),                 // Selects input to pre-adder (A, B)
     .RND(48'h000000000000),            // Rounding Constant
-    .USE_MULT("NONE"),                 // Select multiplier usage (DYNAMIC, MULTIPLY, NONE)
+    .USE_MULT("DYNAMIC"),              // Select multiplier usage (DYNAMIC, MULTIPLY, NONE)
     .USE_SIMD("ONE48"),                // SIMD selection (FOUR12, ONE48, TWO24)
     .USE_WIDEXOR("FALSE"),             // Use the Wide XOR function (FALSE, TRUE)
     .XORSIMD("XOR24_48_96"),           // Mode of operation for the Wide XOR (XOR12, XOR24_48_96)
@@ -191,7 +199,7 @@ module AluDsp48 (
     .CREG(1),                          // Pipeline stages for C (0-1)
     .DREG(0),                          // Pipeline stages for D (0-1)
     .INMODEREG(0),                     // Pipeline stages for INMODE (0-1)
-    .MREG(0),                          // Multiplier pipeline stages (0-1)
+    .MREG(1),                          // Multiplier pipeline stages (0-1)
     .OPMODEREG(1),                     // Pipeline stages for OPMODE (0-1)
     .PREG(1)                           // Number of pipeline stages for P (0-1)
   )
@@ -224,7 +232,7 @@ module AluDsp48 (
     .INMODE(5'b10001),                 // 5-bit input: INMODE control
     .OPMODE(opmode),                   // 9-bit input: Operation mode
     // Data inputs: Data Ports
-    .A(30'b0),                         // 30-bit input: A data
+    .A(a_in),                          // 30-bit input: A data
     .B(b_in),                          // 18-bit input: B data
     .C(c_in),                          // 48-bit input: C data
     .CARRYIN(carryin_reg),             // 1-bit input: Carry-in
