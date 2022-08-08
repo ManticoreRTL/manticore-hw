@@ -45,7 +45,7 @@ module Main ();
     // The DSP has a 2-cycle latency. We therefore need to store the intermediate values
     // to check the result after a delay when the inputs are fed.
     logic   [W - 1 : 0] expected [0:2];
-    logic [2*W - 1 : 0] mul_expected [0:2];
+    logic [2*W - 1 : 0] mul_expected [0:3];
 
     // Testbench signals
     logic              clock = 0;
@@ -266,8 +266,10 @@ module Main ();
         alumode = 4'b0000;
         setinst = 2'b00;
 
+        // Multiplication has 3 cycle latency unlike other operations
         mul_expected[1] <= mul_expected[0];
         mul_expected[2] <= mul_expected[1];
+        mul_expected[3] <= mul_expected[2];
 
         // Calling urandom_range(0, 9) instead of urandom_range(0, 1) simply to have
         // longer delays between operations in the simulation.
@@ -288,7 +290,7 @@ module Main ();
 
         if (valid_out == 1) begin
             cnt <= cnt + 1;
-            if (mul_out != mul_expected[2]) begin
+            if (mul_out != mul_expected[3]) begin
                 $display("[MUL] [%d] Expected %d but got %d", cnt, mul_expected[2], out);
                 // $finish;
             end
@@ -432,10 +434,10 @@ module Main ();
             // @(posedge clock) testXor; 
             // @(posedge clock) testAdd; 
             // @(posedge clock) testSub;
-            // @(posedge clock) testMul;
+            @(posedge clock) testMul;
             // @(posedge clock) testSeq; 
             // @(posedge clock) testSltu; 
-            @(posedge clock) testSlts;  
+            // @(posedge clock) testSlts;  
         end
     end
 
