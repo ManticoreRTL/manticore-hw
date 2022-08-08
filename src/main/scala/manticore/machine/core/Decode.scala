@@ -135,18 +135,18 @@ class Decode(config: ISA) extends Module {
   slice_ofst_reg := slice_ofst
   rd_reg         := rd
 
-  io.pipe_out.opcode     := opcode_regs
-  io.pipe_out.funct      := funct_reg
-  io.pipe_out.immediate  := immediate_reg
-  io.pipe_out.rd         := RegNext(rd_reg)
-  io.pipe_out.slice_ofst := slice_ofst_reg
+  io.pipe_out.opcode     := RegNext(opcode_regs)
+  io.pipe_out.funct      := RegNext(funct_reg)
+  io.pipe_out.immediate  := RegNext(immediate_reg)
+  io.pipe_out.rd         := RegNext(RegNext(rd_reg))
+  io.pipe_out.slice_ofst := RegNext(slice_ofst_reg)
 
   // These are NOT registers and are sent directly to the register files.
   // The response comes back 1 cycle later in the Execute stage.
-  io.pipe_out.rs1 := rs1
-  io.pipe_out.rs2 := rs2
-  io.pipe_out.rs3 := rs3
-  io.pipe_out.rs4 := rs4
+  io.pipe_out.rs1 := RegNext(rs1)
+  io.pipe_out.rs2 := RegNext(rs2)
+  io.pipe_out.rs3 := RegNext(rs3)
+  io.pipe_out.rs4 := RegNext(rs4)
 }
 
 object DecodeGenerator extends App {
