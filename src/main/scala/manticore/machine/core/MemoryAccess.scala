@@ -80,8 +80,8 @@ class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
 
   io.pipe_out.packet := RegNext(packet_reg)
 
-  val lload_r = Reg(Bool())
-  val gload_r = Reg(Bool())
+  val lload_w = Wire(Bool())
+  val gload_w = Wire(Bool())
 
   def pipeIt[T <: Data](dest: T)(source: T): Unit = {
     val pipereg = Reg(chisel3.chiselTypeOf(source))
@@ -124,25 +124,25 @@ class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
   pipeIt2(io.pipe_out.result_mul) {
     io.pipe_in.result_mul
   }
-  pipeIt(lload_r) {
+  pipeIt2(lload_w) {
     io.pipe_in.opcode.lload
   }
-  pipeIt(gload_r) {
+  pipeIt2(gload_w) {
     io.pipe_in.opcode.gload
   }
 
   // Here we assume that both local and global memory has
   // read latency of 2 cycles
   if (config.WithGlobalMemory) {
-    when(lload_r) {
+    when(lload_w) {
       io.pipe_out.result := io.local_memory_interface.dout
-    }.elsewhen(gload_r) {
+    }.elsewhen(gload_w) {
       io.pipe_out.result := io.global_memory_interface.rdata
     } otherwise {
       pipeIt2(io.pipe_out.result) { io.pipe_in.result }
     }
   } else {
-    when(lload_r) {
+    when(lload_w) {
       io.pipe_out.result := io.local_memory_interface.dout
     } otherwise {
       pipeIt2(io.pipe_out.result) { io.pipe_in.result }
