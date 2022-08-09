@@ -31,7 +31,7 @@ import scala.collection.mutable.ArrayBuffer
 class UniProcessorLocalMemoryTester extends AnyFlatSpec with Matchers with ChiselScalatestTester {
 
   val rdgen    = new scala.util.Random(0)
-  val numTests = 100
+  val numTests = 50
 
   // Populate the processor's registers with random values.
   val initialRegs = ArrayBuffer.fill(ManticoreBaseISA.numRegs)(UIntWide(0, ManticoreBaseISA.DataBits))
@@ -69,6 +69,9 @@ class UniProcessorLocalMemoryTester extends AnyFlatSpec with Matchers with Chise
         Nop(),
         Nop(),
         Nop(),
+        Nop(),
+        Nop(),
+        Nop(),
         Predicate(const_1),
         LocalStore(rd, base, offset),
         Nop(),
@@ -78,7 +81,10 @@ class UniProcessorLocalMemoryTester extends AnyFlatSpec with Matchers with Chise
         Nop(),
         Nop(),
         Nop(),
-        LocalLoad(rd, base, offset),
+        Nop(),
+        Nop(),
+        Nop(),
+        LocalLoad(rs1, base, offset),
         Nop(),
         Nop(),
         Nop(),
@@ -86,7 +92,13 @@ class UniProcessorLocalMemoryTester extends AnyFlatSpec with Matchers with Chise
         Nop(),
         Nop(),
         Nop(),
-        Send(rd, rd, 1, 1),
+        Nop(),
+        Nop(),
+        Nop(),
+        Send(rs1, rs1, 1, 1),
+        Nop(),
+        Nop(),
+        Nop(),
         Nop(),
         Nop(),
         Nop(),
