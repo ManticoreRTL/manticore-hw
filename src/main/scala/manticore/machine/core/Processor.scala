@@ -132,7 +132,7 @@ class Processor(
   )
 
   // The multiplier is parallel to the Execute and Memory stages.
-  val multiplier          = Module(new Multiplier(config.DataBits))
+  // val multiplier          = Module(new Multiplier(config.DataBits))
   val multiplier_res_high = Wire(UInt(config.DataBits.W))
   val multiplier_res_low  = Wire(UInt(config.DataBits.W))
 
@@ -363,17 +363,18 @@ class Processor(
     decode_stage.io.pipe_out.rs4,
     forwarding_signals
   )
+  execute_stage.io.valid_in := RegNext(decode_stage.io.pipe_out.opcode.mul || decode_stage.io.pipe_out.opcode.mulh)
   register_file.io.rs1.addr := decode_stage.io.pipe_out.rs1
   register_file.io.rs2.addr := decode_stage.io.pipe_out.rs2
   register_file.io.rs3.addr := decode_stage.io.pipe_out.rs3
   register_file.io.rs4.addr := decode_stage.io.pipe_out.rs4
 
   // Put additional registers here because the read latency for local memory is now 2 cycles
-  multiplier_res_high := RegNext(multiplier.io.out(2 * config.DataBits - 1, config.DataBits))
-  multiplier_res_low  := RegNext(multiplier.io.out(config.DataBits - 1, 0))
+  multiplier_res_high := memory_stage.io.pipe_out.result_mul(2 * config.DataBits - 1, config.DataBits)
+  multiplier_res_low  := memory_stage.io.pipe_out.result_mul(config.DataBits - 1, 0)
 
   register_file.io.w.addr := memory_stage.io.pipe_out.rd
-  when(RegNext(multiplier.io.valid_out)) {
+  when(memory_stage.io.valid_out) {
     register_file.io.w.din := Mux(memory_stage.io.pipe_out.mulh, multiplier_res_high, multiplier_res_low)
   } otherwise {
     register_file.io.w.din := memory_stage.io.pipe_out.result
@@ -392,14 +393,15 @@ class Processor(
   execute_stage.io.lutdata_din := lut_load_regs.io.dout
 
   // decode --> multiplier
-  multiplier.io.in0      := register_file.io.rs1.dout
-  multiplier.io.in1      := register_file.io.rs2.dout
-  multiplier.io.valid_in := RegNext(decode_stage.io.pipe_out.opcode.mul) || RegNext(decode_stage.io.pipe_out.opcode.mulh)
+  // multiplier.io.in0      := register_file.io.rs1.dout
+  // multiplier.io.in1      := register_file.io.rs2.dout
+  // multiplier.io.valid_in := RegNext(decode_stage.io.pipe_out.opcode.mul) || RegNext(decode_stage.io.pipe_out.opcode.mulh)
 
   // exec --> memory and write back implementation
   memory_stage.io.local_memory_interface <> array_memory.io
   memory_stage.io.local_memory_interface.dout := array_memory.io.dout
   memory_stage.io.pipe_in                     := execute_stage.io.pipe_out
+  memory_stage.io.valid_in                    := execute_stage.io.valid_out
 
   register_file.io.w.addr := memory_stage.io.pipe_out.rd
 

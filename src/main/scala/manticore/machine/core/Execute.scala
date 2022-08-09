@@ -68,6 +68,7 @@ object ExecuteInterface {
     val opcode    = new Decode.OpcodePipe(config.numFuncts)
     val data      = UInt(config.DataBits.W)
     val result    = UInt(config.DataBits.W)
+    val result_mul = UInt((2 * config.DataBits).W)
     val rd        = UInt(config.IdBits.W)
     val immediate = UInt(config.DataBits.W)
     val gmem      = new GlobalMemoryInterface(config)
@@ -97,6 +98,9 @@ class ExecuteInterface(
   val carry_din = Output(UInt(1.W))
 
   val lutdata_din = Input(Vec(config.numFuncts, UInt(config.DataBits.W)))
+
+  val valid_in  = Input(Bool()) // Asserted only for MUL and MULH
+  val valid_out = Output(Bool())
 }
 
 class ExecuteComb(
@@ -113,6 +117,7 @@ class ExecuteComb(
   val pred_reg     = Reg(Bool())
   val rs4_reg      = Reg(UInt(log2Ceil(config.CarryCount).W))
   val gmem_if_reg  = Reg(new GlobalMemoryInterface(config))
+  val valid_out_reg = Reg(Bool())
 
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Custom ALU ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -199,6 +204,8 @@ class ExecuteComb(
   } otherwise {
     pipe_out_reg.result := standard_alu.io.out
   }
+  pipe_out_reg.result_mul := standard_alu.io.mul_out 
+  valid_out_reg := standard_alu.io.valid_out
 
   pipe_out_reg.opcode    := RegNext(RegNext(io.pipe_in.opcode))
   pipe_out_reg.data      := RegNext(io.regs_in.rs2)
@@ -233,6 +240,7 @@ class ExecuteComb(
   }
 
   io.pipe_out.pred := RegNext(RegNext(pred_reg))
+  io.valid_out := valid_out_reg
 
   if (config.WithGlobalMemory) {
     val gload_next = RegNext(io.pipe_in.opcode.gload)

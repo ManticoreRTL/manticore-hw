@@ -12,6 +12,7 @@ object MemoryAccess {
 
   class PipeOut(config: ISA, DimX: Int, DimY: Int) extends Bundle {
     val result: UInt      = UInt(config.DataBits.W)
+    val result_mul: UInt  = UInt((2 * config.DataBits).W)
     val packet: NoCBundle = new NoCBundle(DimX, DimY, config)
     val write_back: Bool  = Bool()
     val rd: UInt          = UInt(config.IdBits.W)
@@ -33,6 +34,9 @@ class MemoryInterface(config: ISA, DimX: Int, DimY: Int) extends Bundle {
     )
   )
   val global_memory_interface = Flipped(CacheConfig.frontInterface())
+
+  val valid_in  = Input(Bool()) // Asserted only for MUL and MULH
+  val valid_out = Output(Bool())
 }
 
 class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
@@ -139,5 +143,6 @@ class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
     }
   }
 
-
+  io.valid_out           := RegNext(RegNext(io.valid_in))
+  io.pipe_out.result_mul := RegNext(RegNext(io.pipe_in.result_mul))
 }

@@ -66,17 +66,18 @@ module AluDsp48 (
   output [16 - 1 : 0] out,
   output [32 - 1 : 0] mul_out, // multiplication has wider bit width than others
   output              carryout,
-  // // These ports are here to make simulations easier to understand.
+  // These ports are here to indicate the validity of MUL operation
   input               valid_in,
   output              valid_out
 );
 
-// Pipeline signal for simulations.
-  reg valid_d1, valid_d2;
-  assign valid_out = valid_d2;
+  // Pipeline signal for validity of MUL
+  reg valid_d1, valid_d2, valid_d3;
+  assign valid_out = valid_d3;
   always @(posedge clock) begin
     valid_d1 <= valid_in;
     valid_d2 <= valid_d1;
+    valid_d3 <= valid_d2;
   end
 
 `ifdef VERILATOR
