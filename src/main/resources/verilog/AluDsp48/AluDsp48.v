@@ -72,22 +72,24 @@ module AluDsp48 (
 );
 
   // Pipeline signal for validity of MUL
-  reg valid_d1, valid_d2, valid_d3;
-  assign valid_out = valid_d3;
+  reg valid_reg1, valid_reg2, valid_reg3;
+  assign valid_out = valid_reg3;
   always @(posedge clock) begin
-    valid_d1 <= valid_in;
-    valid_d2 <= valid_d1;
-    valid_d3 <= valid_d2;
+    valid_reg1 <= valid_in;
+    valid_reg2 <= valid_reg1;
+    valid_reg3 <= valid_reg2;
   end
 
 `ifdef VERILATOR
 
-  reg [16 - 1 : 0] res_d1, res_d2;
+  reg [16 - 1 : 0] res_reg1, res_reg2;
+  reg [32 - 1 : 0] prod_reg1, prod_reg2, prod_reg3;
   wire [16 - 1 : 0] result;
+  wire [32 - 1 : 0] result_mul;
   wire signed [16 - 1 : 0] in0s, in1s;
 
-  assign out = res_d2;
-  assign mul_out = in0 * in1;
+  assign out = res_reg2;
+  assign mul_out = prod_reg3;
   assign in0s = in0;
   assign in1s = in1;
   assign result = 
@@ -99,10 +101,15 @@ module AluDsp48 (
     (setinst == 2'b10) ? {15'b0, in0 < in1} :
     (setinst == 2'b11) ? {15'b0, in0s < in1s} :
     in0 - in1; // opmode == 9'b000110011 && alumode == 4'b0011
+  assign result_mul = in1 * in2;
   always @(posedge clock) begin
     // Extend to 32 bits to ensure full-precision multiplication result.
-    res_d1 <= result;
-    res_d2 <= res_d1;
+    res_reg1 <= result;
+    res_reg2 <= res_reg1;
+
+    prod_reg1 <= result_mul;
+    prod_reg2 <= prod_reg1;
+    prod_reg3 <= prod_reg2;
   end
 
 `else

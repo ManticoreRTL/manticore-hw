@@ -214,33 +214,33 @@ class ExecuteComb(
 
   standard_alu.io.valid_in := RegNext(io.valid_in)
 
-  when(RegNext4(io.pipe_in.opcode.cust)) {
-    io.pipe_out.result := RegNext2(custom_alu.io.out)
+  when(RegNext5(io.pipe_in.opcode.cust)) {
+    io.pipe_out.result := RegNext3(custom_alu.io.out)
   } otherwise {
     io.pipe_out.result := RegNext(standard_alu.io.out)
   }
   io.pipe_out.result_mul := RegNext(standard_alu.io.mul_out)
   io.valid_out           := RegNext(standard_alu.io.valid_out)
 
-  io.pipe_out.opcode    := RegNext4(io.pipe_in.opcode)
-  io.pipe_out.data      := RegNext3(io.regs_in.rs2)
-  io.pipe_out.rd        := RegNext4(io.pipe_in.rd)
-  io.pipe_out.immediate := RegNext4(io.pipe_in.immediate)
+  io.pipe_out.opcode    := RegNext5(io.pipe_in.opcode)
+  io.pipe_out.data      := RegNext4(io.regs_in.rs2)
+  io.pipe_out.rd        := RegNext5(io.pipe_in.rd)
+  io.pipe_out.immediate := RegNext5(io.pipe_in.immediate)
 
   // Need to check the num of regs for carry outputs
-  when(RegNext4(io.pipe_in.opcode.set_carry)) {
-    io.carry_rd := RegNext4(io.pipe_in.rd)
+  when(RegNext5(io.pipe_in.opcode.set_carry)) {
+    io.carry_rd := RegNext5(io.pipe_in.rd)
   } otherwise {
     // notice that rs4 needs to be registered before given to the output pipe
-    io.carry_rd := RegNext4(io.pipe_in.rs4)
+    io.carry_rd := RegNext5(io.pipe_in.rs4)
   }
-  when(RegNext4(io.pipe_in.opcode.set_carry)) {
-    io.carry_din := RegNext4(io.pipe_in.immediate(0))
+  when(RegNext5(io.pipe_in.opcode.set_carry)) {
+    io.carry_din := RegNext5(io.pipe_in.immediate(0))
   } otherwise {
     io.carry_din := RegNext(standard_alu.io.carry_out)
   }
   io.carry_wen :=
-    RegNext4(
+    RegNext5(
       (io.pipe_in.opcode.arith & (io.pipe_in.funct) === ISA.Functs.ADDC.id.U) | (
         io.pipe_in.opcode.set_carry
       )
@@ -251,7 +251,7 @@ class ExecuteComb(
     pred_reg := io.regs_in.rs1 === 1.U
   }
 
-  io.pipe_out.pred := RegNext3(pred_reg)
+  io.pipe_out.pred := RegNext4(pred_reg)
 
   if (config.WithGlobalMemory) {
     val gload_next  = RegNext(io.pipe_in.opcode.gload)
@@ -264,7 +264,7 @@ class ExecuteComb(
     }
     gmem_if_reg.start := (gstore_next && pred_reg) | gload_next
     gmem_if_reg.wdata := io.regs_in.rs1
-    io.pipe_out.gmem  := RegNext2(gmem_if_reg)
+    io.pipe_out.gmem  := RegNext3(gmem_if_reg)
   }
 
   // print what's happenning

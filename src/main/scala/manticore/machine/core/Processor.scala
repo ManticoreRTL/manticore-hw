@@ -361,13 +361,12 @@ class Processor(
     decode_stage.io.pipe_out.rs4,
     forwarding_signals
   )
-  execute_stage.io.valid_in := RegNext(decode_stage.io.pipe_out.opcode.mul || decode_stage.io.pipe_out.opcode.mulh)
+  execute_stage.io.valid_in := decode_stage.io.pipe_out.opcode.mul || decode_stage.io.pipe_out.opcode.mulh
   register_file.io.rs1.addr := decode_stage.io.pipe_out.rs1
   register_file.io.rs2.addr := decode_stage.io.pipe_out.rs2
   register_file.io.rs3.addr := decode_stage.io.pipe_out.rs3
   register_file.io.rs4.addr := decode_stage.io.pipe_out.rs4
 
-  // Put additional registers here because the read latency for local memory is now 2 cycles
   multiplier_res_high := memory_stage.io.pipe_out.result_mul(2 * config.DataBits - 1, config.DataBits)
   multiplier_res_low  := memory_stage.io.pipe_out.result_mul(config.DataBits - 1, 0)
 

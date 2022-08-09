@@ -197,9 +197,9 @@ class StandardALUComb(DATA_BITS: Int) extends Module {
   }
 
   // The mask is used for instructions like slices.
-  io.out       := alu_res & RegNext2(io.in.mask)
+  io.out       := RegNext(alu_res & RegNext2(io.in.mask))
   io.mul_out   := dsp.io.mul_out
-  io.carry_out := dsp.io.carryout
+  io.carry_out := RegNext(dsp.io.carryout)
   io.valid_out := dsp.io.valid_out
 
 }
