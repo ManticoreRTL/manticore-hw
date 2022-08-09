@@ -33,18 +33,18 @@ class StandardALUComb(DATA_BITS: Int) extends Module {
     require(DATA_BITS <= 16)
 
     val io = IO(new Bundle {
-      val clock    = Input(Clock())
-      val in0      = Input(UInt(DATA_BITS.W))
-      val in1      = Input(UInt(DATA_BITS.W))
-      val in2      = Input(UInt(DATA_BITS.W))
-      val carryin  = Input(UInt(1.W))
-      val opmode   = Input(UInt(9.W))
-      val alumode  = Input(UInt(4.W))
-      val setinst  = Input(UInt(2.W))
-      val out      = Output(UInt(DATA_BITS.W))
-      val mul_out  = Output(UInt((2 * DATA_BITS).W))
-      val carryout = Output(UInt(1.W))
-      val valid_in = Input(Bool())
+      val clock     = Input(Clock())
+      val in0       = Input(UInt(DATA_BITS.W))
+      val in1       = Input(UInt(DATA_BITS.W))
+      val in2       = Input(UInt(DATA_BITS.W))
+      val carryin   = Input(UInt(1.W))
+      val opmode    = Input(UInt(9.W))
+      val alumode   = Input(UInt(4.W))
+      val setinst   = Input(UInt(2.W))
+      val out       = Output(UInt(DATA_BITS.W))
+      val mul_out   = Output(UInt((2 * DATA_BITS).W))
+      val carryout  = Output(UInt(1.W))
+      val valid_in  = Input(Bool())
       val valid_out = Output(Bool())
     })
 
@@ -56,8 +56,6 @@ class StandardALUComb(DATA_BITS: Int) extends Module {
   }
 
   val shamnt = Wire(UInt(log2Ceil(DATA_BITS).W))
-  // val sum_res        = Wire(UInt((DATA_BITS + 1).W))
-  // val sum_with_carry = Wire(UInt((DATA_BITS + 1).W))
 
   val dsp         = Module(new AluDsp48(DATA_BITS))
   val opmode      = Wire(UInt(9.W))
@@ -67,22 +65,13 @@ class StandardALUComb(DATA_BITS: Int) extends Module {
 
   val alu_res   = Wire(UInt(DATA_BITS.W))
   val shift_out = Wire(UInt(DATA_BITS.W))
-  // val carryout = Wire(UInt(1.W))
 
   without_dsp := (io.funct === ISA.Functs.SLL.id.U ||
     io.funct === ISA.Functs.SRL.id.U ||
     io.funct === ISA.Functs.SRA.id.U ||
     io.funct === ISA.Functs.MUX.id.U).asBool
 
-  // def widened(w: UInt): UInt = {
-  //   val as_wider = Wire(UInt((DATA_BITS + 1).W))
-  //   as_wider := w
-  //   as_wider
-  // }
-
   shamnt := io.in.y(log2Ceil(DATA_BITS) - 1, 0)
-  // sum_res        := widened(io.in.x) + widened(io.in.y)
-  // sum_with_carry := sum_res + widened(io.in.carry)
 
   //                 | OPMODE[8:0] | ALUMODE[3:0] | Notes
   //   --------------|-------------|--------------|------------------------------
@@ -191,14 +180,14 @@ class StandardALUComb(DATA_BITS: Int) extends Module {
     }
   }
 
-  dsp.io.clock   := clock
-  dsp.io.in0     := io.in.x
-  dsp.io.in1     := io.in.y
-  dsp.io.in2     := io.in.x // Only used for MUL
-  dsp.io.carryin := io.in.carry
-  dsp.io.opmode  := opmode
-  dsp.io.alumode := alumode
-  dsp.io.setinst := setinst
+  dsp.io.clock    := clock
+  dsp.io.in0      := io.in.x
+  dsp.io.in1      := io.in.y
+  dsp.io.in2      := io.in.x // Only used for MUL
+  dsp.io.carryin  := io.in.carry
+  dsp.io.opmode   := opmode
+  dsp.io.alumode  := alumode
+  dsp.io.setinst  := setinst
   dsp.io.valid_in := io.valid_in
 
   when(!RegNext2(without_dsp)) {
@@ -212,9 +201,6 @@ class StandardALUComb(DATA_BITS: Int) extends Module {
   io.mul_out   := dsp.io.mul_out
   io.carry_out := dsp.io.carryout
   io.valid_out := dsp.io.valid_out
-
-  // io.carry_out := RegNext(sum_with_carry >> (DATA_BITS.U))
-  // io.out := RegNext(alu_res & io.in.mask)
 
 }
 

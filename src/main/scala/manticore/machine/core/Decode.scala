@@ -48,10 +48,8 @@ object Decode {
     // many LUTs and it may not achieve the same frequency scaling.
     val configure_luts: Vec[Bool] = Vec(numFuncts, Bool())
     val slice: Bool               = Bool()
-    // Multiplications are done by a parallel datapath to the Execute and Memory
-    // stages. One of these signals will be high in parallel to arith.
-    val mul: Bool  = Bool() // unsigned  low result
-    val mulh: Bool = Bool() // unsigned high result
+    val mul: Bool                 = Bool() // unsigned  low result
+    val mulh: Bool                = Bool() // unsigned high result
   }
 
   class PipeOut(config: ISA) extends Bundle {

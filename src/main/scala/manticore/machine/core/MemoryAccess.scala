@@ -92,7 +92,7 @@ class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
   def pipeIt2[T <: Data](dest: T)(source: T): Unit = {
     val pipereg1 = Reg(chisel3.chiselTypeOf(source))
     val pipereg2 = Reg(chisel3.chiselTypeOf(source))
-    pipereg1 := source 
+    pipereg1 := source
     pipereg2 := pipereg1
     dest     := pipereg2
   }
@@ -118,6 +118,12 @@ class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
   pipeIt2(io.pipe_out.mulh) {
     io.pipe_in.opcode.mulh
   }
+  pipeIt2(io.valid_out) {
+    io.valid_in
+  }
+  pipeIt2(io.pipe_out.result_mul) {
+    io.pipe_in.result_mul
+  }
   pipeIt(lload_r) {
     io.pipe_in.opcode.lload
   }
@@ -125,7 +131,7 @@ class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
     io.pipe_in.opcode.gload
   }
 
-  // Here we assume that both local and global memory has 
+  // Here we assume that both local and global memory has
   // read latency of 2 cycles
   if (config.WithGlobalMemory) {
     when(lload_r) {
@@ -143,6 +149,4 @@ class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
     }
   }
 
-  io.valid_out           := RegNext(RegNext(io.valid_in))
-  io.pipe_out.result_mul := RegNext(RegNext(io.pipe_in.result_mul))
 }

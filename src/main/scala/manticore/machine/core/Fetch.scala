@@ -108,7 +108,7 @@ class FetchCore(config: ISA) extends Module {
   io.memory_interface.raddr     := pc
   io.core_interface.instruction := io.memory_interface.dout
 
-  val stopped = RegInit(Bool(), true.B)
+  val stopped      = RegInit(Bool(), true.B)
   val stopped_next = RegNext(stopped)
 
   require(

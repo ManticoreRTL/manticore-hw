@@ -131,8 +131,6 @@ class Processor(
     )
   )
 
-  // The multiplier is parallel to the Execute and Memory stages.
-  // val multiplier          = Module(new Multiplier(config.DataBits))
   val multiplier_res_high = Wire(UInt(config.DataBits.W))
   val multiplier_res_low  = Wire(UInt(config.DataBits.W))
 
@@ -391,11 +389,6 @@ class Processor(
   lut_load_regs.io.waddr       := decode_stage.io.pipe_out.funct
   lut_load_regs.io.wen         := decode_stage.io.pipe_out.opcode.set_lut_data
   execute_stage.io.lutdata_din := lut_load_regs.io.dout
-
-  // decode --> multiplier
-  // multiplier.io.in0      := register_file.io.rs1.dout
-  // multiplier.io.in1      := register_file.io.rs2.dout
-  // multiplier.io.valid_in := RegNext(decode_stage.io.pipe_out.opcode.mul) || RegNext(decode_stage.io.pipe_out.opcode.mulh)
 
   // exec --> memory and write back implementation
   memory_stage.io.local_memory_interface <> array_memory.io
