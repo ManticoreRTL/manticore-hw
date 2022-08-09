@@ -236,7 +236,10 @@ class UniProcessorConfigureLutsTester extends AnyFlatSpec with Matchers with Chi
         progLutCompute += Instruction.Custom(reg, funct, rs1, rs2, rs3, rs4)
       }
 
-      // Add Nops as the read latency was increased to 2
+      // Add Nops as the pipeline has became deeper
+      progLutCompute += Instruction.Nop()
+      progLutCompute += Instruction.Nop()
+      progLutCompute += Instruction.Nop()
       progLutCompute += Instruction.Nop()
       progLutCompute += Instruction.Nop()
       progLutCompute += Instruction.Nop()

@@ -5,6 +5,7 @@ import chiseltest._
 import manticore.machine.ManticoreBaseISA
 import manticore.machine.assembly.Assembler
 import manticore.machine.assembly.Instruction.Add2
+import manticore.machine.assembly.Instruction.Nop
 import manticore.machine.assembly.Instruction.R
 import manticore.machine.assembly.Instruction.Send
 import manticore.machine.core.Processor
@@ -23,6 +24,15 @@ class UniProcessorSimpleCounterTester extends AnyFlatSpec with Matchers with Chi
 
   val PROGRAM = Array(
     Add2(R(2), R(2), R(1)),
+    Nop(),
+    Nop(),
+    Nop(),
+    Nop(),
+    Nop(),
+    Nop(),
+    Nop(),
+    Nop(),
+    Nop(),
     Send(R(3), R(3), 3, 3),
     Send(R(4), R(4), 4, 4),
     Send(R(5), R(5), 5, 5),
