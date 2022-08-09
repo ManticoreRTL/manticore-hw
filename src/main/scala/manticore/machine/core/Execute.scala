@@ -193,13 +193,15 @@ class ExecuteComb(
   standard_alu.io.in.select := io.regs_in.rs3
   standard_alu.io.in.carry  := io.carry_in
 
-  when(io.pipe_in.opcode.set || io.pipe_in.opcode.send) {
+  when(RegNext(io.pipe_in.opcode.set || io.pipe_in.opcode.send)) {
     standard_alu.io.in.x := 0.U
   } otherwise {
     standard_alu.io.in.x := io.regs_in.rs1
   }
 
-  when(RegNext(io.pipe_in.opcode.cust)) {
+  standard_alu.io.valid_in := RegNext(io.valid_in)
+
+  when(RegNext(RegNext(RegNext(io.pipe_in.opcode.cust)))) {
     pipe_out_reg.result := RegNext(custom_alu.io.out)
   } otherwise {
     pipe_out_reg.result := standard_alu.io.out
@@ -209,7 +211,7 @@ class ExecuteComb(
 
   pipe_out_reg.opcode    := RegNext(RegNext(io.pipe_in.opcode))
   pipe_out_reg.data      := RegNext(io.regs_in.rs2)
-  pipe_out_reg.rd        := RegNext(io.pipe_in.rd)
+  pipe_out_reg.rd        := RegNext(RegNext(io.pipe_in.rd))
   pipe_out_reg.immediate := RegNext(RegNext(io.pipe_in.immediate))
 
   // The ALUs now have latency of 2 cycles
@@ -219,14 +221,15 @@ class ExecuteComb(
   io.pipe_out.rd        := RegNext(pipe_out_reg.rd)
   io.pipe_out.immediate := RegNext(pipe_out_reg.immediate)
 
-  when(RegNext(io.pipe_in.opcode.set_carry)) {
-    io.carry_rd := RegNext(RegNext(io.pipe_in.rd))
+  // Need to check the num of regs for carry outputs
+  when(RegNext(RegNext(RegNext(io.pipe_in.opcode.set_carry)))) {
+    io.carry_rd := RegNext(RegNext(RegNext(io.pipe_in.rd)))
   } otherwise {
     // notice that rs4 needs to be registered before given to the output pipe
     rs4_reg     := io.pipe_in.rs4
     io.carry_rd := RegNext(RegNext(rs4_reg))
   }
-  when(RegNext(io.pipe_in.opcode.set_carry)) {
+  when(RegNext(RegNext(RegNext(io.pipe_in.opcode.set_carry)))) { 
     io.carry_din := RegNext(RegNext(RegNext(io.pipe_in.immediate(0))))
   } otherwise {
     io.carry_din := RegNext(standard_alu.io.carry_out)

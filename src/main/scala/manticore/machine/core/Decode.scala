@@ -138,7 +138,7 @@ class Decode(config: ISA) extends Module {
   io.pipe_out.opcode     := RegNext(opcode_regs)
   io.pipe_out.funct      := RegNext(funct_reg)
   io.pipe_out.immediate  := RegNext(immediate_reg)
-  io.pipe_out.rd         := RegNext(RegNext(rd_reg))
+  io.pipe_out.rd         := RegNext(rd_reg)
   io.pipe_out.slice_ofst := RegNext(slice_ofst_reg)
 
   // These are NOT registers and are sent directly to the register files.
