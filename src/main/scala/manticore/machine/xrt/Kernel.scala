@@ -444,6 +444,7 @@ object BuildXclbin {
     val command =
       s"v++ --link -g -t ${target} --platform ${platform} --save-temps " +
         s"--optimize 3 " +
+        s"""--vivado.impl.strategies \"Performance_Explore\"""" +
         s"--vivado.synth.jobs ${cpus} --vivado.impl.jobs ${cpus} " +
         s"${clock_constraint} -o ${xclbin_path.toAbsolutePath.toString} " +
         s"${xo_path.toAbsolutePath.toString}"
