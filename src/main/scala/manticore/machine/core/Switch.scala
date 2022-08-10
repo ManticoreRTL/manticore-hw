@@ -243,8 +243,8 @@ class Switch(DimX: Int, DimY: Int, config: ISA) extends Module {
     }
   }
 
-  io.xOutput  := x_reg
-  io.yOutput  := y_reg
+  io.xOutput  := RegNext(x_reg)
+  io.yOutput  := RegNext(y_reg)
   io.terminal := terminal_reg
 
 }
