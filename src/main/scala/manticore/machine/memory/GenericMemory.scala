@@ -128,7 +128,7 @@ class GenericVerilogMemoryFromFile(
 
 object MemStyle extends Enumeration {
   type MemSyle = Value
-  val BRAM, URAM = Value
+  val BRAM, URAM, URAMReal = Value
 }
 
 class SimpleDualPortMemoryInterface(val ADDRESS_WIDTH: Int, val DATA_WIDTH: Int)
@@ -195,10 +195,19 @@ class SimpleDualPortMemory(
   ) with HasBlackBoxResource {
     addResource("/verilog/URAMLike.v")
   }
+  
+  class URAMReal extends VerilogMemory(
+    Map(
+      "ADDRESS_WIDTH" -> ADDRESS_WIDTH
+    )
+  ) with HasBlackBoxResource {
+    addResource("/verilog/URAMReal.v")
+  }
 
   val impl = Module(STYLE match {
     case MemStyle.BRAM => new BRAMLike
     case MemStyle.URAM => new URAMLike
+    case MemStyle.URAMReal => new URAMReal
   })
 
   impl.io.clock := clock
