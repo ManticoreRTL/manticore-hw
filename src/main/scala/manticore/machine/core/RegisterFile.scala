@@ -143,13 +143,17 @@ class LutLoadDataRegisterFileInterface(config: ISA) extends Bundle {
   val wen = Input(Bool())
 }
 
-class LutLoadDataRegisterFile(config: ISA) extends Module {
+class LutLoadDataRegisterFile(config: ISA, enable_custom_alu: Boolean = true) extends Module {
   val io = IO(new LutLoadDataRegisterFileInterface(config))
-  val storage = Reg(Vec(config.numFuncts, UInt(config.DataBits.W)))
-  when(io.wen) {
-    storage(io.waddr) := io.din
+  if (enable_custom_alu) {
+    val storage = Reg(Vec(config.numFuncts, UInt(config.DataBits.W)))
+    when(io.wen) {
+      storage(io.waddr) := io.din
+    }
+    io.dout := storage
+  } else {
+    io.dout := VecInit(Seq.fill(config.numFuncts) {0.U})
   }
-  io.dout := storage
 }
 
 object RegisterFileGen extends App {

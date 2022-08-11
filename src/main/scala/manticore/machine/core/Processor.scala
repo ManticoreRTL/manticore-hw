@@ -119,7 +119,7 @@ class Processor(
   val register_file       = Module(new RegisterFile(config, initial_registers, enable_custom_alu))
   val carry_register_file = Module(new CarryRegisterFile(config))
 
-  val lut_load_regs = Module(new LutLoadDataRegisterFile(config))
+  val lut_load_regs = Module(new LutLoadDataRegisterFile(config, enable_custom_alu))
 
   val array_memory = Module(
     new SimpleDualPortMemory(
@@ -450,7 +450,8 @@ object ProcessorEmitter extends App {
       config = ManticoreFullISA,
       equations = equations,
       DimX = 16,
-      DimY = 16
+      DimY = 16, 
+      enable_custom_alu = false
     )
 
   new ChiselStage().emitVerilog(
