@@ -14,7 +14,7 @@ trait AxiParameters {
 
 object DefaultAxiParameters extends AxiParameters
 
-class AxiMasterIF(params: AxiParameters = DefaultAxiParameters) extends Bundle {
+class AxiMasterIF(params: AxiParameters) extends Bundle {
 
   // val ARID    = Output(UInt(width = params.IdWidth.W))
   val ARADDR  = Output(UInt(width = params.AddrWidth.W))
@@ -22,7 +22,7 @@ class AxiMasterIF(params: AxiParameters = DefaultAxiParameters) extends Bundle {
   val ARREADY = Input(Bool())
   val ARLEN   = Output(UInt(8.W))
   val ARSIZE  = Output(UInt(3.W))
-  val ARBURST = Output(UInt(8.W))
+  val ARBURST = Output(UInt(3.W))
 
   val RDATA  = Input(UInt(width = params.DataWidth.W))
   val RVALID = Input(Bool())
@@ -33,7 +33,7 @@ class AxiMasterIF(params: AxiParameters = DefaultAxiParameters) extends Bundle {
 
   val AWADDR  = Output(UInt(params.AddrWidth.W))
   val AWLEN   = Output(UInt(8.W))
-  val AWBURST = Output(UInt(8.W))
+  val AWBURST = Output(UInt(3.W))
   val AWSIZE  = Output(UInt(3.W))
 
   val AWVALID = Output(Bool())
@@ -227,7 +227,7 @@ class MasterAXIFromFile(
 
   impl.io.M_AXI_ARESETN := !reset.asBool
   impl.io.M_AXI_ACLK    := clock
-  
+
   impl.io.write_txn_start := io.write_txn_start
   impl.io.read_txn_start := io.read_txn_start
   impl.io.write_addr := io.write_addr
@@ -263,7 +263,7 @@ class MasterAXIFromFile(
 
   impl.io.M_AXI_RLAST  := io.axi.RLAST
   impl.io.M_AXI_RVALID := io.axi.RVALID
-  io.axi.RREADY    := impl.io.M_AXI_RREADY  
+  io.axi.RREADY    := impl.io.M_AXI_RREADY
   io.read_txn_done := impl.io.read_txn_done
   io.write_txn_done := impl.io.write_txn_done
   io.data_out := impl.io.data_out
