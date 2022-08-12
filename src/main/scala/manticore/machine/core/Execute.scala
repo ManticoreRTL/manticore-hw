@@ -50,7 +50,7 @@ object ForwardPath {
 
     if (paths.isEmpty) {
       // no forwarding
-      value
+      RegNext(value)
     } else {
       paths.reverse.foldLeft(value) { case (prev, fpath) =>
         val temp = Wire(value.cloneType)
