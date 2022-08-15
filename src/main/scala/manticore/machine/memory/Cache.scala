@@ -604,8 +604,3 @@ class Cache extends Module {
   }
 
 }
-
-object TailTestGen extends App {
-
-  new ChiselStage().emitVerilog(new Cache(), Array("--target-dir", "gen-dir"))
-}

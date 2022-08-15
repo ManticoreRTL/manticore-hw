@@ -49,7 +49,7 @@ class ManticoreFlatArrayInterface extends Bundle {
   val compute_clock  = Input(Clock())
   val control_clock  = Input(Clock())
   val clock_stabled  = Input(Bool())
-  val reset          = Input(Reset())
+  val reset          = Input(Bool())
 }
 
 class ClockDistribution extends BlackBox with HasBlackBoxResource {
@@ -386,7 +386,7 @@ class ComputeArray(
       )
       core.suggestName(s"core_${x}_${y}")
       val switch = Module(
-        new Switch(dimx, dimy, core_conf)
+        new Switch(dimx, dimy, core_conf, enable_custom_alu)
       )
       switch.suggestName(s"switch_${x}_${y}")
       FatCore(core, switch, x, y)
@@ -518,11 +518,19 @@ class ManticoreFlatArray(
       clock = io.compute_clock,
       reset = controller.io.soft_reset
     ) {
-      Module(new ComputeArray(dimx, dimy, debug_enable, enable_custom_alu, prefix_path))
+      Module(
+        new ComputeArray(
+          dimx = dimx,
+          dimy = dimy,
+          debug_enable = debug_enable,
+          enable_custom_alu = enable_custom_alu,
+          prefix_path = prefix_path
+        )
+      )
     }
 
-  controller.io.core_kill_clock  := compute_array.io.dynamic_cycle
-  controller.io.cache_done       := io.memory_backend.done
+  controller.io.core_kill_clock := compute_array.io.dynamic_cycle
+  controller.io.cache_done      := io.memory_backend.done
 
   memory_intercept.io.cache_flush := controller.io.cache_flush_start
   memory_intercept.io.cache_reset := controller.io.cache_reset_start
@@ -547,9 +555,4 @@ class ManticoreFlatArray(
 
 }
 
-object Gentest extends App {
 
-  new ChiselStage()
-    .emitVerilog(new ManticoreFlatArray(2, 2), Array("-td", "gen-dir/flat"))
-
-}
