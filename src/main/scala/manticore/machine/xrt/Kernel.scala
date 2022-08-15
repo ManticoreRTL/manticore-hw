@@ -76,16 +76,25 @@ class ManticoreFlatKernel(
   // val reset = Wire(Bool())
   // reset := ~reset_n
 
-  val m_axi_bank_0  = IO(new AxiMasterIF)
+  val m_axi_bank_0  = IO(new AxiMasterIF(AxiCacheAdapter.CacheAxiParameters))
   val s_axi_control = IO(new AxiSlave.AxiSlaveCoreInterface())
   val interrupt     = IO(Output(Bool()))
 
   val clock_distribution = Module(new ClockDistribution())
-
+  val reset = WireDefault(!clock_distribution.io.sync_rst_n)
+  clock_distribution.io.root_rst_n := reset_n
   clock_distribution.io.root_clock := clock
 
-  val m_axi_bank_0_clock_crossing = Module(new Axi4ClockConverter())
-  val s_axi_clock_crossing        = Module(new AxiLiteClockConverter())
+  val axi_cache = withClockAndReset(
+    clock = clock_distribution.io.control_clock,
+    reset = reset
+  ) {
+    Module(new CacheSubsystem)
+  }
+  val m_axi_bank_0_clock_crossing = Module(new Axi4ClockConverter(AxiCacheAdapter.CacheAxiParameters))
+  val s_axi_clock_crossing = Module(
+    new AxiLiteClockConverter(s_axi_control.AWADDR.getWidth, s_axi_control.WDATA.getWidth)
+  )
   m_axi_bank_0_clock_crossing.s_axi_aclk    := clock_distribution.io.control_clock
   m_axi_bank_0_clock_crossing.s_axi_aresetn := clock_distribution.io.sync_rst_n
   m_axi_bank_0_clock_crossing.m_axi_aclk    := clock // connect to shell clock
@@ -95,7 +104,6 @@ class ManticoreFlatKernel(
   s_axi_clock_crossing.s_axi_aclk           := clock
   s_axi_clock_crossing.s_axi_resetn         := reset_n
 
-  val reset = WireDefault(!clock_distribution.io.sync_rst_n)
   val slave =
     withClockAndReset(
       clock = clock_distribution.io.control_clock,
@@ -118,13 +126,6 @@ class ManticoreFlatKernel(
   manticore.io.clock_stabled := clock_distribution.io.locked
 
   clock_distribution.io.compute_clock_en := manticore.io.clock_active
-
-  val axi_cache = withClockAndReset(
-    clock = clock_distribution.io.control_clock,
-    reset = reset
-  ) {
-    Module(new CacheSubsystem)
-  }
 
   axi_cache.io.core <> manticore.io.memory_backend
 
@@ -186,6 +187,7 @@ class ManticoreFlatSimKernel(
 
   clock_distribution.io.root_clock := clock
 
+
   val manticore =
     Module(new ManticoreFlatArray(DimX, DimY, debug_enable, enable_custom_alu, prefix_path))
   manticore.io.clock_stabled := clock_distribution.io.locked
@@ -229,14 +231,13 @@ class ManticoreFlatSimKernel(
 
 }
 
-
-
 object GenerateIPs {
 
   def apply(
       ip_dir: Path,
       scripts_path: Path,
       part_number: String,
+      cacheline_width: Int,
       freq: String
   ) = {
 
@@ -254,7 +255,7 @@ object GenerateIPs {
 
     import scala.sys.process.{Process, ProcessLogger}
     val cmd =
-      s"vivado -mode batch -source ${fp.toAbsolutePath()} -tclargs ${part_number} ${ip_dir.toAbsolutePath} ${freq}"
+      s"vivado -mode batch -source ${fp.toAbsolutePath()} -tclargs ${part_number} ${ip_dir.toAbsolutePath} ${freq} ${cacheline_width} "
     println(s"Running:\n${cmd}")
     val ret = Process(
       command = cmd,
@@ -507,7 +508,8 @@ object ManticoreKernelGenerator {
       ip_dir = ip_path,
       scripts_path = out_dir.resolve("scripts"),
       part_number = platformDevice(platform),
-      freq = freqMhz.toString()
+      freq = freqMhz.toString(),
+      cacheline_width = CacheConfig.CacheLineBits
     )
 
     val xo_file = PackageKernel(

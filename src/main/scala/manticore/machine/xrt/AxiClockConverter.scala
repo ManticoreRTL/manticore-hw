@@ -9,7 +9,7 @@ import chisel3.stage.ChiselStage
 object AxiLiteClockConverter {
 
 // vivado creates and IP with lower case names, so we can not use manticore.machine.xrt.AxiSlave.AxiSlaveInterface :(
-  class AxiLiterConverterInterface(AxiSlaveAddrWidth: Int = 8, AxiSlaveDataWidth: Int = 32) extends Bundle {
+  class AxiLiteConverterInterface(AxiSlaveAddrWidth: Int = 8, AxiSlaveDataWidth: Int = 32) extends Bundle {
 
     val awaddr  = Input(UInt(AxiSlaveAddrWidth.W))
     val awprot  = Input(UInt(3.W)) // should be hardcoded to 0
@@ -37,10 +37,10 @@ object AxiLiteClockConverter {
 
   class axi4lite_clock_converter(AxiSlaveAddrWidth: Int = 8, AxiSlaveDataWidth: Int = 32) extends BlackBox {
     val io = IO(new Bundle {
-      val s_axi         = new AxiLiterConverterInterface(AxiSlaveAddrWidth, AxiSlaveDataWidth)
+      val s_axi         = new AxiLiteConverterInterface(AxiSlaveAddrWidth, AxiSlaveDataWidth)
       val m_axi_aclk    = Input(Clock()) // input wire m_axi_aclk
       val m_axi_aresetn = Input(Bool())  // input wire m_axi_aresetn
-      val m_axi         = Flipped(new AxiLiterConverterInterface(AxiSlaveAddrWidth, AxiSlaveDataWidth))
+      val m_axi         = Flipped(new AxiLiteConverterInterface(AxiSlaveAddrWidth, AxiSlaveDataWidth))
       val s_axi_aclk    = Input(Clock())
       val s_axi_aresetn = Input(Bool())
 
@@ -162,7 +162,7 @@ object Axi4ClockConverter {
 
 }
 
-class Axi4ClockConverter(params: AxiParameters = DefaultAxiParameters) extends RawModule {
+class Axi4ClockConverter(params: AxiParameters) extends RawModule {
 
   val m_axi         = IO(new AxiMasterIF(params))
   val m_axi_aclk    = IO(Input(Clock()))
@@ -244,8 +244,3 @@ class Axi4ClockConverter(params: AxiParameters = DefaultAxiParameters) extends R
 
 }
 
-
-object MyGen extends App {
-  new ChiselStage().emitVerilog(new Axi4ClockConverter(DefaultAxiParameters), Array("-td", "gen-dir"))
-  new ChiselStage().emitVerilog(new AxiLiteClockConverter(), Array("-td", "gen-dir"))
-}
