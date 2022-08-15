@@ -386,7 +386,7 @@ class ComputeArray(
       )
       core.suggestName(s"core_${x}_${y}")
       val switch = Module(
-        new Switch(dimx, dimy, core_conf)
+        new Switch(dimx, dimy, core_conf, enable_custom_alu)
       )
       switch.suggestName(s"switch_${x}_${y}")
       FatCore(core, switch, x, y)
