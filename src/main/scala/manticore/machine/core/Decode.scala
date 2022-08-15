@@ -78,6 +78,10 @@ class Decode(config: ISA) extends Module {
 
   val io = IO(new DecodeInterface(config))
 
+  def RegNext2[T <: Data](src: T): T = {
+    RegNext(RegNext(src))
+  }
+
   def getField(field: InstructionField): UInt = io.instruction(field.toIndex, field.fromIndex)
 
   val opcode     = Wire(UInt(config.OpcodeBits.W))
@@ -133,11 +137,11 @@ class Decode(config: ISA) extends Module {
   slice_ofst_reg := slice_ofst
   rd_reg         := rd
 
-  io.pipe_out.opcode     := RegNext(opcode_regs)
-  io.pipe_out.funct      := RegNext(funct_reg)
-  io.pipe_out.immediate  := RegNext(immediate_reg)
-  io.pipe_out.rd         := RegNext(rd_reg)
-  io.pipe_out.slice_ofst := RegNext(slice_ofst_reg)
+  io.pipe_out.opcode     := RegNext2(opcode_regs)
+  io.pipe_out.funct      := RegNext2(funct_reg)
+  io.pipe_out.immediate  := RegNext2(immediate_reg)
+  io.pipe_out.rd         := RegNext2(rd_reg)
+  io.pipe_out.slice_ofst := RegNext2(slice_ofst_reg)
 
   // These are NOT registers and are sent directly to the register files.
   // The response comes back 1 cycle later in the Execute stage.
