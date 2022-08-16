@@ -37,7 +37,7 @@ class CustomAlu(
   val numFuncts = 1 << functBits
 
   val io = IO(new Bundle {
-    val config   = Input(Vec(dataWidth, new CustomFunctionConfigInterface(dataWidth)))
+    val config   = Input(Vec(dataWidth, new CustomBitConfigInterface(dataWidth)))
     val rsx      = Input(Vec(lutArity, UInt(dataWidth.W)))
     val selector = Input(UInt(functBits.W))
     val out      = Output(UInt(dataWidth.W))
@@ -54,13 +54,13 @@ class CustomAlu(
 
     val result = Wire(UInt(dataWidth.W))
 
-    // Create numFunct custom functions.
+    // Create dataWidth custom bits.
     for (i <- Range(0, dataWidth)) {
-      val customFunct = Module(new CustomFunction(dataWidth, functBits, lutArity, equations_t(i)))
-      customFunct.io.config := io.config(i)
-      customFunct.io.rsx    := rsx_t(i)
-      customFunct.io.addr   := io.selector
-      result(i)             := customFunct.io.out
+      val customBit = Module(new CustomBit(dataWidth, functBits, lutArity, equations_t(i)))
+      customBit.io.config := io.config(i)
+      customBit.io.rsx    := rsx_t(i)
+      customBit.io.addr   := io.selector
+      result(i)           := customBit.io.out
     }
 
     io.out := result
@@ -73,25 +73,25 @@ class CustomAlu(
 
 }
 
-class CustomFunctionInterface(
+class CustomBitInterface(
     dataWidth: Int,
     functBits: Int,
     lutArity: Int
 ) extends Bundle {
-  val config = Input(new CustomFunctionConfigInterface(dataWidth))
+  val config = Input(new CustomBitConfigInterface(dataWidth))
   val rsx    = Input(Vec(lutArity, UInt(1.W)))
   val addr   = Input(UInt(functBits.W))
-  val out    = Output(UInt(dataWidth.W))
+  val out    = Output(UInt(1.W))
 }
 
-class CustomFunctionConfigInterface(
+class CustomBitConfigInterface(
     dataWidth: Int
 ) extends Bundle {
   val writeEnable = Bool()
   val loadData    = UInt(dataWidth.W)
 }
 
-class CustomFunction(
+class CustomBit(
     dataWidth: Int,
     functBits: Int,
     lutArity: Int,
@@ -137,7 +137,7 @@ class CustomFunction(
     }
   } // 8x64
 
-  val io = IO(new CustomFunctionInterface(dataWidth, functBits, lutArity))
+  val io = IO(new CustomBitInterface(dataWidth, functBits, lutArity))
 
   class Wrapped32x16RAM(init: Seq[BigInt])
       extends BlackBox(
