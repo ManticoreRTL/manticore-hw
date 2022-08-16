@@ -37,7 +37,7 @@ class CustomAlu(
   val numFuncts = 1 << functBits
 
   val io = IO(new Bundle {
-    val config   = Input(Vec(numFuncts, new CustomFunctionConfigInterface(dataWidth)))
+    val config   = Input(Vec(dataWidth, new CustomFunctionConfigInterface(dataWidth)))
     val rsx      = Input(Vec(lutArity, UInt(dataWidth.W)))
     val selector = Input(UInt(functBits.W))
     val out      = Output(UInt(dataWidth.W))
@@ -119,12 +119,23 @@ class CustomFunction(
     s"Bad lut equation %x".format(bad_equation.getOrElse(0))
   )
 
-  val equations_transformed = Seq.tabulate(8) { i =>
+  // As the RAM32M16 has eight ports and accepts the initial values in an interleaved format,
+  // the `equations` need to be transformed as follows:
+  //
+  //   |         Port A         |         Port B         |     |         Port H         |
+  //   |     15          14     |     13          12     | ... |      1           0     |
+  // --|------------------------|------------------------|-----|------------------------|
+  //  0|init[0][63]  init[0][62]|init[1][63]  init[1][62]|     |init[7][63]  init[7][62]|
+  //  1|init[0][61]  init[0][60]|init[1][61]  init[1][60]|     |init[7][61]  init[7][60]|
+  //  2|init[0][59]  init[0][58]|init[1][59]  init[1][58]|     |init[7][59]  init[7][58]|
+  //   |          ...           |          ...           |     |          ...           |
+  // 30|init[0][ 3]  init[0][ 2]|init[1][ 3]  init[1][ 2]|     |init[7][ 3]  init[7][ 2]|
+  // 31|init[0][ 1]  init[0][ 0]|init[1][ 1]  init[1][ 0]|     |init[7][ 1]  init[7][ 0]|
+  val init = Seq.tabulate(8) { i =>
     equations.map(x => ((x >> (2 * (7 - i))) & 3)).foldLeft(BigInt(0)) { (a, b) =>
       (a << 2) + b.toInt
     }
-  }
-  // 8x64
+  } // 8x64
 
   val io = IO(new CustomFunctionInterface(dataWidth, functBits, lutArity))
 
@@ -152,7 +163,7 @@ class CustomFunction(
     addResource("/verilog/Wrapped32x16RAM.v")
   }
 
-  val ram  = Module(new Wrapped32x16RAM(equations_transformed))
+  val ram  = Module(new Wrapped32x16RAM(init))
   val dout = Wire(UInt(16.W))
   val mid0 = Reg(UInt(1.W))
   val mid1 = Reg(UInt(1.W))
