@@ -40,7 +40,7 @@ module Main ();
 
     task testRoutine;
         addr <= 0;
-        expected <= 16'b0011_0011_0011_0110;
+        expected <= 16'b1100_1100_0110_1111;
 
         #80;
 
