@@ -298,7 +298,7 @@ class Processor(
     }
   }
 
-  fetch_stage.io.execution_enable := (state === ProcessorPhase.StaticExecutionPhase)
+  fetch_stage.io.execution_enable := (state === ProcessorPhase.StaticExecutionPhase) && (countdown_timer =/= 1.U)
   io.periphery.active             := (state === ProcessorPhase.StaticExecutionPhase)
 
   class RegisterWriteByPass extends Bundle {
@@ -450,7 +450,7 @@ object ProcessorEmitter extends App {
       config = ManticoreFullISA,
       equations = equations,
       DimX = 16,
-      DimY = 16, 
+      DimY = 16,
       enable_custom_alu = false
     )
 

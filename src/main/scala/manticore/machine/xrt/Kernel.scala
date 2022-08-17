@@ -81,7 +81,7 @@ class ManticoreFlatKernel(
   val interrupt     = IO(Output(Bool()))
 
   val clock_distribution = Module(new ClockDistribution())
-  val reset = WireDefault(!clock_distribution.io.sync_rst_n)
+  val reset              = WireDefault(!clock_distribution.io.sync_rst_n)
   clock_distribution.io.root_rst_n := reset_n
   clock_distribution.io.root_clock := clock
 
@@ -186,7 +186,6 @@ class ManticoreFlatSimKernel(
   val clock_distribution = Module(new ClockDistribution())
 
   clock_distribution.io.root_clock := clock
-
 
   val manticore =
     Module(new ManticoreFlatArray(DimX, DimY, debug_enable, enable_custom_alu, prefix_path))
@@ -299,7 +298,9 @@ object PackageKernel {
       "@KERNEL_XML@" ->
         kernel_xml_path.toAbsolutePath().toString(),
       "@SLAVE_INTERFACE@" -> slave_interface,
-      "@IP_PATH@"         -> ip_path.toAbsolutePath().toString()
+      "@IP_PATH@"         -> ip_path.toAbsolutePath().toString(),
+      "@FPGA_NAME@"       -> ManticoreKernelGenerator.platformDevice(platform),
+      "@TARGET@"          -> target
     ) ++ master_interface.zipWithIndex.map { case (m, i) =>
       ("@MASTER_INTERFACE_" + i + "@") -> m
     }.toMap
@@ -447,8 +448,8 @@ object BuildXclbin {
         s"--optimize 3 " +
         s"""--vivado.impl.strategies \"Performance_Explore\" """ +
         s"--vivado.synth.jobs ${cpus} --vivado.impl.jobs ${cpus} " +
-        s"${clock_constraint} -o ${xclbin_path.toAbsolutePath.toString} " +
-        s"${xo_path.toAbsolutePath.toString}"
+    s"${clock_constraint} -o ${xclbin_path.toAbsolutePath.toString} " +
+      s"${xo_path.toAbsolutePath.toString}"
 
     println(s"Executing:\n${command}")
     val success = Process(command = command, cwd = bin_dir.toFile())
@@ -469,7 +470,8 @@ object ManticoreKernelGenerator {
 
   val platformDevice = Map(
     "xilinx_u250_gen3x16_xdma_3_1_202020_1" -> "xcu250-figd2104-2l-e",
-    "xilinx_u200_gen3x16_xdma_1_202110_1"   -> "xcu200-fsgd2104-2-e"
+    "xilinx_u200_gen3x16_xdma_1_202110_1"   -> "xcu200-fsgd2104-2-e",
+    "xilinx_u200_gen3x16_xdma_2_202110_1"   -> "xcu200-fsgd2104-2-e"
   )
 
   def apply(
