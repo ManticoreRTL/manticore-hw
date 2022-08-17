@@ -125,15 +125,15 @@ class CustomBit(
   //   |         Port A         |         Port B         |     |         Port H         |
   //   |     15          14     |     13          12     | ... |      1           0     |
   // --|------------------------|------------------------|-----|------------------------|
-  //  0|init[0][63]  init[0][62]|init[1][63]  init[1][62]|     |init[7][63]  init[7][62]|
-  //  1|init[0][61]  init[0][60]|init[1][61]  init[1][60]|     |init[7][61]  init[7][60]|
-  //  2|init[0][59]  init[0][58]|init[1][59]  init[1][58]|     |init[7][59]  init[7][58]|
+  //  0|init[0][ 1]  init[0][ 0]|init[1][ 1]  init[1][ 0]|     |init[7][ 1]  init[7][ 0]|
+  //  1|init[0][ 3]  init[0][ 2]|init[1][ 3]  init[1][ 2]|     |init[7][ 3]  init[7][ 2]|
+  //  2|init[0][ 5]  init[0][ 4]|init[1][ 5]  init[1][ 4]|     |init[7][ 5]  init[7][ 4]|
   //   |          ...           |          ...           |     |          ...           |
-  // 30|init[0][ 3]  init[0][ 2]|init[1][ 3]  init[1][ 2]|     |init[7][ 3]  init[7][ 2]|
-  // 31|init[0][ 1]  init[0][ 0]|init[1][ 1]  init[1][ 0]|     |init[7][ 1]  init[7][ 0]|
+  // 30|init[0][61]  init[0][60]|init[1][61]  init[1][60]|     |init[7][61]  init[7][60]|
+  // 31|init[0][63]  init[0][62]|init[1][63]  init[1][62]|     |init[7][63]  init[7][62]|
   val init = Seq.tabulate(8) { i =>
     equations.map(x => ((x >> (2 * (7 - i))) & 3)).foldLeft(BigInt(0)) { (a, b) =>
-      (a << 2) + b.toInt
+      a + (b << 2).toInt
     }
   } // 8x64
 
