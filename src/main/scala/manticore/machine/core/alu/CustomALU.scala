@@ -160,7 +160,7 @@ class CustomBit(
       val din   = Input(UInt(dataWidth.W))
       val dout  = Output(UInt(dataWidth.W))
     })
-    addResource("/verilog/Wrapped32x16RAM.v")
+    addResource("/verilog/Wrapped32x16RAM/Wrapped32x16RAM.v")
   }
 
   val ram  = Module(new Wrapped32x16RAM(init))
