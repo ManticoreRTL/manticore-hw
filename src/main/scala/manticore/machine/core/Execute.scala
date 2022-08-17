@@ -30,7 +30,7 @@ import manticore.machine.core.ExecuteInterface.PipeIn
 import manticore.machine.core.ExecuteInterface.PipeOut
 import manticore.machine.core.alu.ALUInput
 import manticore.machine.core.alu.CustomAlu
-import manticore.machine.core.alu.CustomFunctionConfigInterface
+import manticore.machine.core.alu.CustomBitConfigInterface
 import manticore.machine.core.alu.StandardALUComb
 import manticore.machine.memory.CacheCommand
 import manticore.machine.memory.CacheConfig
@@ -215,7 +215,7 @@ class ExecuteComb(
   standard_alu.io.valid_in := RegNext(io.valid_in)
 
   when(RegNext5(io.pipe_in.opcode.cust)) {
-    io.pipe_out.result := RegNext3(custom_alu.io.out)
+    io.pipe_out.result := custom_alu.io.out
   } otherwise {
     io.pipe_out.result := RegNext(standard_alu.io.out)
   }

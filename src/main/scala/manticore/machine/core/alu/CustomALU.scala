@@ -57,10 +57,10 @@ class CustomAlu(
     // Create dataWidth custom bits.
     for (i <- Range(0, dataWidth)) {
       val customBit = Module(new CustomBit(dataWidth, functBits, lutArity, equations_t(i)))
-      customBit.io.config := io.config(i)
-      customBit.io.rsx    := rsx_t(i)
-      customBit.io.addr   := io.selector
-      result(i)           := customBit.io.out
+      customBit.io.config := RegNext(io.config(i))
+      customBit.io.rsx    := RegNext(rsx_t(i))
+      customBit.io.addr   := RegNext(io.selector)
+      result(i)           := RegNext(customBit.io.out)
     }
 
     io.out := result
@@ -163,25 +163,27 @@ class CustomBit(
     addResource("/verilog/Wrapped32x16RAM/Wrapped32x16RAM.v")
   }
 
-  val ram  = Module(new Wrapped32x16RAM(init))
-  val dout = Wire(UInt(16.W))
-  val mid0 = Reg(UInt(1.W))
-  val mid1 = Reg(UInt(1.W))
-  val mid2 = Reg(UInt(1.W))
-  val mid3 = Reg(UInt(1.W))
+  val ram   = Module(new Wrapped32x16RAM(init))
+  val dout  = Wire(UInt(16.W))
+  val mid0  = Reg(UInt(1.W))
+  val mid1  = Reg(UInt(1.W))
+  val mid2  = Reg(UInt(1.W))
+  val mid3  = Reg(UInt(1.W))
+  val rsx_1 = RegNext(io.rsx)
+  val rsx_2 = RegNext(rsx_1)
 
   ram.io.clock := clock
   ram.io.we    := io.config.writeEnable
   ram.io.addr  := io.addr
   ram.io.din   := io.config.loadData
-  dout         := ram.io.dout
+  dout         := RegNext(ram.io.dout)
 
-  mid0 := Mux(io.rsx(0).asBool, Mux(io.rsx(1).asBool, dout(0), dout(1)), Mux(io.rsx(1).asBool, dout(2), dout(3)))
-  mid1 := Mux(io.rsx(0).asBool, Mux(io.rsx(1).asBool, dout(4), dout(5)), Mux(io.rsx(1).asBool, dout(6), dout(7)))
-  mid2 := Mux(io.rsx(0).asBool, Mux(io.rsx(1).asBool, dout(8), dout(9)), Mux(io.rsx(1).asBool, dout(10), dout(11)))
-  mid3 := Mux(io.rsx(0).asBool, Mux(io.rsx(1).asBool, dout(12), dout(13)), Mux(io.rsx(1).asBool, dout(14), dout(15)))
+  mid0 := Mux(rsx_1(0).asBool, Mux(rsx_1(1).asBool, dout(0), dout(1)), Mux(rsx_1(1).asBool, dout(2), dout(3)))
+  mid1 := Mux(rsx_1(0).asBool, Mux(rsx_1(1).asBool, dout(4), dout(5)), Mux(rsx_1(1).asBool, dout(6), dout(7)))
+  mid2 := Mux(rsx_1(0).asBool, Mux(rsx_1(1).asBool, dout(8), dout(9)), Mux(rsx_1(1).asBool, dout(10), dout(11)))
+  mid3 := Mux(rsx_1(0).asBool, Mux(rsx_1(1).asBool, dout(12), dout(13)), Mux(rsx_1(1).asBool, dout(14), dout(15)))
 
-  io.out := Mux(io.rsx(2).asBool, Mux(io.rsx(3).asBool, mid0, mid1), Mux(io.rsx(3).asBool, mid2, mid3))
+  io.out := Mux(rsx_2(2).asBool, Mux(rsx_2(3).asBool, mid0, mid1), Mux(rsx_2(3).asBool, mid2, mid3))
 }
 
 object CustomALUGen extends App {
