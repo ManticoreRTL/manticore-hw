@@ -204,11 +204,11 @@ object Instruction {
   }
 
   case class ConfigCfu(
-    bitIdx: Int,
+    ramIdx: Int,
     functIdx: Int,
     equation: Int
   ) extends Instruction(Opcode.CONFIGCFU) {
-    override def toString: String = s"CONFIGCFU\t${bitIdx}, ${functIdx}, ${equation}"
+    override def toString: String = s"CONFIGCFU\t${ramIdx}, ${functIdx}, ${equation}"
   }
 
   // case class ConfigureLuts(

@@ -64,11 +64,11 @@ object Assembler {
           (rs4.index, ManticoreBaseISA.IdBits)
         inst.build
 
-      case ConfigCfu(bitIdx, functIdx, equation) =>
+      case ConfigCfu(ramIdx, functIdx, equation) =>
         val inst = BinaryInstructionBuilder() ++
           (ManticoreBaseISA.ConfigCfu.value, ManticoreBaseISA.OpcodeBits) ++
           (0, ManticoreBaseISA.IdBits - ManticoreBaseISA.LogCustomRams) ++ 
-          (bitIdx, ManticoreBaseISA.LogCustomRams) ++
+          (ramIdx, ManticoreBaseISA.LogCustomRams) ++
           (functIdx, ManticoreBaseISA.FunctBits) ++
           (0, 4 * ManticoreBaseISA.IdBits - ManticoreBaseISA.DataBits) ++
           (equation, ManticoreBaseISA.DataBits)
