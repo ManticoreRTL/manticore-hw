@@ -68,7 +68,7 @@ trait ISA {
   object Send            extends Opcode(Instruction.Opcode.SEND.id)
   object Predicate       extends Opcode(Instruction.Opcode.PREDICATE.id)
   object SetCarry        extends Opcode(Instruction.Opcode.SETCARRY.id)
-  object SetLutData      extends Opcode(Instruction.Opcode.SETLUTDATA.id)
+  object ConfigCfu       extends Opcode(Instruction.Opcode.CONFIGCFU.id)
   // object ConfigureLuts   extends Opcode(Instruction.Opcode.CONFIGURELUTS.id)
   object Slice           extends Opcode(Instruction.Opcode.SLICE.id)
   object DestRegField    extends InstructionField(OpcodeBits, IdBits)

@@ -64,9 +64,9 @@ object Assembler {
           (rs4.index, ManticoreBaseISA.IdBits)
         inst.build
 
-      case SetLutData(bitIdx, functIdx, equation) =>
+      case ConfigCfu(bitIdx, functIdx, equation) =>
         val inst = BinaryInstructionBuilder() ++
-          (ManticoreBaseISA.SetLutData.value, ManticoreBaseISA.OpcodeBits) ++
+          (ManticoreBaseISA.ConfigCfu.value, ManticoreBaseISA.OpcodeBits) ++
           (0, ManticoreBaseISA.IdBits - ManticoreBaseISA.LogCustomRams) ++ 
           (bitIdx, ManticoreBaseISA.LogCustomRams) ++
           (functIdx, ManticoreBaseISA.FunctBits) ++

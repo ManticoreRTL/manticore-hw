@@ -289,7 +289,7 @@ class ExecuteComb(
         io.pipe_in.opcode.predicate.toUInt +
         io.pipe_in.opcode.send.toUInt +
         io.pipe_in.opcode.set.toUInt +
-        io.pipe_in.opcode.set_lut_data.toUInt
+        io.pipe_in.opcode.config_cfu.toUInt
         // io.pipe_in.opcode.configure_luts(0) // This is a replicated signal, so just 1 of them suffices.
 
     when(num_decoded > 1.U) {

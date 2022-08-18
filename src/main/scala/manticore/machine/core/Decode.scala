@@ -29,19 +29,19 @@ import manticore.machine.ManticoreBaseISA
 object Decode {
 
   class OpcodePipe(numFuncts: Int) extends Bundle {
-    val cust: Bool         = Bool()
-    val arith: Bool        = Bool()
-    val lload: Bool        = Bool()
-    val lstore: Bool       = Bool()
-    val send: Bool         = Bool()
-    val set: Bool          = Bool()
-    val expect: Bool       = Bool()
-    val gload: Bool        = Bool()
-    val gstore: Bool       = Bool()
-    val predicate: Bool    = Bool()
-    val nop: Bool          = Bool()
-    val set_carry: Bool    = Bool()
-    val set_lut_data: Bool = Bool()
+    val cust: Bool       = Bool()
+    val arith: Bool      = Bool()
+    val lload: Bool      = Bool()
+    val lstore: Bool     = Bool()
+    val send: Bool       = Bool()
+    val set: Bool        = Bool()
+    val expect: Bool     = Bool()
+    val gload: Bool      = Bool()
+    val gstore: Bool     = Bool()
+    val predicate: Bool  = Bool()
+    val nop: Bool        = Bool()
+    val set_carry: Bool  = Bool()
+    val config_cfu: Bool = Bool()
     // // We intentionally use a vector of bool here instead of a simple bool
     // // as we want to force the FPGA tools to create a dedicated register
     // // for every LUT vector. Otherwise it will fan-out a single signal to
@@ -118,22 +118,22 @@ class Decode(config: ISA) extends Module {
   is_arith := (opcode === config.Arithmetic.value.U)
 
   // Whole instruction must be 0, not just the opcode. This is just a sanity check.
-  opcode_regs.nop          := io.instruction === 0.U
-  opcode_regs.cust         := (opcode === config.Custom.value.U)
-  opcode_regs.arith        := is_arith
-  opcode_regs.mul          := is_arith && (funct === ISA.Functs.MUL2.id.U || funct === ISA.Functs.MUL2S.id.U)
-  opcode_regs.mulh         := is_arith && (funct === ISA.Functs.MUL2H.id.U)
-  opcode_regs.lload        := (opcode === config.LocalLoad.value.U)
-  opcode_regs.lstore       := (opcode === config.LocalStore.value.U)
-  opcode_regs.expect       := (opcode === config.Expect.value.U)
-  opcode_regs.set          := (opcode === config.SetValue.value.U)
-  opcode_regs.gload        := (opcode === config.GlobalLoad.value.U)
-  opcode_regs.gstore       := (opcode === config.GlobalStore.value.U)
-  opcode_regs.send         := (opcode === config.Send.value.U)
-  opcode_regs.predicate    := (opcode === config.Predicate.value.U)
-  opcode_regs.set_carry    := (opcode === config.SetCarry.value.U)
-  opcode_regs.slice        := (opcode === config.Slice.value.U)
-  opcode_regs.set_lut_data := (opcode === config.SetLutData.value.U)
+  opcode_regs.nop        := io.instruction === 0.U
+  opcode_regs.cust       := (opcode === config.Custom.value.U)
+  opcode_regs.arith      := is_arith
+  opcode_regs.mul        := is_arith && (funct === ISA.Functs.MUL2.id.U || funct === ISA.Functs.MUL2S.id.U)
+  opcode_regs.mulh       := is_arith && (funct === ISA.Functs.MUL2H.id.U)
+  opcode_regs.lload      := (opcode === config.LocalLoad.value.U)
+  opcode_regs.lstore     := (opcode === config.LocalStore.value.U)
+  opcode_regs.expect     := (opcode === config.Expect.value.U)
+  opcode_regs.set        := (opcode === config.SetValue.value.U)
+  opcode_regs.gload      := (opcode === config.GlobalLoad.value.U)
+  opcode_regs.gstore     := (opcode === config.GlobalStore.value.U)
+  opcode_regs.send       := (opcode === config.Send.value.U)
+  opcode_regs.predicate  := (opcode === config.Predicate.value.U)
+  opcode_regs.set_carry  := (opcode === config.SetCarry.value.U)
+  opcode_regs.slice      := (opcode === config.Slice.value.U)
+  opcode_regs.config_cfu := (opcode === config.ConfigCfu.value.U)
   // opcode_regs.configure_luts := Vec.fill(config.numFuncts)((opcode === config.ConfigureLuts.value.U))
 
   funct_reg        := funct

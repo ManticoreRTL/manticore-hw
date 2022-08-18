@@ -27,7 +27,7 @@ object Instruction {
   object Opcode extends Enumeration {
     type Type = Value
     val NOP, SET, CUST, ARITH, LLOAD, LSTORE, EXPECT, GLOAD, GSTORE, SEND,
-        PREDICATE, SETCARRY, SETLUTDATA, SLICE = Value
+        PREDICATE, SETCARRY, CONFIGCFU, SLICE = Value
   }
 
   sealed abstract class Instruction(val opcode: Opcode.Type)
@@ -203,12 +203,12 @@ object Instruction {
     override def toString: String = s"SET\t${rd}, ${value}"
   }
 
-  case class SetLutData(
+  case class ConfigCfu(
     bitIdx: Int,
     functIdx: Int,
     equation: Int
-  ) extends Instruction(Opcode.SETLUTDATA) {
-    override def toString: String = s"SETLUTDATA\t${bitIdx}, ${functIdx}, ${equation}"
+  ) extends Instruction(Opcode.CONFIGCFU) {
+    override def toString: String = s"CONFIGCFU\t${bitIdx}, ${functIdx}, ${equation}"
   }
 
   // case class ConfigureLuts(
