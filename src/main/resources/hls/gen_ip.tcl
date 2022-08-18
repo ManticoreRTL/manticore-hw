@@ -21,7 +21,8 @@ set request_freq [lindex $argv 2]
 set cacheline_width [lindex $argv 3]
 puts "Requested freqenecy : $request_freq"
 set_part xcu200-fsgd2104-2-e
-
+set freq_hz [expr $request_freq * 1000000]
+puts "Freq HZ : $freq_hz"
 # ----------------------------------------------------------------------------
 # create clock gen IP
 # ----------------------------------------------------------------------------
@@ -67,10 +68,13 @@ set_property -dict [list CONFIG.PROTOCOL {AXI4LITE} \
                          CONFIG.RUSER_WIDTH {0} \
                          CONFIG.WUSER_WIDTH {0} \
                          CONFIG.BUSER_WIDTH {0} \
-                         CONFIG.ACLK_ASYNC {1} ] \
+                         CONFIG.ACLK_ASYNC {1} \
+                         CONFIG.SI_CLK.FREQ_HZ {300000000} \
+                         CONFIG.MI_CLK.FREQ_HZ $freq_hz \
+                         ] \
              [get_ips axi4lite_clock_converter]
 
-# generate_target all [get_files $ip_location/axi4lite_clock_converter/axi4lite_clock_converter.xci]
+generate_target all [get_files $ip_location/axi4lite_clock_converter/axi4lite_clock_converter.xci]
 
 create_ip -name axi_clock_converter \
           -vendor xilinx.com \
@@ -91,4 +95,5 @@ set_property -dict [list CONFIG.PROTOCOL {AXI4} \
                          CONFIG.BUSER_WIDTH {0} \
                          CONFIG.ACLK_ASYNC {1} ] \
              [get_ips axi4_clock_converter]
-# generate_target all [get_files $ip_location/axi4_clock_converter/axi4_clock_converter.xci]
+
+generate_target all [get_files $ip_location/axi4_clock_converter/axi4_clock_converter.xci]
