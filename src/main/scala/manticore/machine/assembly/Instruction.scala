@@ -27,7 +27,7 @@ object Instruction {
   object Opcode extends Enumeration {
     type Type = Value
     val NOP, SET, CUST, ARITH, LLOAD, LSTORE, EXPECT, GLOAD, GSTORE, SEND,
-        PREDICATE, SETCARRY, SETLUTDATA, CONFIGURELUTS, SLICE = Value
+        PREDICATE, SETCARRY, CONFIGCFU, SLICE = Value
   }
 
   sealed abstract class Instruction(val opcode: Opcode.Type)
@@ -203,21 +203,22 @@ object Instruction {
     override def toString: String = s"SET\t${rd}, ${value}"
   }
 
-  case class SetLutData(
-    id: Int,
-    value: Int
-  ) extends Instruction(Opcode.SETLUTDATA) {
-    override def toString: String = s"SETLUTDATA\t${id}, ${value}"
+  case class ConfigCfu(
+    ramIdx: Int,
+    functIdx: Int,
+    equation: Int
+  ) extends Instruction(Opcode.CONFIGCFU) {
+    override def toString: String = s"CONFIGCFU\t${ramIdx}, ${functIdx}, ${equation}"
   }
 
-  case class ConfigureLuts(
-    rs1: Register,
-    rs2: Register,
-    rs3: Register,
-    rs4: Register
-  ) extends Instruction(Opcode.CONFIGURELUTS) {
-    override def toString: String = s"CONFIGURELUTS\t${rs1}, ${rs2}, ${rs3}, ${rs4}"
-  }
+  // case class ConfigureLuts(
+  //   rs1: Register,
+  //   rs2: Register,
+  //   rs3: Register,
+  //   rs4: Register
+  // ) extends Instruction(Opcode.CONFIGURELUTS) {
+  //   override def toString: String = s"CONFIGURELUTS\t${rs1}, ${rs2}, ${rs3}, ${rs4}"
+  // }
 
   case class Send(
     target: Register,

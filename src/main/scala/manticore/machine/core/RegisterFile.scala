@@ -137,22 +137,23 @@ class CarryRegisterFile(config: ISA) extends Module {
 // outputs are available in parallel (i.e., it is an array of registers). Only
 // one register can be updated at a time though.
 class LutLoadDataRegisterFileInterface(config: ISA) extends Bundle {
-  val waddr = Input(UInt(config.FunctBits.W))
   val din = Input(UInt(config.DataBits.W))
-  val dout = Output(Vec(config.numFuncts, UInt(config.DataBits.W)))
+  val dout = Output(UInt(config.DataBits.W))
   val wen = Input(Bool())
 }
 
 class LutLoadDataRegisterFile(config: ISA, enable_custom_alu: Boolean = true) extends Module {
+  // TODO: as this module is essentially just a 16 bit register, it may be better for us to
+  // incorporate this functionality in the execute stage.
   val io = IO(new LutLoadDataRegisterFileInterface(config))
   if (enable_custom_alu) {
-    val storage = Reg(Vec(config.numFuncts, UInt(config.DataBits.W)))
+    val storage = Reg(UInt(config.DataBits.W))
     when(io.wen) {
-      storage(io.waddr) := io.din
+      storage := io.din
     }
     io.dout := storage
   } else {
-    io.dout := VecInit(Seq.fill(config.numFuncts) {0.U})
+    io.dout := 0.U
   }
 }
 

@@ -4,14 +4,14 @@ package manticore.machine.pipeline
 import chisel3._
 import chiseltest._
 import manticore.machine.core.alu.CustomAlu
-import manticore.machine.core.alu.CustomFunction
+import manticore.machine.core.alu.CustomBit
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import scala.util.Random
 
 
-class CustomFunctionTester
+class CustomBitTester
     extends AnyFlatSpec
     with ChiselScalatestTester
     with Matchers {
@@ -42,8 +42,9 @@ class CustomFunctionTester
 
     val ref_module = Module(new Mux2to1)
     val custom_module = Module(
-      new CustomFunction(
+      new CustomBit(
         dataWidth = 16,
+        functBits = 5,
         lutArity = 4,
         equations = Seq.fill(16) { BigInt(0xcaca) }
       )
@@ -63,7 +64,7 @@ class CustomFunctionTester
     io.equal := custom_module.io.out === ref_module.io.o
   }
 
-  behavior of "CustomFunction as Mux2to1"
+  behavior of "CustomBit as Mux2to1"
   it should "Implement a 16-bit 2-to-1 multiplexer" in {
 
     test(new Miter).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { dut =>
@@ -82,8 +83,9 @@ class CustomFunctionTester
     }
 
     test(
-      new CustomFunction(
+      new CustomBit(
         dataWidth = 16,
+        functBits = 5,
         lutArity = 4,
         equations = Seq.fill(16) { BigInt(0xcaca) }
       )

@@ -19,7 +19,7 @@ class BareNoCInterface(DimX: Int, DimY: Int, config: ISA) extends Bundle {
  * @param DimY
  * @param config
  */
-class BareNoC(DimX: Int, DimY: Int, config: ISA, enable_custom_alu: Boolean) extends Module {
+class BareNoC(DimX: Int, DimY: Int, config: ISA, enable_custom_alu: Boolean = true) extends Module {
 
   val io = IO(new BareNoCInterface(DimX, DimY, config))
 

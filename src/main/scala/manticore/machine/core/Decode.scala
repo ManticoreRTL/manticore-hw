@@ -29,27 +29,27 @@ import manticore.machine.ManticoreBaseISA
 object Decode {
 
   class OpcodePipe(numFuncts: Int) extends Bundle {
-    val cust: Bool         = Bool()
-    val arith: Bool        = Bool()
-    val lload: Bool        = Bool()
-    val lstore: Bool       = Bool()
-    val send: Bool         = Bool()
-    val set: Bool          = Bool()
-    val expect: Bool       = Bool()
-    val gload: Bool        = Bool()
-    val gstore: Bool       = Bool()
-    val predicate: Bool    = Bool()
-    val nop: Bool          = Bool()
-    val set_carry: Bool    = Bool()
-    val set_lut_data: Bool = Bool()
-    // We intentionally use a vector of bool here instead of a simple bool
-    // as we want to force the FPGA tools to create a dedicated register
-    // for every LUT vector. Otherwise it will fan-out a single signal to
-    // many LUTs and it may not achieve the same frequency scaling.
-    val configure_luts: Vec[Bool] = Vec(numFuncts, Bool())
-    val slice: Bool               = Bool()
-    val mul: Bool                 = Bool() // unsigned  low result
-    val mulh: Bool                = Bool() // unsigned high result
+    val cust: Bool       = Bool()
+    val arith: Bool      = Bool()
+    val lload: Bool      = Bool()
+    val lstore: Bool     = Bool()
+    val send: Bool       = Bool()
+    val set: Bool        = Bool()
+    val expect: Bool     = Bool()
+    val gload: Bool      = Bool()
+    val gstore: Bool     = Bool()
+    val predicate: Bool  = Bool()
+    val nop: Bool        = Bool()
+    val set_carry: Bool  = Bool()
+    val config_cfu: Bool = Bool()
+    // // We intentionally use a vector of bool here instead of a simple bool
+    // // as we want to force the FPGA tools to create a dedicated register
+    // // for every LUT vector. Otherwise it will fan-out a single signal to
+    // // many LUTs and it may not achieve the same frequency scaling.
+    // val configure_luts: Vec[Bool] = Vec(numFuncts, Bool())
+    val slice: Bool = Bool()
+    val mul: Bool   = Bool() // unsigned  low result
+    val mulh: Bool  = Bool() // unsigned high result
   }
 
   class PipeOut(config: ISA) extends Bundle {
@@ -65,7 +65,8 @@ object Decode {
     // The slice mask is encoded in the immediate field, but the slice
     // offset is encoded in log2Ceil(config.DataBits) additional bits.
     // Only the slice instruction uses these extra bits.
-    val slice_ofst: UInt = UInt(log2Ceil(config.DataBits).W)
+    val slice_ofst: UInt   = UInt(log2Ceil(config.DataBits).W)
+    val cust_ram_idx: UInt = UInt(config.LogCustomRams.W)
   }
 
 }
@@ -84,64 +85,69 @@ class Decode(config: ISA) extends Module {
 
   def getField(field: InstructionField): UInt = io.instruction(field.toIndex, field.fromIndex)
 
-  val opcode     = Wire(UInt(config.OpcodeBits.W))
-  val funct      = Wire(UInt(config.FunctField.W))
-  val immediate  = Wire(UInt(config.DataBits.W))
-  val rd         = Wire(UInt(config.IdBits.W))
-  val slice_ofst = Wire(UInt(log2Ceil(config.DataBits).W))
-  val rs1        = Wire(UInt(config.IdBits.W))
-  val rs2        = Wire(UInt(config.IdBits.W))
-  val rs3        = Wire(UInt(config.IdBits.W))
-  val rs4        = Wire(UInt(config.IdBits.W))
+  val opcode       = Wire(UInt(config.OpcodeBits.W))
+  val funct        = Wire(UInt(config.FunctField.W))
+  val immediate    = Wire(UInt(config.DataBits.W))
+  val rd           = Wire(UInt(config.IdBits.W))
+  val slice_ofst   = Wire(UInt(log2Ceil(config.DataBits).W))
+  val rs1          = Wire(UInt(config.IdBits.W))
+  val rs2          = Wire(UInt(config.IdBits.W))
+  val rs3          = Wire(UInt(config.IdBits.W))
+  val rs4          = Wire(UInt(config.IdBits.W))
+  val cust_ram_idx = Wire(UInt(config.LogCustomRams.W))
 
-  opcode     := getField(config.OpcodeField)
-  funct      := getField(config.FunctField)
-  immediate  := getField(config.ImmediateField)
-  rd         := getField(config.DestRegField)
-  slice_ofst := getField(config.SliceOfstField)
-  rs1        := getField(config.SourceReg1Field)
-  rs2        := getField(config.SourceReg2Field)
-  rs3        := getField(config.SourceReg3Field)
-  rs4        := getField(config.SourceReg4Field)
+  opcode       := getField(config.OpcodeField)
+  funct        := getField(config.FunctField)
+  immediate    := getField(config.ImmediateField)
+  rd           := getField(config.DestRegField)
+  slice_ofst   := getField(config.SliceOfstField)
+  rs1          := getField(config.SourceReg1Field)
+  rs2          := getField(config.SourceReg2Field)
+  rs3          := getField(config.SourceReg3Field)
+  rs4          := getField(config.SourceReg4Field)
+  cust_ram_idx := getField(config.CustRamIdxField)
 
-  val opcode_regs    = Reg(new Decode.OpcodePipe(config.numFuncts))
-  val funct_reg      = Reg(UInt(config.FunctField.W))
-  val immediate_reg  = Reg(UInt(config.DataBits.W))
-  val slice_ofst_reg = Reg(UInt(log2Ceil(config.DataBits).W))
-  val rd_reg         = Reg(UInt(config.IdBits.W))
+  val opcode_regs      = Reg(new Decode.OpcodePipe(config.numFuncts))
+  val funct_reg        = Reg(UInt(config.FunctField.W))
+  val immediate_reg    = Reg(UInt(config.DataBits.W))
+  val slice_ofst_reg   = Reg(UInt(log2Ceil(config.DataBits).W))
+  val rd_reg           = Reg(UInt(config.IdBits.W))
+  val cust_ram_idx_reg = Reg(UInt(config.LogCustomRams.W))
 
   val is_arith = Wire(Bool())
   is_arith := (opcode === config.Arithmetic.value.U)
 
   // Whole instruction must be 0, not just the opcode. This is just a sanity check.
-  opcode_regs.nop            := io.instruction === 0.U
-  opcode_regs.cust           := (opcode === config.Custom.value.U)
-  opcode_regs.arith          := is_arith
-  opcode_regs.mul            := is_arith && (funct === ISA.Functs.MUL2.id.U || funct === ISA.Functs.MUL2S.id.U)
-  opcode_regs.mulh           := is_arith && (funct === ISA.Functs.MUL2H.id.U)
-  opcode_regs.lload          := (opcode === config.LocalLoad.value.U)
-  opcode_regs.lstore         := (opcode === config.LocalStore.value.U)
-  opcode_regs.expect         := (opcode === config.Expect.value.U)
-  opcode_regs.set            := (opcode === config.SetValue.value.U)
-  opcode_regs.gload          := (opcode === config.GlobalLoad.value.U)
-  opcode_regs.gstore         := (opcode === config.GlobalStore.value.U)
-  opcode_regs.send           := (opcode === config.Send.value.U)
-  opcode_regs.predicate      := (opcode === config.Predicate.value.U)
-  opcode_regs.set_carry      := (opcode === config.SetCarry.value.U)
-  opcode_regs.slice          := (opcode === config.Slice.value.U)
-  opcode_regs.set_lut_data   := (opcode === config.SetLutData.value.U)
-  opcode_regs.configure_luts := Vec.fill(config.numFuncts)((opcode === config.ConfigureLuts.value.U))
+  opcode_regs.nop        := io.instruction === 0.U
+  opcode_regs.cust       := (opcode === config.Custom.value.U)
+  opcode_regs.arith      := is_arith
+  opcode_regs.mul        := is_arith && (funct === ISA.Functs.MUL2.id.U || funct === ISA.Functs.MUL2S.id.U)
+  opcode_regs.mulh       := is_arith && (funct === ISA.Functs.MUL2H.id.U)
+  opcode_regs.lload      := (opcode === config.LocalLoad.value.U)
+  opcode_regs.lstore     := (opcode === config.LocalStore.value.U)
+  opcode_regs.expect     := (opcode === config.Expect.value.U)
+  opcode_regs.set        := (opcode === config.SetValue.value.U)
+  opcode_regs.gload      := (opcode === config.GlobalLoad.value.U)
+  opcode_regs.gstore     := (opcode === config.GlobalStore.value.U)
+  opcode_regs.send       := (opcode === config.Send.value.U)
+  opcode_regs.predicate  := (opcode === config.Predicate.value.U)
+  opcode_regs.set_carry  := (opcode === config.SetCarry.value.U)
+  opcode_regs.slice      := (opcode === config.Slice.value.U)
+  opcode_regs.config_cfu := (opcode === config.ConfigCfu.value.U)
+  // opcode_regs.configure_luts := Vec.fill(config.numFuncts)((opcode === config.ConfigureLuts.value.U))
 
-  funct_reg      := funct
-  immediate_reg  := immediate
-  slice_ofst_reg := slice_ofst
-  rd_reg         := rd
+  funct_reg        := funct
+  immediate_reg    := immediate
+  slice_ofst_reg   := slice_ofst
+  rd_reg           := rd
+  cust_ram_idx_reg := cust_ram_idx
 
-  io.pipe_out.opcode     := RegNext2(opcode_regs)
-  io.pipe_out.funct      := RegNext2(funct_reg)
-  io.pipe_out.immediate  := RegNext2(immediate_reg)
-  io.pipe_out.rd         := RegNext2(rd_reg)
-  io.pipe_out.slice_ofst := RegNext2(slice_ofst_reg)
+  io.pipe_out.opcode       := RegNext2(opcode_regs)
+  io.pipe_out.funct        := RegNext2(funct_reg)
+  io.pipe_out.immediate    := RegNext2(immediate_reg)
+  io.pipe_out.rd           := RegNext2(rd_reg)
+  io.pipe_out.slice_ofst   := RegNext2(slice_ofst_reg)
+  io.pipe_out.cust_ram_idx := RegNext2(cust_ram_idx_reg)
 
   // These are NOT registers and are sent directly to the register files.
   // The response comes back 1 cycle later in the Execute stage.

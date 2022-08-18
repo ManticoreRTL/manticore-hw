@@ -110,8 +110,8 @@ class Interpreter {
       case GlobalLoad(rd, addrlo, addrmid, addrhi)  => ???
       case GlobalStore(rs, addrlo, addrmid, addrhi) => ???
       case Nop()                                    =>
-      case SetLutData(rd, value)                    => ???
-      case ConfigureLuts(rs1, rs2, rs3, rs4)        => ???
+      case ConfigCfu(ramIdx, functIdx, value)       => ???
+      // case ConfigureLuts(rs1, rs2, rs3, rs4)        => ???
       case Slice(rd, rs, offset, length)            => ???
       case ShiftLeftLogic(rd, rs1, rs2)             => ???
       case ShiftRightLogic(rd, rs1, rs2)            => ???

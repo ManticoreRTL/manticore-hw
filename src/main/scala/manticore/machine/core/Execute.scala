@@ -30,7 +30,7 @@ import manticore.machine.core.ExecuteInterface.PipeIn
 import manticore.machine.core.ExecuteInterface.PipeOut
 import manticore.machine.core.alu.ALUInput
 import manticore.machine.core.alu.CustomAlu
-import manticore.machine.core.alu.CustomFunctionConfigInterface
+import manticore.machine.core.alu.CustomBitConfigInterface
 import manticore.machine.core.alu.StandardALUComb
 import manticore.machine.memory.CacheCommand
 import manticore.machine.memory.CacheConfig
@@ -97,7 +97,7 @@ class ExecuteInterface(
   val carry_wen = Output(Bool())
   val carry_din = Output(UInt(1.W))
 
-  val lutdata_din = Input(Vec(config.numFuncts, UInt(config.DataBits.W)))
+  val lutdata_din = Input(UInt(config.DataBits.W))
 
   val valid_in  = Input(Bool()) // Asserted only for MUL and MULH
   val valid_out = Output(Bool())
@@ -139,14 +139,16 @@ class ExecuteComb(
     new CustomAlu(config.DataBits, config.FunctBits, config.LutArity, equations, custom_alu_enable)
   )
   custom_alu.io.rsx := Vec(io.regs_in.rs1, io.regs_in.rs2, io.regs_in.rs3, io.regs_in.rs4)
-  for (i <- Range(0, config.numFuncts)) {
-    // ALL luts are configured in parallel. It is not possible to configure them one by one.
-    // This avoids the use of (conf.FunctBits * config.DataBits) LUTs to perform an AND on this
-    // large fan-out path.
-    custom_alu.io.config(i).writeEnable := RegNext(io.pipe_in.opcode.configure_luts(i))
-    custom_alu.io.config(i).loadData    := io.lutdata_din(i)
+  for (i <- Range(0, config.DataBits)) {
+    // Only one line (16 bits) is written at a time, out of 16 RAMs with 32 lines each.
+    // The `cust_ram_idx` field (4 bits) chooses one RAM out of 16, and the `funct` field (5 bits) 
+    // chooses one line out of 32.
+    // The input data (`lutdata_din`) fans out to all 16 RAMs, and only one of 16 RAMs has a 
+    // positive `writeEnable` value.
+    custom_alu.io.config(i).writeEnable := RegNext((io.pipe_in.cust_ram_idx == i.asUInt).asBool)
+    custom_alu.io.config(i).loadData    := io.lutdata_din
   }
-  custom_alu.io.selector := RegNext(io.pipe_in.funct)
+  custom_alu.io.selector := RegNext(io.pipe_in.funct) // address inside a RAM
 
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Standard ALU //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -215,7 +217,7 @@ class ExecuteComb(
   standard_alu.io.valid_in := RegNext(io.valid_in)
 
   when(RegNext5(io.pipe_in.opcode.cust)) {
-    io.pipe_out.result := RegNext3(custom_alu.io.out)
+    io.pipe_out.result := custom_alu.io.out
   } otherwise {
     io.pipe_out.result := RegNext(standard_alu.io.out)
   }
@@ -287,8 +289,8 @@ class ExecuteComb(
         io.pipe_in.opcode.predicate.toUInt +
         io.pipe_in.opcode.send.toUInt +
         io.pipe_in.opcode.set.toUInt +
-        io.pipe_in.opcode.set_lut_data.toUInt +
-        io.pipe_in.opcode.configure_luts(0) // This is a replicated signal, so just 1 of them suffices.
+        io.pipe_in.opcode.config_cfu.toUInt
+        // io.pipe_in.opcode.configure_luts(0) // This is a replicated signal, so just 1 of them suffices.
 
     when(num_decoded > 1.U) {
       dprintf("\tERROR multiple decoded operations (%d)!\n", num_decoded)

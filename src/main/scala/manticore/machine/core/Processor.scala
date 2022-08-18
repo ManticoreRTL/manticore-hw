@@ -383,8 +383,7 @@ class Processor(
   carry_register_file.io.din   := execute_stage.io.carry_din
 
   lut_load_regs.io.din         := decode_stage.io.pipe_out.immediate
-  lut_load_regs.io.waddr       := decode_stage.io.pipe_out.funct
-  lut_load_regs.io.wen         := decode_stage.io.pipe_out.opcode.set_lut_data
+  lut_load_regs.io.wen         := decode_stage.io.pipe_out.opcode.config_cfu
   execute_stage.io.lutdata_din := lut_load_regs.io.dout
 
   // exec --> memory and write back implementation
@@ -416,8 +415,7 @@ class Processor(
   // Using functionality related to the custom ALU is an error if the custom ALU has been disabled.
   exception_cond := (execute_stage.io.pipe_out.opcode.expect && execute_stage.io.pipe_out.result === 0.U) ||
     (!enable_custom_alu.B &&
-      (decode_stage.io.pipe_out.opcode.configure_luts.head ||
-        decode_stage.io.pipe_out.opcode.set_lut_data ||
+      (decode_stage.io.pipe_out.opcode.config_cfu ||
         decode_stage.io.pipe_out.opcode.cust))
 
   exception_occurred := exception_cond
@@ -450,8 +448,8 @@ object ProcessorEmitter extends App {
       config = ManticoreFullISA,
       equations = equations,
       DimX = 16,
-      DimY = 16,
-      enable_custom_alu = false
+      DimY = 16, 
+      enable_custom_alu = true
     )
 
   new ChiselStage().emitVerilog(
