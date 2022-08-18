@@ -1,8 +1,8 @@
 package manticore.machine.assembly
 
+import chisel3.util.log2Ceil
 import manticore.machine.ISA
 import manticore.machine.ManticoreBaseISA
-import chisel3.util.log2Ceil
 
 object Assembler {
 
@@ -64,25 +64,26 @@ object Assembler {
           (rs4.index, ManticoreBaseISA.IdBits)
         inst.build
 
-      case SetLutData(id, value) =>
+      case SetLutData(bitIdx, functIdx, equation) =>
         val inst = BinaryInstructionBuilder() ++
           (ManticoreBaseISA.SetLutData.value, ManticoreBaseISA.OpcodeBits) ++
-          (0, ManticoreBaseISA.IdBits) ++
-          (id, ManticoreBaseISA.FunctBits) ++
+          (0, ManticoreBaseISA.IdBits - ManticoreBaseISA.LogCustomRams) ++ 
+          (bitIdx, ManticoreBaseISA.LogCustomRams) ++
+          (functIdx, ManticoreBaseISA.FunctBits) ++
           (0, 4 * ManticoreBaseISA.IdBits - ManticoreBaseISA.DataBits) ++
-          (value, ManticoreBaseISA.DataBits)
+          (equation, ManticoreBaseISA.DataBits)
         inst.build
 
-      case ConfigureLuts(rs1, rs2, rs3, rs4) =>
-        val inst = BinaryInstructionBuilder() ++
-          (ManticoreBaseISA.ConfigureLuts.value, ManticoreBaseISA.OpcodeBits) ++
-          (0, ManticoreBaseISA.IdBits) ++
-          (0, ManticoreBaseISA.FunctBits) ++
-          (rs1.index, ManticoreBaseISA.IdBits) ++
-          (rs2.index, ManticoreBaseISA.IdBits) ++
-          (rs3.index, ManticoreBaseISA.IdBits) ++
-          (rs4.index, ManticoreBaseISA.IdBits)
-        inst.build
+      // case ConfigureLuts(rs1, rs2, rs3, rs4) =>
+      //   val inst = BinaryInstructionBuilder() ++
+      //     (ManticoreBaseISA.ConfigureLuts.value, ManticoreBaseISA.OpcodeBits) ++
+      //     (0, ManticoreBaseISA.IdBits) ++
+      //     (0, ManticoreBaseISA.FunctBits) ++
+      //     (rs1.index, ManticoreBaseISA.IdBits) ++
+      //     (rs2.index, ManticoreBaseISA.IdBits) ++
+      //     (rs3.index, ManticoreBaseISA.IdBits) ++
+      //     (rs4.index, ManticoreBaseISA.IdBits)
+      //   inst.build
 
       case Slice(rd, rs, offset, length) =>
         // We compute the slice mask at compile time and embed it in the

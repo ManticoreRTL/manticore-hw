@@ -47,12 +47,12 @@ class CustomAlu(
   val rsx_t       = Wire(Vec(dataWidth, UInt(lutArity.W)))
   for (i <- Range(0, dataWidth)) {
     // transpose
-    rsx_t(i) := Vec(io.rsx(0)(i), io.rsx(1)(i), io.rsx(2)(i), io.rsx(3)(i))
+    rsx_t(i) := Vec(io.rsx(0)(i), io.rsx(1)(i), io.rsx(2)(i), io.rsx(3)(i)).asUInt
   }
 
   if (enable) {
 
-    val result = Wire(UInt(dataWidth.W))
+    val result = Wire(Vec(dataWidth, UInt(1.W)))
 
     // Create dataWidth custom bits.
     for (i <- Range(0, dataWidth)) {
@@ -63,7 +63,7 @@ class CustomAlu(
       result(i)           := RegNext(customBit.io.out)
     }
 
-    io.out := result
+    io.out := result.asUInt
 
   } else {
 
@@ -79,7 +79,7 @@ class CustomBitInterface(
     lutArity: Int
 ) extends Bundle {
   val config = Input(new CustomBitConfigInterface(dataWidth))
-  val rsx    = Input(Vec(lutArity, UInt(1.W)))
+  val rsx    = Input(UInt(lutArity.W))
   val addr   = Input(UInt(functBits.W))
   val out    = Output(UInt(1.W))
 }
