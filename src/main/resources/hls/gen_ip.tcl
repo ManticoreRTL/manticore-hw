@@ -41,7 +41,7 @@ set_property -dict [list CONFIG.OPTIMIZE_CLOCKING_STRUCTURE_EN {true}    \
                          CONFIG.CLKOUT1_DRIVES {Buffer}                  \
                          CONFIG.CLKOUT2_DRIVES {Buffer_with_CE}          \
                          CONFIG.CLKOUT1_MATCHED_ROUTING {true}           \
-                         CONFIG.CLKOUT2_MATCHED_ROUTING {true}        ]
+                         CONFIG.CLKOUT2_MATCHED_ROUTING {true}        ]  \
                 [get_ips clk_dist]
 
 # generate_target all [get_files  ./ip_generation/clk_dist/clk_dist.xci]
