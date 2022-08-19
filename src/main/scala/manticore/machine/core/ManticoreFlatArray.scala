@@ -2,15 +2,15 @@ package manticore.machine.core
 
 import chisel3._
 import chisel3.experimental.ChiselEnum
+import chisel3.stage.ChiselStage
 import chisel3.util._
+import manticore.machine.ISA
 import manticore.machine.ManticoreBaseISA
 import manticore.machine.ManticoreFullISA
 import manticore.machine.memory.CacheCommand
 import manticore.machine.memory.CacheConfig
 
 import scala.annotation.tailrec
-import manticore.machine.ISA
-import chisel3.stage.ChiselStage
 
 /// registers written by the host
 class HostRegisters extends Bundle {
@@ -339,7 +339,8 @@ class ComputeArray(
     dimy: Int,
     debug_enable: Boolean = false,
     enable_custom_alu: Boolean = true,
-    prefix_path: String = "./"
+    prefix_path: String = "./",
+    n_hop: Int = 2
 ) extends Module {
 
   val io = IO(new Bundle {
@@ -386,7 +387,7 @@ class ComputeArray(
       )
       core.suggestName(s"core_${x}_${y}")
       val switch = Module(
-        new Switch(dimx, dimy, core_conf, enable_custom_alu)
+        new Switch(dimx, dimy, core_conf, n_hop)
       )
       switch.suggestName(s"switch_${x}_${y}")
       FatCore(core, switch, x, y)
@@ -468,7 +469,8 @@ class ManticoreFlatArray(
     dimy: Int,
     debug_enable: Boolean = false,
     enable_custom_alu: Boolean = true,
-    prefix_path: String = "./"
+    prefix_path: String = "./",
+    n_hop: Int = 2
 ) extends RawModule {
 
   val io = IO(new ManticoreFlatArrayInterface)
@@ -524,7 +526,8 @@ class ManticoreFlatArray(
           dimy = dimy,
           debug_enable = debug_enable,
           enable_custom_alu = enable_custom_alu,
-          prefix_path = prefix_path
+          prefix_path = prefix_path,
+          n_hop = n_hop
         )
       )
     }

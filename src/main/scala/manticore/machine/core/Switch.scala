@@ -170,7 +170,7 @@ class SwitchInterface(DimX: Int, DimY: Int, config: ISA) extends Bundle {
   * @param DimY
   * @param config
   */
-class Switch(DimX: Int, DimY: Int, config: ISA, enable_custom_alu: Boolean = true) extends Module {
+class Switch(DimX: Int, DimY: Int, config: ISA, n_hop: Int = 2) extends Module {
   val io = IO(new SwitchInterface(DimX, DimY, config))
 
   val empty = Wire(NoCBundle(DimX, DimY, config))
@@ -243,7 +243,7 @@ class Switch(DimX: Int, DimY: Int, config: ISA, enable_custom_alu: Boolean = tru
     }
   }
 
-  if (enable_custom_alu) {
+  if (n_hop == 2) {
     io.xOutput  := RegNext(x_reg)
     io.yOutput  := RegNext(y_reg)
   } else {

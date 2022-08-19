@@ -140,7 +140,7 @@ class UniProcessorExecuteTester extends AnyFlatSpec with Matchers with ChiselSca
 
       prog += instr
 
-      Range(0, 10).foreach { _ =>
+      Range(0, 15).foreach { _ =>
         prog += Instruction.Nop()
       }
 

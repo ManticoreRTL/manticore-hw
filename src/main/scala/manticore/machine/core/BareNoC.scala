@@ -19,13 +19,13 @@ class BareNoCInterface(DimX: Int, DimY: Int, config: ISA) extends Bundle {
  * @param DimY
  * @param config
  */
-class BareNoC(DimX: Int, DimY: Int, config: ISA, enable_custom_alu: Boolean = true) extends Module {
+class BareNoC(DimX: Int, DimY: Int, config: ISA, n_hop: Int = 2) extends Module {
 
   val io = IO(new BareNoCInterface(DimX, DimY, config))
 
   val switch_array: Seq[Seq[Switch]] = Seq.fill(DimX) {
     Seq.fill(DimY) {
-      Module(new Switch(DimX, DimY, config, enable_custom_alu))
+      Module(new Switch(DimX, DimY, config, n_hop))
     }
   }
 

@@ -194,11 +194,11 @@ class UniProcessorConfigureLutsTester extends AnyFlatSpec with Matchers with Chi
         println(s"funct = ${funct_str}, bit_index = ${bitIdx}, lut_data_reg = ${lutDataRegContents_str}")
 
         // Emit instructions to set LUT data register for bit bitIdx in each LUT vector.
-        progLutConfig += Instruction.SetLutData(R(funct_idx), lutDataRegContents_int)
+        // progLutConfig += Instruction.SetLutData(R(funct_idx), lutDataRegContents_int)
       }
 
       def bitIdxToReg(idx: Int) = if (idx == 0) allZerosReg else allOnesReg
-      progLutConfig += Instruction.ConfigureLuts(bitIdxToReg(a0), bitIdxToReg(a1), bitIdxToReg(a2), bitIdxToReg(a3))
+      // progLutConfig += Instruction.ConfigureLuts(bitIdxToReg(a0), bitIdxToReg(a1), bitIdxToReg(a2), bitIdxToReg(a3))
     }
 
     progLutConfig.toSeq

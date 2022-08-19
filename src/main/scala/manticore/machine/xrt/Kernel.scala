@@ -64,7 +64,8 @@ class ManticoreFlatKernel(
     DimY: Int,
     enable_custom_alu: Boolean = true,
     debug_enable: Boolean = false,
-    freqMhz: Double = 200.0
+    freqMhz: Double = 200.0,
+    n_hop: Int = 2
     // m_axi_path: Seq[String] =
     //   Seq() // path to m_axi implementation if exits, uses simulation models otherwise
 ) extends RawModule {
@@ -118,7 +119,7 @@ class ManticoreFlatKernel(
   interrupt := slave.io.control.interrupt
 
   val manticore =
-    Module(new ManticoreFlatArray(DimX, DimY, debug_enable, enable_custom_alu))
+    Module(new ManticoreFlatArray(DimX, DimY, debug_enable, enable_custom_alu = enable_custom_alu, n_hop = n_hop))
 
   manticore.io.reset         := reset
   manticore.io.control_clock := clock_distribution.io.control_clock
@@ -481,7 +482,8 @@ object ManticoreKernelGenerator {
       dimx: Int = 8,
       dimy: Int = 8,
       enable_custom_alu: Boolean = true,
-      freqMhz: Double = 200.0
+      freqMhz: Double = 200.0,
+      n_hop: Int = 2
   ) = {
 
     val out_dir = Paths.get(target_dir)
@@ -495,7 +497,8 @@ object ManticoreKernelGenerator {
         DimY = dimy,
         enable_custom_alu = enable_custom_alu,
         debug_enable = false,
-        freqMhz = freqMhz
+        freqMhz = freqMhz,
+        n_hop = n_hop
       ),
       Array("--target-dir", hdl_dir.toAbsolutePath().toString())
     )
