@@ -78,7 +78,7 @@ class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
   packet_reg.address := io.pipe_in.rd
   packet_reg.valid   := (io.pipe_in.opcode.send)
 
-  io.pipe_out.packet := RegNext(packet_reg)
+  io.pipe_out.packet := RegNext(RegNext(packet_reg))
 
   val lload_w = Wire(Bool())
   val gload_w = Wire(Bool())
