@@ -16,7 +16,7 @@ module Wrapped32x16RAM
     output wire [15:0] dout
 );
 `ifdef VERILATOR 
-    reg [31:0] mem [15:0];
+    reg [15:0] mem [31:0];
 
     always @(posedge  clock) begin 
         if (we) begin 

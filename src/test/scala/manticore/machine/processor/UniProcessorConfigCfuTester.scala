@@ -219,6 +219,9 @@ class UniProcessorConfigCfuTester extends AnyFlatSpec with Matchers with ChiselS
       expectedSends += Tuple2(funct_3_expected, funct_3_instrStr)
     }
 
+    // We need to add one Nop after the final Send. The reason is unclear so far.
+    progCfuCompute += Instruction.Nop()
+
     (progCfuCompute.toSeq, expectedSends.toSeq)
   }
 

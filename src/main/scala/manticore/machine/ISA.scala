@@ -72,7 +72,7 @@ trait ISA {
   // object ConfigureLuts   extends Opcode(Instruction.Opcode.CONFIGURELUTS.id)
   object Slice           extends Opcode(Instruction.Opcode.SLICE.id)
   object DestRegField    extends InstructionField(OpcodeBits, IdBits)
-  object CustRamIdxField extends InstructionField(OpcodeBits, LogCustomRams)
+  object CustRamIdxField extends InstructionField(OpcodeBits + IdBits - LogCustomRams, LogCustomRams)
   object FunctField      extends InstructionField(DestRegField.toIndex + 1, FunctBits)
   object SourceReg1Field extends InstructionField(FunctField.toIndex + 1, IdBits)
   object SourceReg2Field extends InstructionField(SourceReg1Field.toIndex + 1, IdBits)
