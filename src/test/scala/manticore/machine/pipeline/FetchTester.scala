@@ -7,14 +7,14 @@ import chiseltest._
 import manticore.machine.ManticoreBaseISA
 import manticore.machine.core.BareNoCBundle
 import manticore.machine.core.Fetch
-
-import scala.annotation.tailrec
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+import scala.annotation.tailrec
+
 class FetchTester extends AnyFlatSpec with Matchers with ChiselScalatestTester {
 
-  val rdgen = scala.util.Random
+  val rdgen = new scala.util.Random(10)
   val NUM_TESTS = 2
   def randomInstruction: Long = Math.abs(rdgen.nextLong())
   def emptyPacket: BareNoCBundle = new BareNoCBundle(ManticoreBaseISA).Lit(
@@ -66,14 +66,17 @@ class FetchTester extends AnyFlatSpec with Matchers with ChiselScalatestTester {
           def executeCycles(expected: Seq[Long], validated: Long = 0)(epilogue_inst: Seq[(Long, Int)]): Long = {
             expected match {
               case inst +: Nil =>
+                println(s"[A] Expected = ${inst.toBinaryString}\n    received = ${dut.io.instruction.peekInt().toLong.toBinaryString}")
                 dut.io.instruction.expect(inst.U)
                 dut.io.programmer.enable.poke(false.B)
                 dut.io.execution_enable.poke(false.B)
                 dut.clock.step()
                 validated + 1
               case inst +: rest =>
+                println(s"[B] Expected = ${inst.toBinaryString}\n    received = ${dut.io.instruction.peekInt().toLong.toBinaryString}")
                 dut.io.instruction.expect(inst.U)
                 if (rdgen.nextInt(2) == 1 && epilogue_inst.nonEmpty) {
+                  println("x")
                   // randomly generate instructions and append to the epilogue
                   dut.io.programmer.enable.poke(true.B)
                   dut.io.programmer.address.poke(epilogue_inst.head._2.U)
@@ -82,6 +85,7 @@ class FetchTester extends AnyFlatSpec with Matchers with ChiselScalatestTester {
                   dut.clock.step()
                   executeCycles(rest :+ epilogue_inst.head._1, validated + 1)(epilogue_inst.tail)
                 } else {
+                  println("y")
                   dut.io.programmer.enable.poke(false.B)
                   dut.clock.step()
                   executeCycles(rest, validated + 1)(epilogue_inst)
@@ -89,7 +93,7 @@ class FetchTester extends AnyFlatSpec with Matchers with ChiselScalatestTester {
             }
           }
           dut.io.execution_enable.poke(true.B)
-          dut.clock.step()
+          dut.clock.step(2) // Read latency of URAM is 2 cycles
 
           val extra_insts =
             Seq.fill(rdgen.nextInt(4096 - instructions.size)){randomInstruction}
