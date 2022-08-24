@@ -495,11 +495,11 @@ class ManticoreFlatArray(
         new Programmer(ManticoreFullISA, dimx, dimy)
       )
     }
-
-  controller.io.start := io.start
-  io.done             := controller.io.done
-  io.idle             := controller.io.idle
-  io.device_registers := controller.io.device_registers
+  controller.io.compute_clock := io.compute_clock
+  controller.io.start         := io.start
+  io.done                     := controller.io.done
+  io.idle                     := controller.io.idle
+  io.device_registers         := controller.io.device_registers
 
   controller.io.boot_finished := bootloader.io.running
   bootloader.io.start         := controller.io.boot_start
@@ -557,5 +557,3 @@ class ManticoreFlatArray(
   controller.io.clock_locked            := io.clock_stabled
 
 }
-
-

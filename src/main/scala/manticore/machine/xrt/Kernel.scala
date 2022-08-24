@@ -326,6 +326,22 @@ object PackageKernel {
       fp
     }
 
+    def writeXdc() = {
+
+      val fp = verilog_path.resolve("false_path.xdc")
+      val content = s"""|
+                        |set_false_path -to [get_pins clock_distribution/rst_sync1_reg/CLR]
+                        |set_false_path -to [get_pins clock_distribution/rst_sync2_reg/CLR]
+                        |set_false_path -to [get_pins clock_distribution/rst_sync3_reg/CLR]
+                        |
+                        |""".stripMargin
+      val writer = Files.newBufferedWriter(fp)
+      writer.write(content)
+      writer.close()
+    }
+
+    writeXdc()
+
     val packaging_tcl_fp =
       createTclScript("package_kernel", line => substitute(line, substitutions))
     val gen_xo_tcl_fp = createTclScript(
