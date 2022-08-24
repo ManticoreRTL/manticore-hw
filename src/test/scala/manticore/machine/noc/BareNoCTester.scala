@@ -48,6 +48,9 @@ class BareNoCTester extends AnyFlatSpec with ChiselScalatestTester with Matchers
         val y = expected.target.y
         if (dut.io.corePacketOutput(x)(y).valid.peek().litToBoolean) {
           // check if the data is correct
+          if (dut.n_hop == 2) {
+            dut.clock.step()
+          }
           dut.io.corePacketOutput(x)(y).data.expect(expected.data.U)
           dut.io.corePacketOutput(x)(y).data.expect(expected.address.U)
           if (cycles != expected.latency) {
@@ -102,7 +105,7 @@ class BareNoCTester extends AnyFlatSpec with ChiselScalatestTester with Matchers
           (packet.yHops.litValue.toInt + source.y) % DimY)
 
       if (!coverage.contains(TestCase(source, target))) {
-        val latency = (packet.xHops.litValue.toInt + packet.yHops.litValue.toInt)
+        val latency = dut.n_hop * (packet.xHops.litValue.toInt + packet.yHops.litValue.toInt)
         val expected = ExpectedPacket(
           data = packet.data.litValue.toInt,
           address = packet.data.litValue.toInt,
@@ -152,7 +155,12 @@ class BareNoCTester extends AnyFlatSpec with ChiselScalatestTester with Matchers
   it should "always deliver packets in absence of congestion" taggedAs RequiresVerilator in {
 
 
-    test(new BareNoC(6, 7, ManticoreBaseISA))
+    test(new BareNoC(6, 7, ManticoreBaseISA, n_hop = 2))
+      .withAnnotations(Seq(VerilatorBackendAnnotation)) { implicit dut =>
+        checkRoutable
+      }
+    
+    test(new BareNoC(6, 7, ManticoreBaseISA, n_hop = 1))
       .withAnnotations(Seq(VerilatorBackendAnnotation)) { implicit dut =>
         checkRoutable
       }
