@@ -16,11 +16,11 @@
 
 # set the device part from command line argvs
 # set_part [lindex $argv 0]
+set_part [lindex $argv 0]
 set ip_location  [lindex $argv 1]
 set request_freq [lindex $argv 2]
 set cacheline_width [lindex $argv 3]
 puts "Requested freqenecy : $request_freq"
-set_part xcu200-fsgd2104-2-e
 set freq_hz [expr $request_freq * 1000000]
 puts "Freq HZ : $freq_hz"
 # ----------------------------------------------------------------------------
@@ -33,15 +33,19 @@ create_ip -name clk_wiz \
           -module_name clk_dist \
           -dir $ip_location
 
-set_property -dict [list CONFIG.OPTIMIZE_CLOCKING_STRUCTURE_EN {true}    \
+set_property -dict [list
+                         CONFIG.OPTIMIZE_CLOCKING_STRUCTURE_EN {true}    \
+                         CONFIG.USE_PHASE_ALIGNMENT {false}              \
+                         CONFIG.PRIM_SOURCE {No_buffer}                  \
+                         CONFIG.USE_RESET {false}                        \
                          CONFIG.PRIM_IN_FREQ {300.00}                    \
                          CONFIG.CLKOUT2_USED {true}                      \
                          CONFIG.CLKOUT1_REQUESTED_OUT_FREQ $request_freq \
                          CONFIG.CLKOUT2_REQUESTED_OUT_FREQ $request_freq \
-                         CONFIG.CLKOUT1_DRIVES {Buffer}                  \
-                         CONFIG.CLKOUT2_DRIVES {Buffer_with_CE}          \
                          CONFIG.CLKOUT1_MATCHED_ROUTING {true}           \
-                         CONFIG.CLKOUT2_MATCHED_ROUTING {true}        ]  \
+                         CONFIG.CLKOUT2_MATCHED_ROUTING {true}           \
+                         CONFIG.CLKOUT1_DRIVES {Buffer}                  \
+                         CONFIG.CLKOUT2_DRIVES {Buffer_with_CE}         ]\
                 [get_ips clk_dist]
 
 # generate_target all [get_files  ./ip_generation/clk_dist/clk_dist.xci]

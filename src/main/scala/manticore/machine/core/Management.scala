@@ -25,6 +25,8 @@ class Management extends Module {
     val done  = Output(Bool())
     val idle  = Output(Bool())
 
+    val compute_clock = Input(Clock())
+
     val device_registers = Output(new DeviceRegisters)
 
     val boot_start    = Output(Bool())
@@ -89,12 +91,20 @@ class Management extends Module {
 
   val enable_core_reset = WireDefault(false.B)
   val core_reset = {
-    // the reset is passed through many registers to enable re-timing
-    val pipes = Seq.fill(16) { Reg(Bool()) }
-    pipes.foldLeft(state === sCoreReset) { case (prev, curr) =>
-      curr := prev
-      curr
+
+    def createPipes(count: Int, prev: Bool): Bool = {
+      if (count == 0) {
+        prev
+      } else {
+        // use the compute clock since the reset reg should be physically located
+        // next to the compute domain
+        createPipes(count - 1, withClock(io.compute_clock) { RegNext(prev) })
+      }
     }
+    // Enable re-timing by creating a deep pipeline of reset registers.
+    // At the first pipe, use the control clock, but internally in
+    // the other register use the compute clock to make routing easier for Vivado.
+    createPipes(16, RegNext(state === sCoreReset))
   }
   io.soft_reset := core_reset
   io.cache_reset_start := (state === sCacheReset)
