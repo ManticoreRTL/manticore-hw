@@ -33,8 +33,7 @@ create_ip -name clk_wiz \
           -module_name clk_dist \
           -dir $ip_location
 
-set_property -dict [list
-                         CONFIG.OPTIMIZE_CLOCKING_STRUCTURE_EN {true}    \
+set_property -dict [list CONFIG.OPTIMIZE_CLOCKING_STRUCTURE_EN {true}    \
                          CONFIG.USE_PHASE_ALIGNMENT {false}              \
                          CONFIG.PRIM_SOURCE {No_buffer}                  \
                          CONFIG.USE_RESET {false}                        \
