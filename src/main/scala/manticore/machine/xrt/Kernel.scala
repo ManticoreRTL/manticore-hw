@@ -458,15 +458,25 @@ object BuildXclbin {
     val xclbin_path =
       bin_dir.resolve(s"${top_name}.${target}.${platform}.xclbin")
     val max_threads = Runtime.getRuntime().availableProcessors()
+    def createPblocksTcl() = {
+      val fp     = bin_dir.resolve("pblocks.tcl")
+      val writer = Files.newBufferedWriter(fp)
+      writer.write(scala.io.Source.fromResource("hls/pblocks.xdc").mkString)
+      writer.close()
+      fp
+    }
+    val pblocks = createPblocksTcl()
 
     val cpus = getSystemInfo() max 12
     val command =
       s"v++ --link -g -t ${target} --platform ${platform} --save-temps " +
         s"--optimize 3 " +
         s"""--vivado.impl.strategies \"Performance_Explore\" """ +
+        s"""--vivado.prop run.impl_1.STEPS.PLACE_DESIGN.TCL.PRE=${pblocks.toAbsolutePath()} """ +
+        s"""--vivado.prop run.impl_Performance_Explore.STEPS.PLACE_DESIGN.TCL.PRE=${pblocks.toAbsolutePath()} """ +
         s"--vivado.synth.jobs ${cpus} --vivado.impl.jobs ${cpus} " +
-    s"${clock_constraint} -o ${xclbin_path.toAbsolutePath.toString} " +
-      s"${xo_path.toAbsolutePath.toString}"
+        s"${clock_constraint} -o ${xclbin_path.toAbsolutePath.toString} " +
+        s"${xo_path.toAbsolutePath.toString}"
 
     println(s"Executing:\n${command}")
     val success = Process(command = command, cwd = bin_dir.toFile())
