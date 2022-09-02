@@ -27,9 +27,9 @@ class UniProcessorExecuteTester extends AnyFlatSpec with Matchers with ChiselSca
   val numTests = 200 // Set at will so long as num instructions < 4096
 
   // Populate the processor's registers with random values.
-  val initialRegs = ArrayBuffer.fill(ManticoreBaseISA.numRegs)(UIntWide(0, ManticoreBaseISA.DataBits))
+  val initialRegs = ArrayBuffer.fill(ManticoreBaseISA.numRegs)(UIntWide(0, ManticoreBaseISA.DataBits + 1))
   Range(0, initialRegs.size).foreach { addr =>
-    initialRegs(addr) = UIntWide(rdgen.nextInt(1 << ManticoreBaseISA.DataBits), ManticoreBaseISA.DataBits)
+    initialRegs(addr) = UIntWide(rdgen.nextInt(1 << ManticoreBaseISA.DataBits + 1), ManticoreBaseISA.DataBits + 1)
   }
   val valueRegs = initialRegs.clone()
 
@@ -38,8 +38,8 @@ class UniProcessorExecuteTester extends AnyFlatSpec with Matchers with ChiselSca
       Seq[(UIntWide, String)] // What we expect to be sent out (data only).
   ) = {
 
-    val ZERO = UIntWide(0, ManticoreBaseISA.DataBits)
-    val ONE  = UIntWide(1, ManticoreBaseISA.DataBits)
+    val ZERO = UIntWide(0, ManticoreBaseISA.DataBits + 1)
+    val ONE  = UIntWide(1, ManticoreBaseISA.DataBits + 1)
 
     val prog          = ArrayBuffer.empty[Instruction.Instruction]
     val expectedSends = ArrayBuffer.empty[(UIntWide, String)]
@@ -51,7 +51,7 @@ class UniProcessorExecuteTester extends AnyFlatSpec with Matchers with ChiselSca
     val numUsedRegister = 20
     Range(0, numTests).foreach { _ =>
       // I omit SLTS as I can't figure out how to do the signed comparison using unsigned numbers.
-      val functs = Array(ADD2, SUB2, MUL2, MUL2H, AND2, OR2, XOR2, SLL, SRL, SRA, SEQ, SLTU, MUX)
+      val functs = Array(ADD2, SUB2, MUL2, MUL2H, AND2, OR2, XOR2, SLL, SRL, SRA, SEQ, SLTU, MUX, ADDC)
 
       // We choose random destination and source registers.
       val rd  = R(rdgen.between(0, numUsedRegister - 1))
@@ -59,8 +59,8 @@ class UniProcessorExecuteTester extends AnyFlatSpec with Matchers with ChiselSca
       val rs2 = R(rdgen.between(0, numUsedRegister - 1))
       val rs3 = R(rdgen.between(0, numUsedRegister - 1))
 
-      val rs1_val = valueRegs(rs1.index)
-      val rs2_val = valueRegs(rs2.index)
+      val rs1_val = valueRegs(rs1.index) & UIntWide(65535, ManticoreBaseISA.DataBits + 1)
+      val rs2_val = valueRegs(rs2.index) & UIntWide(65535, ManticoreBaseISA.DataBits + 1)
       val rs3_val = valueRegs(rs3.index)
 
       val shamnt = UIntWide.clipped(rs2_val.toBigInt, log2Ceil(ManticoreBaseISA.DataBits))
@@ -135,6 +135,14 @@ class UniProcessorExecuteTester extends AnyFlatSpec with Matchers with ChiselSca
           val instr  = Instruction.Mux2(rd, rs1, rs2, rs3)
           val select = rs3_val & ONE
           val res    = if (select == ONE) rs2_val else rs1_val
+          (res, instr)
+        case ADDC =>
+          val instr = Instruction.Addc(rd, rs1, rs2, rs3)
+          val carry = (rs3_val >> 16) & ONE
+          val res = UIntWide(
+            rs1_val.toBigInt + rs2_val.toBigInt & 65535 + carry.toBigInt,
+            ManticoreBaseISA.DataBits + 1
+          )
           (res, instr)
       }
 
@@ -222,8 +230,8 @@ class UniProcessorExecuteTester extends AnyFlatSpec with Matchers with ChiselSca
         val nextExpectedSends = if (checkOutput) {
           val received          = dut.io.packet_out.data.peekInt()
           val (expected, instr) = expectedSends.head
-          println(s"Expected = ${expected.toBigInt}, received = ${received}, instr = ${instr}")
-          dut.io.packet_out.data.expect(expected.toBigInt)
+          println(s"Expected = ${expected.toBigInt & 65535}, received = ${received}, instr = ${instr}")
+          dut.io.packet_out.data.expect(expected.toBigInt & 65535)
           // We've consumed one expected value, so next time we must check for the rest of the sends only.
           expectedSends.tail
         } else {

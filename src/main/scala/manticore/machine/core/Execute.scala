@@ -216,7 +216,7 @@ class ExecuteComb(
   carry_en := (io.pipe_in.opcode.arith & (io.pipe_in.funct) === ISA.Functs.ADDC.id.U)
 
   standard_alu.io.in.select := io.regs_in.rs3(0)
-  standard_alu.io.in.carry  := io.regs_in.rs3(config.DataBits - 1) & RegNext(carry_en)
+  standard_alu.io.in.carry  := io.regs_in.rs3(config.DataBits) & RegNext(carry_en)
 
   when(RegNext(io.pipe_in.opcode.set || io.pipe_in.opcode.send)) {
     standard_alu.io.in.x := 0.U
