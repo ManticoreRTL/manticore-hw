@@ -326,21 +326,30 @@ object PackageKernel {
       fp
     }
 
-    def writeXdc() = {
 
-      val fp = verilog_path.resolve("false_path.xdc")
-      val content = s"""|
-                        |set_false_path -to [get_pins clock_distribution/rst_sync1_reg/CLR]
-                        |set_false_path -to [get_pins clock_distribution/rst_sync2_reg/CLR]
-                        |set_false_path -to [get_pins clock_distribution/rst_sync3_reg/CLR]
-                        |
-                        |""".stripMargin
+
+    def writeXdc(fname: String)(content: => String) = {
+      val fp = verilog_path.resolve(fname)
       val writer = Files.newBufferedWriter(fp)
       writer.write(content)
       writer.close()
     }
 
-    writeXdc()
+    writeXdc("false_path.xdc") {
+       s"""|
+           |set_false_path -to [get_pins clock_distribution/rst_sync1_reg/CLR]
+           |set_false_path -to [get_pins clock_distribution/rst_sync2_reg/CLR]
+           |set_false_path -to [get_pins clock_distribution/rst_sync3_reg/CLR]
+           |
+           |""".stripMargin
+    }
+    // Note that the clock root value should match the pblock constraints
+    writeXdc("clock_groups.xdc") {
+      s"""|
+          |set_property CLOCK_DELAY_GROUP MantictoreClk [get_nets {clock_distribution/control_clock clock_distribution/compute_clock}]
+          |set_property USER_CLOCK_ROOT X2Y10 [get_nets {clock_distribution/control_clock clock_distribution/compute_clock}]
+          |""".stripMargin
+    }
 
     val packaging_tcl_fp =
       createTclScript("package_kernel", line => substitute(line, substitutions))
