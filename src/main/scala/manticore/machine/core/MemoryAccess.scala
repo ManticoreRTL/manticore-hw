@@ -11,7 +11,7 @@ object MemoryAccess {
   type PipeIn = ExecuteInterface.PipeOut
 
   class PipeOut(config: ISA, DimX: Int, DimY: Int) extends Bundle {
-    val result: UInt      = UInt(config.DataBits.W)
+    val result: UInt      = UInt(config.RegisterBits.W)
     val result_mul: UInt  = UInt((2 * config.DataBits).W)
     val packet: NoCBundle = new NoCBundle(DimX, DimY, config)
     val write_back: Bool  = Bool()
@@ -44,8 +44,8 @@ class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
   val io = IO(new MemoryInterface(config, DimX, DimY))
 
   // connect to memory for read and write
-  io.local_memory_interface.raddr := io.pipe_in.result
-  io.local_memory_interface.waddr := io.pipe_in.result
+  io.local_memory_interface.raddr := io.pipe_in.result(config.DataBits - 1, 0)
+  io.local_memory_interface.waddr := io.pipe_in.result(config.DataBits - 1, 0)
   io.local_memory_interface.din   := io.pipe_in.data
   io.local_memory_interface.wen   := io.pipe_in.opcode.lstore && io.pipe_in.pred
 
@@ -82,7 +82,7 @@ class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
 
   val lload_w = Wire(Bool())
   val gload_w = Wire(Bool())
-  val out_result = Wire(UInt(config.DataBits.W))
+  val out_result = Wire(UInt(config.RegisterBits.W))
 
   def pipeIt[T <: Data](dest: T)(source: T): Unit = {
     val pipereg = Reg(chisel3.chiselTypeOf(source))

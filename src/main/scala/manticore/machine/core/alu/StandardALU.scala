@@ -17,7 +17,7 @@ class ALUInterface(DATA_BITS: Int) extends Bundle {
     val select = Bool()
     val mask   = UInt(DATA_BITS.W)
   })
-  val out       = Output(UInt(DATA_BITS.W))
+  val out       = Output(UInt((DATA_BITS + 1).W)) // one additional bit for carry
   val mul_out   = Output(UInt((2 * DATA_BITS).W))
   val carry_out = Output(UInt(1.W))
   val funct     = Input(UInt(4.W))
@@ -197,7 +197,7 @@ class StandardALUComb(DATA_BITS: Int) extends Module {
   }
 
   // The mask is used for instructions like slices.
-  io.out       := RegNext(alu_res & RegNext2(io.in.mask))
+  io.out       := RegNext(Cat(dsp.io.carryout, alu_res & RegNext2(io.in.mask)))
   io.mul_out   := dsp.io.mul_out
   io.carry_out := RegNext(dsp.io.carryout)
   io.valid_out := dsp.io.valid_out

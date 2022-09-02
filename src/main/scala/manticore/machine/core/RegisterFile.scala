@@ -34,10 +34,9 @@ import manticore.machine.memory.SimpleDualPortMemoryInterface
 
 class RegisterFileInterface(config: ISA) extends Bundle {
   def makeAddr = Input(UInt(config.IdBits.W))
-  def makeDout = Output(UInt(config.DataBits.W))
   class ReadIf extends Bundle {
     val addr = makeAddr
-    val dout = makeDout
+    val dout = Output(UInt(config.RegisterBits.W))
 
     def <->(mem_if : GenericMemoryInterface): Unit = {
       mem_if.addra := addr
@@ -48,11 +47,10 @@ class RegisterFileInterface(config: ISA) extends Bundle {
       mem_if.raddr := addr
       dout := mem_if.dout
     }
-// jj
   }
   class WriteIf extends Bundle {
     val addr = makeAddr
-    val din = Input(UInt(config.DataBits.W))
+    val din = Input(UInt(config.RegisterBits.W))
     val en = Input(Bool())
 
     def <->(mem_if: GenericMemoryInterface): Unit = {
@@ -85,12 +83,12 @@ class RegisterFile(
     if (enable) {
       new SimpleDualPortMemory(
         ADDRESS_WIDTH = config.IdBits, 
-        DATA_WIDTH = config.DataBits, 
+        DATA_WIDTH = config.RegisterBits,
         READ_LATENCY = 2, 
         INIT = INIT
       )
     } else {
-      new DummyDualPortMemory(ADDRESS_WIDTH = config.IdBits, DATA_WIDTH = config.DataBits)
+      new DummyDualPortMemory(ADDRESS_WIDTH = config.IdBits, DATA_WIDTH = config.RegisterBits)
     }
   }
 
@@ -114,24 +112,24 @@ class RegisterFile(
 }
 
 
-class CarryRegisterFileInterface(config: ISA) extends Bundle {
-  val AddressBits = log2Ceil(config.CarryCount)
-  val raddr = Input(UInt(AddressBits.W))
-  val waddr = Input(UInt(AddressBits.W))
-  val din = Input(UInt(1.W))
-  val dout = Output(UInt(1.W))
-  val wen = Input(Bool())
-}
+// class CarryRegisterFileInterface(config: ISA) extends Bundle {
+//   val AddressBits = log2Ceil(config.CarryCount)
+//   val raddr = Input(UInt(AddressBits.W))
+//   val waddr = Input(UInt(AddressBits.W))
+//   val din = Input(UInt(1.W))
+//   val dout = Output(UInt(1.W))
+//   val wen = Input(Bool())
+// }
 
 
-class CarryRegisterFile(config: ISA) extends Module {
-  val io = IO(new CarryRegisterFileInterface(config))
-  val storage = SyncReadMem(config.CarryCount, UInt(1.W))
-  when(io.wen) {
-    storage(io.waddr) := io.din
-  }
-  io.dout := storage(io.raddr)
-}
+// class CarryRegisterFile(config: ISA) extends Module {
+//   val io = IO(new CarryRegisterFileInterface(config))
+//   val storage = SyncReadMem(config.CarryCount, UInt(1.W))
+//   when(io.wen) {
+//     storage(io.waddr) := io.din
+//   }
+//   io.dout := storage(io.raddr)
+// }
 
 // This is not really a "register file" as it doesn't have a raddr port. All
 // outputs are available in parallel (i.e., it is an array of registers). Only
@@ -158,8 +156,5 @@ class LutLoadDataRegisterFile(config: ISA, enable_custom_alu: Boolean = true) ex
 }
 
 object RegisterFileGen extends App {
-
-  // new ChiselStage().emitVerilog(new RegisterFile(ManticoreBaseISA), Array("--help"))
-  new ChiselStage()
-    .emitVerilog(new CarryRegisterFile(ManticoreBaseISA), Array("--target-dir", "gen-dir"))
+  new ChiselStage().emitVerilog(new RegisterFile(ManticoreBaseISA), Array("--help"))
 }
