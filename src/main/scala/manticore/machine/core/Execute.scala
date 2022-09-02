@@ -67,7 +67,7 @@ object ExecuteInterface {
   class PipeOut(config: ISA) extends Bundle {
     val opcode     = new Decode.OpcodePipe(config.numFuncts)
     val data       = UInt(config.DataBits.W)
-    val result     = UInt(config.RegisterBits.W)
+    val result     = UInt(config.DataBits.W)
     val result_mul = UInt((2 * config.DataBits).W)
     val rd         = UInt(config.IdBits.W)
     val immediate  = UInt(config.DataBits.W)
@@ -88,14 +88,14 @@ class ExecuteInterface(
     config: ISA
 ) extends Bundle {
   val pipe_in = Input(new PipeIn(config))
-  val regs_in = Input(new ALUInput(config.RegisterBits))
+  val regs_in = Input(new ALUInput(config.DataBits))
   // val carry_in   = Input(UInt(1.W))
   val pipe_out   = Output(new PipeOut(config))
   val debug_time = Input(UInt(64.W))
 
   // val carry_rd  = Output(UInt(log2Ceil(config.CarryCount).W))
-  // val carry_wen = Output(Bool())
-  // val carry_din = Output(UInt(1.W))
+  val carry_wen = Output(Bool())
+  val carry_out = Output(UInt(1.W))
 
   val lutdata_din = Input(UInt(config.DataBits.W))
 
@@ -139,10 +139,10 @@ class ExecuteComb(
     new CustomAlu(config.DataBits, config.FunctBits, config.LutArity, equations, custom_alu_enable)
   )
   custom_alu.io.rsx := Vec(
-    io.regs_in.rs1(config.DataBits - 1, 0),
-    io.regs_in.rs2(config.DataBits - 1, 0),
+    io.regs_in.rs1,
+    io.regs_in.rs2,
     io.regs_in.rs3(config.DataBits - 1, 0),
-    io.regs_in.rs4(config.DataBits - 1, 0)
+    io.regs_in.rs4
   )
   for (i <- Range(0, config.DataBits)) {
     // Only one line (16 bits) is written at a time, out of 16 RAMs with 32 lines each.
@@ -176,7 +176,7 @@ class ExecuteComb(
 
   // MUX for standard_alu.io.in.y
   when(RegNext(io.pipe_in.opcode.arith) | RegNext(io.pipe_in.opcode.expect)) {
-    standard_alu.io.in.y := io.regs_in.rs2(config.DataBits - 1, 0)
+    standard_alu.io.in.y := io.regs_in.rs2
   } otherwise {
     val alu_y_in = Wire(UInt(config.DataBits.W))
     when(io.pipe_in.opcode.slice) {
@@ -212,27 +212,30 @@ class ExecuteComb(
   }
   standard_alu.io.funct := RegNext(alu_funct_in)
 
+  val carry_en = Wire(UInt(1.W))
+  carry_en := (io.pipe_in.opcode.arith & (io.pipe_in.funct) === ISA.Functs.ADDC.id.U)
+
   standard_alu.io.in.select := io.regs_in.rs3(0)
-  standard_alu.io.in.carry  := io.regs_in.rs3(config.RegisterBits - 1)
+  standard_alu.io.in.carry  := io.regs_in.rs3(config.DataBits - 1) & RegNext(carry_en)
 
   when(RegNext(io.pipe_in.opcode.set || io.pipe_in.opcode.send)) {
     standard_alu.io.in.x := 0.U
   } otherwise {
-    standard_alu.io.in.x := io.regs_in.rs1(config.DataBits - 1, 0)
+    standard_alu.io.in.x := io.regs_in.rs1
   }
 
   standard_alu.io.valid_in := RegNext(io.valid_in)
 
   when(RegNext5(io.pipe_in.opcode.cust)) {
-    io.pipe_out.result := Cat(0.U(1.W), custom_alu.io.out)
+    io.pipe_out.result := custom_alu.io.out
   } otherwise {
-    io.pipe_out.result := RegNext(Cat(standard_alu.io.carry_out, standard_alu.io.out))
+    io.pipe_out.result := RegNext(standard_alu.io.out)
   }
   io.pipe_out.result_mul := RegNext(standard_alu.io.mul_out)
   io.valid_out           := RegNext(standard_alu.io.valid_out)
 
   io.pipe_out.opcode    := RegNext5(io.pipe_in.opcode)
-  io.pipe_out.data      := RegNext4(io.regs_in.rs2(config.DataBits - 1, 0))
+  io.pipe_out.data      := RegNext4(io.regs_in.rs2)
   io.pipe_out.rd        := RegNext5(io.pipe_in.rd)
   io.pipe_out.immediate := RegNext5(io.pipe_in.immediate)
 
@@ -243,21 +246,21 @@ class ExecuteComb(
   //   // notice that rs4 needs to be registered before given to the output pipe
   //   io.carry_rd := RegNext5(io.pipe_in.rs4)
   // }
-  // when(RegNext5(io.pipe_in.opcode.set_carry)) {
-  //   io.carry_din := RegNext5(io.pipe_in.immediate(0))
-  // } otherwise {
-  //   io.carry_din := RegNext(standard_alu.io.carry_out)
-  // }
-  // io.carry_wen :=
-  //   RegNext5(
-  //     (io.pipe_in.opcode.arith & (io.pipe_in.funct) === ISA.Functs.ADDC.id.U) | (
-  //       io.pipe_in.opcode.set_carry
-  //     )
-  //   )
+  when(RegNext5(io.pipe_in.opcode.set_carry)) {
+    io.carry_out := RegNext5(io.pipe_in.immediate(0))
+  } otherwise {
+    io.carry_out := RegNext(standard_alu.io.carry_out)
+  }
+  io.carry_wen :=
+    RegNext5(
+      (io.pipe_in.opcode.arith & (io.pipe_in.funct) === ISA.Functs.ADDC.id.U) | (
+        io.pipe_in.opcode.set_carry
+      )
+    )
 
   // enable/disable predicate
   when(RegNext(io.pipe_in.opcode.predicate)) {
-    pred_reg := io.regs_in.rs1(config.DataBits - 1, 0) === 1.U
+    pred_reg := io.regs_in.rs1 === 1.U
   }
 
   io.pipe_out.pred := RegNext4(pred_reg)
@@ -265,15 +268,14 @@ class ExecuteComb(
   if (config.WithGlobalMemory) {
     val gload_next  = RegNext(io.pipe_in.opcode.gload)
     val gstore_next = RegNext(io.pipe_in.opcode.gstore)
-    gmem_if_reg.address := io.regs_in
-      .rs2(config.DataBits - 1, 0) ## io.regs_in.rs3(config.DataBits - 1, 0) ## io.regs_in.rs4(config.DataBits - 1, 0)
+    gmem_if_reg.address := io.regs_in.rs2 ## io.regs_in.rs3(config.DataBits - 1, 0) ## io.regs_in.rs4
     when(gload_next) {
       gmem_if_reg.command := CacheCommand.Read
     }.elsewhen(gstore_next) {
       gmem_if_reg.command := CacheCommand.Write
     }
     gmem_if_reg.start := (gstore_next && pred_reg) | gload_next
-    gmem_if_reg.wdata := io.regs_in.rs1(config.DataBits - 1, 0)
+    gmem_if_reg.wdata := io.regs_in.rs1
     io.pipe_out.gmem  := RegNext3(gmem_if_reg)
   }
 

@@ -34,9 +34,9 @@ import manticore.machine.memory.SimpleDualPortMemoryInterface
 
 class RegisterFileInterface(config: ISA) extends Bundle {
   def makeAddr = Input(UInt(config.IdBits.W))
-  class ReadIf extends Bundle {
+  class ReadIf(data_width: Int) extends Bundle {
     val addr = makeAddr
-    val dout = Output(UInt(config.RegisterBits.W))
+    val dout = Output(UInt(data_width.W))
 
     def <->(mem_if : GenericMemoryInterface): Unit = {
       mem_if.addra := addr
@@ -50,21 +50,38 @@ class RegisterFileInterface(config: ISA) extends Bundle {
   }
   class WriteIf extends Bundle {
     val addr = makeAddr
-    val din = Input(UInt(config.RegisterBits.W))
+    val din = Input(UInt((config.DataBits + 1).W))
     val en = Input(Bool())
 
     def <->(mem_if: GenericMemoryInterface): Unit = {
-      mem_if.addrb := addr
-      mem_if.dinb := din
-      mem_if.web := en
+      if (mem_if.DATA_WIDTH == config.DataBits) {
+        // both write interface and actual register have DataBits + 1 width
+        mem_if.addrb := addr
+        mem_if.dinb := din
+        mem_if.web := en
+      } else {
+        // write interface has DataBits + 1 width, but actual register is DataBits width
+        mem_if.addrb := addr 
+        mem_if.dinb := din(config.DataBits - 1, 0)
+        mem_if.web := en
+      }
     }
     def <->(mem_if: SimpleDualPortMemoryInterface): Unit = {
-      mem_if.waddr := addr
-      mem_if.din := din
-      mem_if.wen := en
+      if (mem_if.DATA_WIDTH == config.DataBits) {
+        // both write interface and actual register have DataBits + 1 width
+        mem_if.waddr := addr
+        mem_if.din := din
+        mem_if.wen := en
+      } else {
+        // write interface has DataBits + 1 width, but actual register is DataBits width
+        mem_if.waddr := addr 
+        mem_if.din := din(config.DataBits - 1, 0)
+        mem_if.wen := en
+      }
     }
   }
-  val rs1, rs2, rs3, rs4 = new ReadIf
+  val rs1, rs2, rs4 = new ReadIf(config.DataBits)
+  val rs3 = new ReadIf(config.DataBits + 1) // only rs3 has one additional bit
   val w = new WriteIf
 
 }
@@ -78,26 +95,27 @@ class RegisterFile(
   val io = IO(new RegisterFileInterface(config))
 
   def makeBank(
-    enable: Boolean = true
+    enable: Boolean = true,
+    data_width: Int = config.DataBits
   ) = {
     if (enable) {
       new SimpleDualPortMemory(
         ADDRESS_WIDTH = config.IdBits, 
-        DATA_WIDTH = config.RegisterBits,
+        DATA_WIDTH = data_width,
         READ_LATENCY = 2, 
         INIT = INIT
       )
     } else {
-      new DummyDualPortMemory(ADDRESS_WIDTH = config.IdBits, DATA_WIDTH = config.RegisterBits)
+      new DummyDualPortMemory(ADDRESS_WIDTH = config.IdBits, DATA_WIDTH = data_width)
     }
   }
 
   // Banks 1, 2, and 3 are always enabled (bank 3 is needed for mux instructions' select bit for now).
   // Bank 4 is disabled if the custom ALU is disabled.
-  val rs1bank = Module(makeBank(true))
-  val rs2bank = Module(makeBank(true))
-  val rs3bank = Module(makeBank(true))
-  val rs4bank = Module(makeBank(enable_custom_alu))
+  val rs1bank = Module(makeBank(true, config.DataBits))
+  val rs2bank = Module(makeBank(true, config.DataBits))
+  val rs3bank = Module(makeBank(true, config.DataBits + 1)) // one additional bit for carry 
+  val rs4bank = Module(makeBank(enable_custom_alu, config.DataBits))
 
   io.w <-> rs1bank.io
   io.w <-> rs2bank.io

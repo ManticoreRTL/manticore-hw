@@ -35,7 +35,6 @@ trait ISA {
   def NumPcBits: Int
   def NumBits: Int
   def DataBits: Int
-  def RegisterBits: Int
   def IdBits: Int
   def FunctBits: Int
   def OpcodeBits: Int = NumBits - 5 * IdBits - FunctBits
@@ -86,7 +85,6 @@ trait ISA {
 object ManticoreBaseISA extends ISA {
   val NumPcBits: Int            = 12
   val DataBits: Int             = 16
-  val RegisterBits: Int         = DataBits + 1 // additional bit for carry
   val NumBits: Int              = 64
   val IdBits: Int               = 11
   val FunctBits: Int            = 5
@@ -97,7 +95,6 @@ object ManticoreBaseISA extends ISA {
 object ManticoreFullISA extends ISA {
   val NumPcBits: Int            = ManticoreBaseISA.NumPcBits
   val DataBits: Int             = ManticoreBaseISA.DataBits
-  val RegisterBits: Int         = ManticoreBaseISA.RegisterBits
   val NumBits: Int              = ManticoreBaseISA.NumBits
   val IdBits: Int               = ManticoreBaseISA.IdBits
   val FunctBits: Int            = ManticoreBaseISA.FunctBits

@@ -54,6 +54,10 @@ class Processor(
 ) extends Module {
   val io: ProcessorInterface = IO(new ProcessorInterface(config, DimX, DimY))
 
+  def RegNext3[T <: Data](src: T): T = {
+    RegNext(RegNext(RegNext(src)))
+  }
+
   object ProcessorPhase extends ChiselEnum {
     val DynamicReceiveProgramLength, // wait for the first message that indicates the length of the program
     DynamicReceiveInstruction,       // wait for a dynamic number of cycles to receive all instructions
@@ -125,7 +129,7 @@ class Processor(
     new SimpleDualPortMemory(
       ADDRESS_WIDTH = 14,
       DATA_WIDTH = config.DataBits,
-      STYLE = MemStyle.URAMReal,
+      STYLE = MemStyle.URAMReal
     )
   )
 
@@ -372,7 +376,10 @@ class Processor(
   when(memory_stage.io.valid_out) {
     register_file.io.w.din := Cat(0.U(1.W), Mux(memory_stage.io.pipe_out.mulh, multiplier_res_high, multiplier_res_low))
   } otherwise {
-    register_file.io.w.din := memory_stage.io.pipe_out.result
+    register_file.io.w.din := Cat(
+      RegNext3(execute_stage.io.carry_wen & execute_stage.io.carry_out),
+      memory_stage.io.pipe_out.result
+    )
   }
   register_file.io.w.en := memory_stage.io.pipe_out.write_back
 
@@ -448,7 +455,7 @@ object ProcessorEmitter extends App {
       config = ManticoreFullISA,
       equations = equations,
       DimX = 16,
-      DimY = 16, 
+      DimY = 16,
       enable_custom_alu = true
     )
 
