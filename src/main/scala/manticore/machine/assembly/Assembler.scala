@@ -128,6 +128,8 @@ object Assembler {
         arithmetic(ISA.Functs.SRA)(rd, rs1, rs2)
       case Mux2(rd, tval, fval, sel) =>
         arithmetic(ISA.Functs.MUX)(rd, tval, fval, sel)
+      case Addc(rd, rs1, rs2, cin) => 
+        arithmetic(ISA.Functs.ADDC)(rd, rs1, rs2, cin)
       case LocalLoad(rd, base, offset) =>
         val inst: BinaryInstructionBuilder = BinaryInstructionBuilder() ++
           (ManticoreBaseISA.LocalLoad.value, ManticoreBaseISA.OpcodeBits) ++
