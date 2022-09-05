@@ -1,24 +1,21 @@
 
 
-place_cell {level0_i/ulp/ManticoreKernel_1/inst/manticore/controller/clock_active_reg} SLICE_X58Y623
-set_property is_loc_fixed true [get_cells [list level0_i/ulp/ManticoreKernel_1/inst/manticore/controller/clock_active_reg]]
-place_cell {level0_i/ulp/ManticoreKernel_1/inst/manticore/controller/config_enable_reg} SLICE_X64Y615
-set_property is_loc_fixed true [get_cells [list level0_i/ulp/ManticoreKernel_1/inst/manticore/controller/config_enable_reg]]
-place_cell {level0_i/ulp/ManticoreKernel_1/inst/manticore/controller/timed_out_reg} SLICE_X64Y615
-set_property is_loc_fixed true [get_cells [list level0_i/ulp/ManticoreKernel_1/inst/manticore/controller/timed_out_reg]]
-place_cell {level0_i/ulp/ManticoreKernel_1/inst/clock_distribution/comp_buf} BUFGCE_X0Y255
-set_property is_loc_fixed true [get_cells [list level0_i/ulp/ManticoreKernel_1/inst/clock_distribution/comp_buf]]
-place_cell {level0_i/ulp/ManticoreKernel_1/inst/clock_distribution/wiz/inst/clkout1_buf} BUFGCE_X0Y256
-set_property is_loc_fixed true [get_cells [list level0_i/ulp/ManticoreKernel_1/inst/clock_distribution/wiz/inst/clkout1_buf]]
-place_cell {level0_i/ulp/ManticoreKernel_1/inst/clock_distribution/wiz/inst/mmcme4_adv_inst} MMCM_X0Y10
-set_property is_loc_fixed true [get_cells [list level0_i/ulp/ManticoreKernel_1/inst/clock_distribution/wiz/inst/mmcme4_adv_inst]]
-
-
+create_pblock mantictrl
+resize_pblock mantictrl -add CLOCKREGION_X2Y7
+add_cells_to_pblock mantictrl [get_cells [list level0_i/ulp/ManticoreKernel_1/inst/clock_distribution \
+                                               level0_i/ulp/ManticoreKernel_1/inst/manticore/controller \
+                                               level0_i/ulp/ManticoreKernel_1/inst/manticore/compute_array/core_0_0 \
+                                               level0_i/ulp/ManticoreKernel_1/inst/manticore/compute_array/core_1_0 \
+                                               level0_i/ulp/ManticoreKernel_1/inst/axi_cache \
+                                        ]]
 
 set_property CLOCK_DELAY_GROUP MantictoreClk [get_nets {level0_i/ulp/ManticoreKernel_1/inst/clock_distribution/wiz/inst/clk_out1 \
                                                         level0_i/ulp/ManticoreKernel_1/inst/clock_distribution/clock_distribution_compute_clock}]
-set_property USER_CLOCK_ROOT X2Y10 [get_nets {level0_i/ulp/ManticoreKernel_1/inst/clock_distribution/wiz/inst/clk_out1 \
+set_property USER_CLOCK_ROOT X2Y7 [get_nets {level0_i/ulp/ManticoreKernel_1/inst/clock_distribution/wiz/inst/clk_out1 \
                                               level0_i/ulp/ManticoreKernel_1/inst/clock_distribution/clock_distribution_compute_clock}]
+
+
+
 
 
 

@@ -415,6 +415,7 @@ object BuildXclbin {
       target: String,
       platform: String,
       freqMhz: Double,
+      dimx: Int, dimy: Int,
       top_name: String = "ManticoreKernel"
   ) = {
 
@@ -467,15 +468,18 @@ object BuildXclbin {
     val xclbin_path =
       bin_dir.resolve(s"${top_name}.${target}.${platform}.xclbin")
     val max_threads = Runtime.getRuntime().availableProcessors()
-    def createPblocksTcl() = {
+    def createPblocksTcl(fname: String) = {
       val fp     = bin_dir.resolve("pblocks.tcl")
       val writer = Files.newBufferedWriter(fp)
-      writer.write(scala.io.Source.fromResource("hls/pblocks.xdc").mkString)
+      writer.write(scala.io.Source.fromResource(s"hls/${fname}").mkString)
       writer.close()
       fp
     }
-    val pblocks = createPblocksTcl()
-
+    val pblocks =  if (dimx * dimy > 160) {
+      createPblocksTcl("pblocks_large.xdc")
+    } else {
+      createPblocksTcl("pblocks_small.xdc")
+    }
     val cpus = getSystemInfo() max 12
     val command =
       s"v++ --link -g -t ${target} --platform ${platform} --save-temps " +
@@ -570,7 +574,9 @@ object ManticoreKernelGenerator {
       xo_path = xo_file,
       target = target,
       freqMhz = freqMhz,
-      platform = platform
+      platform = platform,
+      dimx = dimx,
+      dimy = dimy
     )
 
   }
