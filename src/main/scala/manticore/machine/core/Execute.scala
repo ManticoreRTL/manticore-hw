@@ -89,7 +89,7 @@ class ExecuteInterface(
 ) extends Bundle {
   val pipe_in = Input(new PipeIn(config))
   val regs_in = Input(new ALUInput(config.DataBits))
-  // val carry_in   = Input(UInt(1.W))
+  val carry_in   = Input(UInt(1.W))
   val pipe_out   = Output(new PipeOut(config))
   val debug_time = Input(UInt(64.W))
 
@@ -216,7 +216,7 @@ class ExecuteComb(
   carry_en := (io.pipe_in.opcode.arith & (io.pipe_in.funct) === ISA.Functs.ADDC.id.U)
 
   standard_alu.io.in.select := io.regs_in.rs3(0)
-  standard_alu.io.in.carry  := io.regs_in.rs3(config.DataBits) & RegNext(carry_en)
+  standard_alu.io.in.carry  := io.carry_in & RegNext(carry_en)
 
   when(RegNext(io.pipe_in.opcode.set || io.pipe_in.opcode.send)) {
     standard_alu.io.in.x := 0.U

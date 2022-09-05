@@ -354,7 +354,7 @@ class Processor(
     forwarding_signals
   )
   execute_stage.io.regs_in.rs3 := ForwardPath(
-    register_file.io.rs3.dout,
+    register_file.io.rs3.dout(config.DataBits - 1, 0),
     decode_stage.io.pipe_out.rs3,
     forwarding_signals
   )
@@ -363,6 +363,7 @@ class Processor(
     decode_stage.io.pipe_out.rs4,
     forwarding_signals
   )
+  execute_stage.io.carry_in := register_file.io.rs3.dout(config.DataBits)
   execute_stage.io.valid_in := decode_stage.io.pipe_out.opcode.mul || decode_stage.io.pipe_out.opcode.mulh
   register_file.io.rs1.addr := decode_stage.io.pipe_out.rs1
   register_file.io.rs2.addr := decode_stage.io.pipe_out.rs2
