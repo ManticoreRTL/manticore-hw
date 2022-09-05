@@ -38,16 +38,11 @@ set_property -dict [list CONFIG.OPTIMIZE_CLOCKING_STRUCTURE_EN {true}    \
                          CONFIG.PRIM_SOURCE {No_buffer}                  \
                          CONFIG.USE_RESET {false}                        \
                          CONFIG.PRIM_IN_FREQ {300.00}                    \
-                         CONFIG.CLKOUT2_USED {true}                      \
                          CONFIG.CLKOUT1_REQUESTED_OUT_FREQ $request_freq \
-                         CONFIG.CLKOUT2_REQUESTED_OUT_FREQ $request_freq \
-                         CONFIG.CLKOUT1_MATCHED_ROUTING {true}           \
-                         CONFIG.CLKOUT2_MATCHED_ROUTING {true}           \
-                         CONFIG.CLKOUT1_DRIVES {Buffer}                  \
-                         CONFIG.CLKOUT2_DRIVES {Buffer_with_CE}         ]\
+                         CONFIG.CLKOUT1_DRIVES {Buffer}                 ]\
                 [get_ips clk_dist]
 
-# generate_target all [get_files  ./ip_generation/clk_dist/clk_dist.xci]
+generate_target all [get_files  $ip_location/ip_generation/clk_dist/clk_dist.xci]
 
 
 # ----------------------------------------------------------------------------
