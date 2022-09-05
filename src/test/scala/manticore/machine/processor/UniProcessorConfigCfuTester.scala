@@ -18,7 +18,7 @@ import java.nio.file.Paths
 import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
 
-class UniProcessorConfigureLutsTester extends AnyFlatSpec with Matchers with ChiselScalatestTester {
+class UniProcessorConfigCfuTester extends AnyFlatSpec with Matchers with ChiselScalatestTester {
 
   val rdgen = new scala.util.Random(0)
 
@@ -116,102 +116,55 @@ class UniProcessorConfigureLutsTester extends AnyFlatSpec with Matchers with Chi
     funct_3
   )
 
-  def createLutConfigProgram(): Seq[Instruction.Instruction] = {
-    // To program the LUT vectors, we:
-    //  1) Set the LUT data register for every vector.
-    //  2) Set an "address" {a3, a2, a1, a0} in {rs4[x], rs3[x], rs2[x], rs1[x]} saying which bit should
-    //     be written by future calls to CONFIGURELUTS.
-    //  3) Emit a CONFIGURELUTS instruction.
+  def createConfigCfuProgram(): Seq[Instruction.Instruction] = {
+    // To program the CFU, we write to the 32x16 RAM one line (16 bits) at a time
+    // using CONFIGCFU instructions.
     //
     // The sequence looks like this:
 
-    // // Program bit 0 of all 16*32 LUTs in the custom ALU.
-    // SET_LUT_DATA_REG 0, $const_0_0
-    // SET_LUT_DATA_REG 1, $const_1_0
-    // ...
-    // SET LUT_DATA_REG 31, $const_31_0
-    // // Populate rs1, rs2, rs3, rs4 beforehand such that:
-    // // rs1[15:0] = "0000000000000000" (A0)
-    // // rs2[15:0] = "0000000000000000" (A1)
-    // // rs3[15:0] = "0000000000000000" (A2)
-    // // rs4[15:0] = "0000000000000000" (A3)
-    // CONFIG_LUT_VECTORS rs1, rs2, rs3, rs4
-    //
-    //
-    // // Program bit 1 of all 16*32 LUTs in the custom ALU.
-    // SET_LUT_DATA_REG 0, $const_0_1
-    // SET_LUT_DATA_REG 1, $const_1_1
-    // ...
-    // SET_LUT_DATA_REG 31, $const_31_1
-    // // Populate rs1, rs2, rs3, rs4 beforehand such that:
-    // // rs1[15:0] = "1111111111111111" (A0)
-    // // rs2[15:0] = "0000000000000000" (A1)
-    // // rs3[15:0] = "0000000000000000" (A2)
-    // // rs4[15:0] = "0000000000000000" (A3)
-    // CONFIG_LUT_VECTORS rs1, rs2, rs3, rs4
-    //
-    //
-    // // Program bit 2 of all 16*32 LUTs in the custom ALU.
-    // SET_LUT_DATA_REG 0, $const_0_2
-    // SET_LUT_DATA_REG 1, $const_1_2
-    // ...
-    // SET_LUT_DATA_REG 31, $const_31_2
-    // // Populate rs1, rs2, rs3, rs4 beforehand such that:
-    // // rs1[15:0] = "0000000000000000" (A0)
-    // // rs2[15:0] = "1111111111111111" (A1)
-    // // rs3[15:0] = "0000000000000000" (A2)
-    // // rs4[15:0] = "0000000000000000" (A3)
-    // CONFIG_LUT_VECTORS rs1, rs2, rs3, rs4
-    //
-    // ...
-    //
-    // // Program bit 15 of all 16*32 LUTs in the custom ALU.
-    // SET_LUT_DATA_REG 0, $const_0_15
-    // SET_LUT_DATA_REG 1, $const_1_15
-    // ...
-    // SET_LUT_DATA_REG 31, $const_31_15
-    // // Populate rs1, rs2, rs3, rs4 beforehand such that:
-    // // rs1[15:0] = "1111111111111111" (A0)
-    // // rs2[15:0] = "1111111111111111" (A1)
-    // // rs3[15:0] = "1111111111111111" (A2)
-    // // rs4[15:0] = "1111111111111111" (A3)
-    // CONFIG_LUT_VECTORS rs1, rs2, rs3, rs4
+    // // Program the four functions to RAM0 (0th bit of the output)
+    // CONFIGCFU 0, 0, 0x8000
+    // CONFIGCFU 0, 1, 0xFFFE
+    // CONFIGCFU 0, 2, 0x6996
+    // CONFIGCFU 0, 3, 0xF888
 
-    val progLutConfig = ArrayBuffer.empty[Instruction.Instruction]
+    // // Program the four functions to RAM1 (1st bit of the output)
+    // CONFIGCFU 1, 0, 0x8000
+    // CONFIGCFU 1, 1, 0xFFFE
+    // CONFIGCFU 1, 2, 0x6996
+    // CONFIGCFU 1, 3, 0xF888
+
+    // ...
+
+    // // Program the four functions to RAM15 (15th bit of the output)
+    // CONFIGCFU 15, 0, 0x8000
+    // CONFIGCFU 15, 1, 0xFFFE
+    // CONFIGCFU 15, 2, 0x6996
+    // CONFIGCFU 15, 3, 0xF888
+
+    val progConfigCfu = ArrayBuffer.empty[Instruction.Instruction]
 
     val zeroOne = Seq(0, 1)
-    for { a3 <- zeroOne; a2 <- zeroOne; a1 <- zeroOne; a0 <- zeroOne } {
-      // Bit index to program is given by {a3, a2, a1, a0}
-      val bitIdx = (a3 << 3) | (a2 << 2) | (a1 << 1) | (a0 << 0)
-
+    for { i <- Range(0, 16) } { // for each of 16 RAMs
       for { (funct, funct_idx) <- all_functs.zipWithIndex } {
         // Extract the given bit index of every equation in the current function.
-        val lutDataRegContents_str = funct.equation.map(equ => (equ >> bitIdx & 1).toInt).mkString
-        val lutDataRegContents_int = Integer.parseInt(lutDataRegContents_str, 2)
-        val funct_str              = s"{${funct.equation.map(equ => equ.toString(16)).mkString(", ")}}"
-
-        // Debug
-        println(s"funct = ${funct_str}, bit_index = ${bitIdx}, lut_data_reg = ${lutDataRegContents_str}")
-
-        // Emit instructions to set LUT data register for bit bitIdx in each LUT vector.
-        // progLutConfig += Instruction.SetLutData(R(funct_idx), lutDataRegContents_int)
+        val ramLineContent = funct.equation(i)
+        println(s"ram_index = ${i}, funct_idx = ${funct_idx}, ram_line_content = ${ramLineContent}")
+        progConfigCfu += Instruction.ConfigCfu(i, funct_idx, ramLineContent.toInt)
       }
-
-      def bitIdxToReg(idx: Int) = if (idx == 0) allZerosReg else allOnesReg
-      // progLutConfig += Instruction.ConfigureLuts(bitIdxToReg(a0), bitIdxToReg(a1), bitIdxToReg(a2), bitIdxToReg(a3))
     }
 
-    progLutConfig.toSeq
+    progConfigCfu.toSeq
   }
 
-  def createLutComputeProgram(): (
+  def createCfuComputeProgram(): (
       Seq[Instruction.Instruction],
       Seq[(UIntWide, String)] // What we expect to be sent out (data only).
   ) = {
-    val progLutCompute = ArrayBuffer.empty[Instruction.Instruction]
+    val progCfuCompute = ArrayBuffer.empty[Instruction.Instruction]
     val expectedSends  = ArrayBuffer.empty[(UIntWide, String)]
 
-    // Now we must compute something with the programmed custom LUTs to check they are correct.
+    // Now we must compute something with the programmed custom CFU to check they are correct.
     // We cannot read the contents of the register file, so we instead compute a result and
     // send it outside the processor. We check for the expected result at the output interface.
 
@@ -233,29 +186,26 @@ class UniProcessorConfigureLutsTester extends AnyFlatSpec with Matchers with Chi
       val rs4_val = initialRegs(rs4.index)
 
       functRegs.zip(all_functs).foreach { case (reg, funct) =>
-        progLutCompute += Instruction.Custom(reg, funct, rs1, rs2, rs3, rs4)
+        progCfuCompute += Instruction.Custom(reg, funct, rs1, rs2, rs3, rs4)
       }
 
-      // Add Nops as the pipeline has became deeper
-      progLutCompute += Instruction.Nop()
-      progLutCompute += Instruction.Nop()
-      progLutCompute += Instruction.Nop()
-      progLutCompute += Instruction.Nop()
-      progLutCompute += Instruction.Nop()
-      progLutCompute += Instruction.Nop()
-
       val funct_0_instrStr =
-        s"${progLutCompute(progLutCompute.size - 4)}, rs1 = ${rs1_val}, rs2 = ${rs2_val}, rs3 = ${rs3_val}, rs4 = ${rs4_val}"
+        s"${progCfuCompute(progCfuCompute.size - 4)}, rs1 = ${rs1_val}, rs2 = ${rs2_val}, rs3 = ${rs3_val}, rs4 = ${rs4_val}"
       val funct_1_instrStr =
-        s"${progLutCompute(progLutCompute.size - 3)}, rs1 = ${rs1_val}, rs2 = ${rs2_val}, rs3 = ${rs3_val}, rs4 = ${rs4_val}"
+        s"${progCfuCompute(progCfuCompute.size - 3)}, rs1 = ${rs1_val}, rs2 = ${rs2_val}, rs3 = ${rs3_val}, rs4 = ${rs4_val}"
       val funct_2_instrStr =
-        s"${progLutCompute(progLutCompute.size - 2)}, rs1 = ${rs1_val}, rs2 = ${rs2_val}, rs3 = ${rs3_val}, rs4 = ${rs4_val}"
+        s"${progCfuCompute(progCfuCompute.size - 2)}, rs1 = ${rs1_val}, rs2 = ${rs2_val}, rs3 = ${rs3_val}, rs4 = ${rs4_val}"
       val funct_3_instrStr =
-        s"${progLutCompute(progLutCompute.size - 1)}, rs1 = ${rs1_val}, rs2 = ${rs2_val}, rs3 = ${rs3_val}, rs4 = ${rs4_val}"
+        s"${progCfuCompute(progCfuCompute.size - 1)}, rs1 = ${rs1_val}, rs2 = ${rs2_val}, rs3 = ${rs3_val}, rs4 = ${rs4_val}"
+
+      // 10 Nops are required in current pipeline
+      Range(0, 10).foreach { _ =>
+        progCfuCompute += Instruction.Nop()
+      }
 
       functRegs.zip(all_functs).foreach { case (reg, funct) =>
         // The destination doesn't matter. We only care that we are sending.
-        progLutCompute += Instruction.Send(reg, reg, 1, 1)
+        progCfuCompute += Instruction.Send(reg, reg, 1, 1)
       }
 
       // a & b & c & d : a | b | c | d : a ^ b ^ c ^ d : (a & b) | (c & d) :
@@ -269,13 +219,16 @@ class UniProcessorConfigureLutsTester extends AnyFlatSpec with Matchers with Chi
       expectedSends += Tuple2(funct_3_expected, funct_3_instrStr)
     }
 
-    (progLutCompute.toSeq, expectedSends.toSeq)
+    // We need to add one Nop after the final Send. The reason is unclear so far.
+    progCfuCompute += Instruction.Nop()
+
+    (progCfuCompute.toSeq, expectedSends.toSeq)
   }
 
   // Create programs.
-  val progLutConfig                   = createLutConfigProgram()
-  val (progLutCompute, expectedSends) = createLutComputeProgram()
-  val finalProgram                    = progLutConfig ++ progLutCompute
+  val progConfigCfu                   = createConfigCfuProgram()
+  val (progCfuCompute, expectedSends) = createCfuComputeProgram()
+  val finalProgram                    = progConfigCfu ++ progCfuCompute
   println(finalProgram.mkString("\n"))
   println(s"num instructions = ${finalProgram.size}")
 
@@ -306,7 +259,7 @@ class UniProcessorConfigureLutsTester extends AnyFlatSpec with Matchers with Chi
 
   behavior of "Processor"
 
-  it should "program the LUTs" in {
+  it should "configure the CFU" in {
 
     val equations             = all_functs.map(funct => funct.equation)
     val assembledInstructions = finalProgram.map(instr => Assembler.assemble(instr)(equations))

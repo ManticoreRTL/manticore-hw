@@ -40,6 +40,7 @@ class BlackBoxMemoryTester extends AnyFlatSpec with ChiselScalatestTester with M
         dut.io.web.poke(false.B)
         dut.io.addra.poke(ix.U)
         dut.clock.step()
+        println(s"[A] Expected = ${v}, received = ${dut.io.douta.peekInt()}")
         dut.io.douta.expect(v.U)
       }
 
@@ -67,6 +68,7 @@ class BlackBoxMemoryTester extends AnyFlatSpec with ChiselScalatestTester with M
         dut.io.addra.poke(address.U)
         dut.io.wea.poke(false.B)
         dut.clock.step()
+        println(s"[B] Expected = ${test_values(address)}, received = ${dut.io.douta.peekInt()}")
         dut.io.douta.expect(test_values(address).U)
       }
       dut.clock.step()
@@ -82,7 +84,8 @@ class BlackBoxMemoryTester extends AnyFlatSpec with ChiselScalatestTester with M
         initial_values.zipWithIndex.foreach{ case (v, ix) =>
           dut.io.wen.poke(false.B)
           dut.io.raddr.poke(ix.U)
-          dut.clock.step()
+          dut.clock.step(2) // read latency is 2 cycles
+          println(s"[C] Expected = ${v}, received = ${dut.io.dout.peekInt()}")
           dut.io.dout.expect(v.U)
         }
 
@@ -107,7 +110,8 @@ class BlackBoxMemoryTester extends AnyFlatSpec with ChiselScalatestTester with M
         for(address <- Range(0, test_size)) {
           dut.io.raddr.poke(address.U)
           dut.io.wen.poke(false.B)
-          dut.clock.step()
+          dut.clock.step(2) // read latency is 2 cycles
+          println(s"[D] Expected = ${test_values(address)}, received = ${dut.io.dout.peekInt()}")
           dut.io.dout.expect(test_values(address).U)
         }
 
@@ -118,7 +122,8 @@ class BlackBoxMemoryTester extends AnyFlatSpec with ChiselScalatestTester with M
           dut.io.wen.poke(true.B)
           dut.clock.step()
           dut.io.raddr.poke(address.U)
-          dut.clock.step()
+          dut.clock.step(2) // read latency is 2 cycles
+          println(s"[E] Expected = ${address}, received = ${dut.io.dout.peekInt()}")
           dut.io.dout.expect(address.U)
 
         }

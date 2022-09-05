@@ -26,12 +26,12 @@ class UniProcessorExecuteTester extends AnyFlatSpec with Matchers with ChiselSca
 
   val numTests = 200 // Set at will so long as num instructions < 4096
 
-  // Populate the processor's registers with random values. We reserve the entry at
-  // address numRegs-1 to store the result of the operation under test.
+  // Populate the processor's registers with random values.
   val initialRegs = ArrayBuffer.fill(ManticoreBaseISA.numRegs)(UIntWide(0, ManticoreBaseISA.DataBits))
-  Range(1, initialRegs.size).foreach { addr =>
+  Range(0, initialRegs.size).foreach { addr =>
     initialRegs(addr) = UIntWide(rdgen.nextInt(1 << ManticoreBaseISA.DataBits), ManticoreBaseISA.DataBits)
   }
+  val valueRegs = initialRegs.clone()
 
   def createProgram(): (
       Seq[Instruction.Instruction],
@@ -47,21 +47,21 @@ class UniProcessorExecuteTester extends AnyFlatSpec with Matchers with ChiselSca
     // We cannot read the contents of the register file, so we instead compute a result and
     // send it outside the processor. We check for the expected result at the output interface.
 
-    // We reserve the last register in the register file to hold the result of the operation under test.
-    val rd = R(ManticoreBaseISA.numRegs - 1)
+    // We use only a subset of registers so that we can test the data dependency.
+    val numUsedRegister = 20
     Range(0, numTests).foreach { _ =>
       // I omit SLTS as I can't figure out how to do the signed comparison using unsigned numbers.
       val functs = Array(ADD2, SUB2, MUL2, MUL2H, AND2, OR2, XOR2, SLL, SRL, SRA, SEQ, SLTU, MUX)
 
-      // We choose random source registers. Note that these are chosen to be different from
-      // the register that holds the output of the operation under test.
-      val rs1 = R(rdgen.between(0, ManticoreBaseISA.numRegs - 1))
-      val rs2 = R(rdgen.between(0, ManticoreBaseISA.numRegs - 1))
-      val rs3 = R(rdgen.between(0, ManticoreBaseISA.numRegs - 1))
+      // We choose random destination and source registers.
+      val rd  = R(rdgen.between(0, numUsedRegister - 1))
+      val rs1 = R(rdgen.between(0, numUsedRegister - 1))
+      val rs2 = R(rdgen.between(0, numUsedRegister - 1))
+      val rs3 = R(rdgen.between(0, numUsedRegister - 1))
 
-      val rs1_val = initialRegs(rs1.index)
-      val rs2_val = initialRegs(rs2.index)
-      val rs3_val = initialRegs(rs3.index)
+      val rs1_val = valueRegs(rs1.index)
+      val rs2_val = valueRegs(rs2.index)
+      val rs3_val = valueRegs(rs3.index)
 
       val shamnt = UIntWide.clipped(rs2_val.toBigInt, log2Ceil(ManticoreBaseISA.DataBits))
 
@@ -140,7 +140,7 @@ class UniProcessorExecuteTester extends AnyFlatSpec with Matchers with ChiselSca
 
       prog += instr
 
-      Range(0, 15).foreach { _ =>
+      Range(0, 10).foreach { _ =>
         prog += Instruction.Nop()
       }
 
@@ -149,7 +149,11 @@ class UniProcessorExecuteTester extends AnyFlatSpec with Matchers with ChiselSca
 
       val instrStr = s"${instr}, rs1 = ${rs1_val}, rs2 = ${rs2_val}, rs3 = ${rs3_val}"
       expectedSends += Tuple2(res_val, instrStr)
+      valueRegs(rd.index) = res_val
     }
+
+    // We need to add one Nop after the final Send. The reason is unclear so far.
+    prog += Instruction.Nop()
 
     (prog.toSeq, expectedSends.toSeq)
   }

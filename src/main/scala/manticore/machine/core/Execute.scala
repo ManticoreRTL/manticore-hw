@@ -145,8 +145,10 @@ class ExecuteComb(
     // chooses one line out of 32.
     // The input data (`lutdata_din`) fans out to all 16 RAMs, and only one of 16 RAMs has a 
     // positive `writeEnable` value.
-    custom_alu.io.config(i).writeEnable := RegNext((io.pipe_in.cust_ram_idx == i.asUInt).asBool)
-    custom_alu.io.config(i).loadData    := io.lutdata_din
+    custom_alu.io.config(i).writeEnable := RegNext(
+      ((io.pipe_in.cust_ram_idx === i.asUInt(config.LogCustomRams.W)) && io.pipe_in.opcode.config_cfu).asBool
+    )
+    custom_alu.io.config(i).loadData := io.lutdata_din
   }
   custom_alu.io.selector := RegNext(io.pipe_in.funct) // address inside a RAM
 

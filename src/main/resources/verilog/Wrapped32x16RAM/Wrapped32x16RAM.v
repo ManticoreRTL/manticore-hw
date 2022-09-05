@@ -16,7 +16,60 @@ module Wrapped32x16RAM
     output wire [15:0] dout
 );
 `ifdef VERILATOR 
-    reg [31:0] mem [15:0];
+    reg [15:0] mem [31:0];
+    // initialization vector used in src/test/scala/manticore/machine/pipeline/CustomFunctionTester.scala
+    initial begin 
+        mem[0] = 16'hcaca;
+        mem[1] = 16'hcaca;
+        mem[2] = 16'hcaca;
+        mem[3] = 16'hcaca;
+        mem[4] = 16'hcaca;
+        mem[5] = 16'hcaca;
+        mem[6] = 16'hcaca;
+        mem[7] = 16'hcaca;
+        mem[8] = 16'hcaca;
+        mem[9] = 16'hcaca;
+        mem[10] = 16'hcaca;
+        mem[11] = 16'hcaca;
+        mem[12] = 16'hcaca;
+        mem[13] = 16'hcaca;
+        mem[14] = 16'hcaca;
+        mem[15] = 16'hcaca;
+
+        mem[16] = 16'hacac;
+        mem[17] = 16'hacac;
+        mem[18] = 16'hacac;
+        mem[19] = 16'hacac;
+        mem[20] = 16'hacac;
+        mem[21] = 16'hacac;
+        mem[22] = 16'hacac;
+        mem[23] = 16'hacac;
+        mem[24] = 16'hacac;
+        mem[25] = 16'hacac;
+        mem[26] = 16'hacac;
+        mem[27] = 16'hacac;
+        mem[28] = 16'hacac;
+        mem[29] = 16'hacac;
+        mem[30] = 16'hacac;
+        mem[31] = 16'hacac;
+
+        // mem[16] = 16'hcaca;
+        // mem[17] = 16'hcaca;
+        // mem[18] = 16'hcaca;
+        // mem[19] = 16'hcaca;
+        // mem[20] = 16'hcaca;
+        // mem[21] = 16'hcaca;
+        // mem[22] = 16'hcaca;
+        // mem[23] = 16'hcaca;
+        // mem[24] = 16'hcaca;
+        // mem[25] = 16'hcaca;
+        // mem[26] = 16'hcaca;
+        // mem[27] = 16'hcaca;
+        // mem[28] = 16'hcaca;
+        // mem[29] = 16'hcaca;
+        // mem[30] = 16'hcaca;
+        // mem[31] = 16'hcaca;
+    end
 
     always @(posedge  clock) begin 
         if (we) begin 

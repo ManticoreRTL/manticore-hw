@@ -178,12 +178,12 @@ class CustomBit(
   ram.io.din   := io.config.loadData
   dout         := RegNext(ram.io.dout)
 
-  mid0 := Mux(rsx_1(0).asBool, Mux(rsx_1(1).asBool, dout(0), dout(1)), Mux(rsx_1(1).asBool, dout(2), dout(3)))
-  mid1 := Mux(rsx_1(0).asBool, Mux(rsx_1(1).asBool, dout(4), dout(5)), Mux(rsx_1(1).asBool, dout(6), dout(7)))
-  mid2 := Mux(rsx_1(0).asBool, Mux(rsx_1(1).asBool, dout(8), dout(9)), Mux(rsx_1(1).asBool, dout(10), dout(11)))
-  mid3 := Mux(rsx_1(0).asBool, Mux(rsx_1(1).asBool, dout(12), dout(13)), Mux(rsx_1(1).asBool, dout(14), dout(15)))
+  mid0 := Mux(rsx_1(1).asBool, Mux(rsx_1(0).asBool, dout(15), dout(14)), Mux(rsx_1(0).asBool, dout(13), dout(12)))
+  mid1 := Mux(rsx_1(1).asBool, Mux(rsx_1(0).asBool, dout(11), dout(10)), Mux(rsx_1(0).asBool, dout(9), dout(8)))
+  mid2 := Mux(rsx_1(1).asBool, Mux(rsx_1(0).asBool, dout(7), dout(6)), Mux(rsx_1(0).asBool, dout(5), dout(4)))
+  mid3 := Mux(rsx_1(1).asBool, Mux(rsx_1(0).asBool, dout(3), dout(2)), Mux(rsx_1(0).asBool, dout(1), dout(0)))
 
-  io.out := Mux(rsx_2(2).asBool, Mux(rsx_2(3).asBool, mid0, mid1), Mux(rsx_2(3).asBool, mid2, mid3))
+  io.out := Mux(rsx_2(3).asBool, Mux(rsx_2(2).asBool, mid0, mid1), Mux(rsx_2(2).asBool, mid2, mid3))
 }
 
 object CustomALUGen extends App {

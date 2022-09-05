@@ -59,7 +59,7 @@ class UniProcessorSliceTester extends AnyFlatSpec with Matchers with ChiselScala
 
       prog += instr
 
-      Range(0, 8).foreach { _ =>
+      Range(0, 10).foreach { _ =>
         prog += Instruction.Nop()
       }
 
@@ -70,6 +70,9 @@ class UniProcessorSliceTester extends AnyFlatSpec with Matchers with ChiselScala
       val expected = (rs_val >> offset).toBigInt & UIntWide.clipMask(length)
       expectedSends += Tuple2(UIntWide(expected, ManticoreBaseISA.DataBits), instrStr)
     }
+
+    // We need to add one Nop after the final Send. The reason is unclear so far.
+    prog += Instruction.Nop()
 
     (prog.toSeq, expectedSends.toSeq)
   }
