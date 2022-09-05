@@ -87,8 +87,8 @@ object ExecuteInterface {
 class ExecuteInterface(
     config: ISA
 ) extends Bundle {
-  val pipe_in = Input(new PipeIn(config))
-  val regs_in = Input(new ALUInput(config.DataBits))
+  val pipe_in    = Input(new PipeIn(config))
+  val regs_in    = Input(new ALUInput(config.DataBits))
   val carry_in   = Input(UInt(1.W))
   val pipe_out   = Output(new PipeOut(config))
   val debug_time = Input(UInt(64.W))
@@ -141,7 +141,7 @@ class ExecuteComb(
   custom_alu.io.rsx := Vec(
     io.regs_in.rs1,
     io.regs_in.rs2,
-    io.regs_in.rs3(config.DataBits - 1, 0),
+    io.regs_in.rs3,
     io.regs_in.rs4
   )
   for (i <- Range(0, config.DataBits)) {
@@ -213,7 +213,7 @@ class ExecuteComb(
   standard_alu.io.funct := RegNext(alu_funct_in)
 
   val carry_en = Wire(UInt(1.W))
-  carry_en := (io.pipe_in.opcode.arith & (io.pipe_in.funct) === ISA.Functs.ADDC.id.U)
+  carry_en := io.pipe_in.opcode.arith & (io.pipe_in.funct) === ISA.Functs.ADDC.id.U
 
   standard_alu.io.in.select := io.regs_in.rs3(0)
   standard_alu.io.in.carry  := io.carry_in & RegNext(carry_en)
@@ -251,12 +251,7 @@ class ExecuteComb(
   } otherwise {
     io.carry_out := RegNext(standard_alu.io.carry_out)
   }
-  io.carry_wen :=
-    RegNext5(
-      (io.pipe_in.opcode.arith & (io.pipe_in.funct) === ISA.Functs.ADDC.id.U) | (
-        io.pipe_in.opcode.set_carry
-      )
-    )
+  io.carry_wen := RegNext5(carry_en | io.pipe_in.opcode.set_carry)
 
   // enable/disable predicate
   when(RegNext(io.pipe_in.opcode.predicate)) {
@@ -268,7 +263,7 @@ class ExecuteComb(
   if (config.WithGlobalMemory) {
     val gload_next  = RegNext(io.pipe_in.opcode.gload)
     val gstore_next = RegNext(io.pipe_in.opcode.gstore)
-    gmem_if_reg.address := io.regs_in.rs2 ## io.regs_in.rs3(config.DataBits - 1, 0) ## io.regs_in.rs4
+    gmem_if_reg.address := io.regs_in.rs2 ## io.regs_in.rs3 ## io.regs_in.rs4
     when(gload_next) {
       gmem_if_reg.command := CacheCommand.Read
     }.elsewhen(gstore_next) {

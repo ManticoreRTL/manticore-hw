@@ -54,7 +54,7 @@ class RegisterFileInterface(config: ISA) extends Bundle {
     val en = Input(Bool())
 
     def <->(mem_if: GenericMemoryInterface): Unit = {
-      if (mem_if.DATA_WIDTH == config.DataBits) {
+      if (mem_if.DATA_WIDTH > config.DataBits) {
         // both write interface and actual register have DataBits + 1 width
         mem_if.addrb := addr
         mem_if.dinb := din
@@ -67,7 +67,7 @@ class RegisterFileInterface(config: ISA) extends Bundle {
       }
     }
     def <->(mem_if: SimpleDualPortMemoryInterface): Unit = {
-      if (mem_if.DATA_WIDTH == config.DataBits) {
+      if (mem_if.DATA_WIDTH > config.DataBits) {
         // both write interface and actual register have DataBits + 1 width
         mem_if.waddr := addr
         mem_if.din := din

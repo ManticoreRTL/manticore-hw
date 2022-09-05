@@ -84,9 +84,11 @@ module AluDsp48 (
 
   reg [16 - 1 : 0] res_reg1, res_reg2;
   reg [32 - 1 : 0] prod_reg1, prod_reg2, prod_reg3;
+  reg carry_reg1, carry_reg2;
   wire [16 - 1 : 0] result;
   wire [32 - 1 : 0] result_mul;
   wire signed [16 - 1 : 0] in0s, in1s;
+  wire [16 : 0] sum;
 
   assign out = res_reg2;
   assign mul_out = prod_reg3;
@@ -102,10 +104,15 @@ module AluDsp48 (
     (setinst == 2'b11) ? {15'b0, in0s < in1s} :
     in0 - in1; // opmode == 9'b000110011 && alumode == 4'b0011
   assign result_mul = in1 * in2;
+  assign sum = in0 + in1 + carryin;
+  assign carryout = carry_reg2;
   always @(posedge clock) begin
     // Extend to 32 bits to ensure full-precision multiplication result.
     res_reg1 <= result;
     res_reg2 <= res_reg1;
+
+    carry_reg1 <= sum[16];
+    carry_reg2 <= carry_reg1;
 
     prod_reg1 <= result_mul;
     prod_reg2 <= prod_reg1;

@@ -363,7 +363,7 @@ class Processor(
     decode_stage.io.pipe_out.rs4,
     forwarding_signals
   )
-  execute_stage.io.carry_in := register_file.io.rs3.dout(config.DataBits)
+  execute_stage.io.carry_in := RegNext(register_file.io.rs3.dout(config.DataBits))
   execute_stage.io.valid_in := decode_stage.io.pipe_out.opcode.mul || decode_stage.io.pipe_out.opcode.mulh
   register_file.io.rs1.addr := decode_stage.io.pipe_out.rs1
   register_file.io.rs2.addr := decode_stage.io.pipe_out.rs2
@@ -375,7 +375,10 @@ class Processor(
 
   register_file.io.w.addr := memory_stage.io.pipe_out.rd
   when(memory_stage.io.valid_out) {
-    register_file.io.w.din := Cat(0.U(1.W), Mux(memory_stage.io.pipe_out.mulh, multiplier_res_high, multiplier_res_low))
+    register_file.io.w.din := Cat(
+      0.U(1.W),
+      Mux(memory_stage.io.pipe_out.mulh, multiplier_res_high, multiplier_res_low)
+    )
   } otherwise {
     register_file.io.w.din := Cat(
       RegNext3(execute_stage.io.carry_wen & execute_stage.io.carry_out),
