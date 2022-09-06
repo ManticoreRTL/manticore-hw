@@ -33,12 +33,13 @@ class UniProcessorSimpleCounterTester extends AnyFlatSpec with Matchers with Chi
     Nop(),
     Nop(),
     Nop(),
+    Nop(),
+    Send(R(2), R(2), 2, 2),
     Send(R(3), R(3), 3, 3),
     Send(R(4), R(4), 4, 4),
     Send(R(5), R(5), 5, 5),
     Send(R(6), R(6), 6, 6),
-    Send(R(2), R(2), 2, 2)
-  )
+  ) ++ Seq.fill(20) { Nop() }
 
   // create random LUT equations
   val equations: Seq[Seq[BigInt]] = Seq.fill(32)(Seq.fill(16)(BigInt(rdgen.nextInt(1 << 16))))
@@ -96,6 +97,8 @@ class UniProcessorSimpleCounterTester extends AnyFlatSpec with Matchers with Chi
             val next =
               if (dut.io.packet_out.valid.peek().litToBoolean) {
                 if (dut.io.packet_out.address.peek().litValue.toInt == 2) {
+                  // println(counter)
+                  // println(s"Got ${dut.io.packet_out.data.peekInt()} expected ${counter}")
                   dut.io.packet_out.data.expect(counter.U)
                   dut.io.packet_out.xHops.expect(2.U)
                   dut.io.packet_out.yHops.expect(2.U)
@@ -121,6 +124,7 @@ class UniProcessorSimpleCounterTester extends AnyFlatSpec with Matchers with Chi
             }
           }
         }
+        println(s"Starting vcycle $counter")
         waitForStart()
         execute(Range(3, 7), Nil)
       }
