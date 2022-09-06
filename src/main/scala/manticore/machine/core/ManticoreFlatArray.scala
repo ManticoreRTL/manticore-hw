@@ -102,7 +102,7 @@ class ComputeArray(
     debug_enable: Boolean = false,
     enable_custom_alu: Boolean = true,
     prefix_path: String = "./",
-    n_hop: Int = 2
+    n_hop: Int = 1
 ) extends Module {
 
   val io = IO(new Bundle {
@@ -240,7 +240,7 @@ class ManticoreFlatArray(
     debug_enable: Boolean = false,
     enable_custom_alu: Boolean = true,
     prefix_path: String = "./",
-    n_hop: Int = 2
+    n_hop: Int = 1
 ) extends RawModule {
 
   val io = IO(new ManticoreFlatArrayInterface)

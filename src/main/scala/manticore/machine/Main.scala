@@ -18,7 +18,7 @@ object Main {
       platform: String = "",
       list_platforms: Boolean = false,
       freq: Double = 200.0,
-      n_hop: Int = 2
+      n_hop: Int = 1
   )
   def parseArgs(args: Seq[String]): CliConfig = {
     val project_version = getClass.getPackage.getImplementationVersion

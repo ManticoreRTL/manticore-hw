@@ -65,7 +65,7 @@ class ManticoreFlatKernel(
     enable_custom_alu: Boolean = true,
     debug_enable: Boolean = false,
     freqMhz: Double = 200.0,
-    n_hop: Int = 2
+    n_hop: Int = 1
     // m_axi_path: Seq[String] =
     //   Seq() // path to m_axi implementation if exits, uses simulation models otherwise
 ) extends RawModule {
