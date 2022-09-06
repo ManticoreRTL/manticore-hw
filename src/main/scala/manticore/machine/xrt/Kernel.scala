@@ -326,17 +326,15 @@ object PackageKernel {
       fp
     }
 
-
-
     def writeXdc(fname: String)(content: => String) = {
-      val fp = verilog_path.resolve(fname)
+      val fp     = verilog_path.resolve(fname)
       val writer = Files.newBufferedWriter(fp)
       writer.write(content)
       writer.close()
     }
 
     writeXdc("false_path.xdc") {
-       s"""|
+      s"""|
            |set_false_path -to [get_pins clock_distribution/rst_sync1_reg/CLR]
            |set_false_path -to [get_pins clock_distribution/rst_sync2_reg/CLR]
            |set_false_path -to [get_pins clock_distribution/rst_sync3_reg/CLR]
@@ -415,8 +413,10 @@ object BuildXclbin {
       target: String,
       platform: String,
       freqMhz: Double,
-      dimx: Int, dimy: Int,
-      top_name: String = "ManticoreKernel"
+      dimx: Int,
+      dimy: Int,
+      top_name: String = "ManticoreKernel",
+      ext_pblock: Option[File] = None
   ) = {
 
     import scala.sys.process._
@@ -475,12 +475,18 @@ object BuildXclbin {
       writer.close()
       fp
     }
-    val pblocks =  if (dimx * dimy > 160) {
-      createPblocksTcl("pblocks_large.xdc")
-    } else {
-      createPblocksTcl("pblocks_small.xdc")
+
+    val pblocks = ext_pblock match {
+      case None =>
+        if (dimx * dimy > 160) {
+          createPblocksTcl("pblocks_large.xdc")
+        } else {
+          createPblocksTcl("pblocks_small.xdc")
+        }
+      case Some(ext_file) => ext_file.toPath()
     }
-    val cpus = getSystemInfo() max 12
+
+    val cpus = getSystemInfo() min 12
     val command =
       s"v++ --link -g -t ${target} --platform ${platform} --save-temps " +
         s"--optimize 3 " +
@@ -522,7 +528,8 @@ object ManticoreKernelGenerator {
       dimy: Int = 8,
       enable_custom_alu: Boolean = true,
       freqMhz: Double = 200.0,
-      n_hop: Int = 2
+      n_hop: Int = 2,
+      pblock: Option[File] = None
   ) = {
 
     val out_dir = Paths.get(target_dir)
@@ -576,7 +583,8 @@ object ManticoreKernelGenerator {
       freqMhz = freqMhz,
       platform = platform,
       dimx = dimx,
-      dimy = dimy
+      dimy = dimy,
+      ext_pblock = pblock
     )
 
   }

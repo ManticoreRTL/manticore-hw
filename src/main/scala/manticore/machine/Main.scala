@@ -6,6 +6,8 @@ import manticore.machine.xrt.ManticoreKernelGenerator
 import scopt.OParser
 
 import java.io.File
+import manticore.machine.xrt.PhysicalPlacement
+import java.io.PrintWriter
 
 object Main {
 
@@ -18,7 +20,11 @@ object Main {
       platform: String = "",
       list_platforms: Boolean = false,
       freq: Double = 200.0,
-      n_hop: Int = 1
+      n_hop: Int = 1,
+      do_placement: Boolean = false,
+      pblock: Option[File] = None,
+      anchor: (Int, Int) = (2, 7),
+      max_cores_per_pblock: Int = 5
   )
   def parseArgs(args: Seq[String]): CliConfig = {
     val project_version = getClass.getPackage.getImplementationVersion
@@ -45,7 +51,7 @@ object Main {
           .text("Enable custom ALUs in cores"),
         opt[String]('t', "target")
           .action { case (t, c) => c.copy(target = t) }
-          .required()
+          // .required()
           .text("build target (hw, hw_emu, sim)"),
         opt[String]('p', "platform")
           .action { case (p, c) => c.copy(platform = p) }
@@ -63,10 +69,36 @@ object Main {
         opt[Unit]("list")
           .action { case (b, c) => c.copy(list_platforms = true) }
           .text("print a list of available platforms"),
+        opt[File]('P', "pblock")
+          .action { case (f, c) => c.copy(pblock = Some(f)) }
+          .text("pblock constraint file (advanced)"),
+        cmd("placement")
+          .action { case (_, c) => c.copy(do_placement = true) }
+          .text("generate a pblock constraint file")
+          .children(
+            opt[String]('a', "anchor")
+              .action { case (a, c) =>
+                val an = raw"X(\d+)Y(\d+)".r
+                val pan = a match {
+                  case an(x, y) => (x.toInt, y.toInt)
+                }
+                c.copy(anchor = pan)
+              }
+              .valueName("XnYm")
+              .required()
+              .text("pblock anchor point which contains the privileged core."),
+            opt[Int]('m', "max-cores")
+              .action { case (n, c) => c.copy(max_cores_per_pblock = n) }
+              .text("maximum number of cores allowed in a pblock")
+          ),
         checkConfig { c =>
-          c.target match {
-            case _ @("hw" | "hw_emu" | "sim") => success
-            case t @ _                        => failure(s"invalid target ${t}")
+          if (!c.do_placement) {
+            c.target match {
+              case _ @("hw" | "hw_emu" | "sim") => success
+              case t @ _                        => failure(s"invalid target ${t}")
+            }
+          } else {
+            success
           }
         },
         help('h', "help").text("print usage text and exit")
@@ -97,44 +129,53 @@ object Main {
       listPlatforms()
       sys.exit(0)
     }
-    cfg.target match {
+    if (cfg.do_placement) {
+      val placer = new PhysicalPlacement(cfg.dimx, cfg.dimy, cfg.anchor, cfg.max_cores_per_pblock)
+      val writer = new PrintWriter(cfg.output)
+      writer.write(placer.pblockConstraint)
+      writer.close()
+    } else {
 
-      case t @ ("hw" | "hw_emu") =>
-        if (cfg.platform.isEmpty) {
-          sys.error("the selected target requires a platform.")
-        }
+      cfg.target match {
 
-        ManticoreKernelGenerator.platformDevice.get(cfg.platform) match {
-          case None => sys.error(s"Unknown platform ${cfg.platform}")
-          case _    => // ok
-        }
-        Console.println(
-          s"Starting code generation for ${cfg.platform}.${cfg.target}"
-        )
-        ManticoreKernelGenerator(
-          target_dir = cfg.output.toPath.toAbsolutePath.toString,
-          platform = cfg.platform,
-          dimx = cfg.dimx,
-          dimy = cfg.dimy,
-          target = t,
-          enable_custom_alu = cfg.enable_custom_alu,
-          freqMhz = cfg.freq,
-          n_hop = cfg.n_hop
-        )
+        case t @ ("hw" | "hw_emu") =>
+          if (cfg.platform.isEmpty) {
+            sys.error("the selected target requires a platform.")
+          }
 
-      case "sim" =>
-        new ChiselStage().emitVerilog(
-          new ManticoreFlatSimKernel(
-            DimX = cfg.dimx,
-            DimY = cfg.dimy,
-            debug_enable = true,
-            enable_custom_alu = cfg.enable_custom_alu
-          ),
-          Array("--target-dir", cfg.output.toPath.toString)
-        )
-      case _ =>
-        sys.error("Unknown platform!")
+          ManticoreKernelGenerator.platformDevice.get(cfg.platform) match {
+            case None => sys.error(s"Unknown platform ${cfg.platform}")
+            case _    => // ok
+          }
+          Console.println(
+            s"Starting code generation for ${cfg.platform}.${cfg.target}"
+          )
+          ManticoreKernelGenerator(
+            target_dir = cfg.output.toPath.toAbsolutePath.toString,
+            platform = cfg.platform,
+            dimx = cfg.dimx,
+            dimy = cfg.dimy,
+            target = t,
+            enable_custom_alu = cfg.enable_custom_alu,
+            freqMhz = cfg.freq,
+            n_hop = cfg.n_hop,
+            pblock = cfg.pblock
+          )
 
+        case "sim" =>
+          new ChiselStage().emitVerilog(
+            new ManticoreFlatSimKernel(
+              DimX = cfg.dimx,
+              DimY = cfg.dimy,
+              debug_enable = true,
+              enable_custom_alu = cfg.enable_custom_alu
+            ),
+            Array("--target-dir", cfg.output.toPath.toString)
+          )
+        case _ =>
+          sys.error("Unknown platform!")
+
+      }
     }
 
   }
