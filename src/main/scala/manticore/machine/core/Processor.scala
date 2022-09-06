@@ -129,7 +129,8 @@ class Processor(
     new SimpleDualPortMemory(
       ADDRESS_WIDTH = 14,
       DATA_WIDTH = config.DataBits,
-      STYLE = MemStyle.URAMReal
+      STYLE = MemStyle.URAMReal,
+      INIT = initial_array
     )
   )
 
