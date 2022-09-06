@@ -6,7 +6,6 @@ import chisel3.stage.ChiselStage
 import manticore.machine.ISA
 import manticore.machine.ManticoreBaseISA
 import manticore.machine.ManticoreFullISA
-import manticore.machine.core.alu.Multiplier
 import manticore.machine.memory.CacheConfig
 import manticore.machine.memory.CacheFrontInterface
 import manticore.machine.memory.MemStyle
@@ -387,12 +386,6 @@ class Processor(
     )
   }
   register_file.io.w.en := memory_stage.io.pipe_out.write_back
-
-  // carry_register_file.io.raddr := decode_stage.io.pipe_out.rs3
-  // execute_stage.io.carry_in    := carry_register_file.io.dout
-  // carry_register_file.io.wen   := execute_stage.io.carry_wen
-  // carry_register_file.io.waddr := execute_stage.io.carry_rd
-  // carry_register_file.io.din   := execute_stage.io.carry_din
 
   lut_load_regs.io.din         := decode_stage.io.pipe_out.immediate
   lut_load_regs.io.wen         := decode_stage.io.pipe_out.opcode.config_cfu

@@ -93,7 +93,6 @@ class ExecuteInterface(
   val pipe_out   = Output(new PipeOut(config))
   val debug_time = Input(UInt(64.W))
 
-  // val carry_rd  = Output(UInt(log2Ceil(config.CarryCount).W))
   val carry_wen = Output(Bool())
   val carry_out = Output(UInt(1.W))
 
@@ -239,13 +238,6 @@ class ExecuteComb(
   io.pipe_out.rd        := RegNext5(io.pipe_in.rd)
   io.pipe_out.immediate := RegNext5(io.pipe_in.immediate)
 
-  // // Need to check the num of regs for carry outputs
-  // when(RegNext5(io.pipe_in.opcode.set_carry)) {
-  //   io.carry_rd := RegNext5(io.pipe_in.rd)
-  // } otherwise {
-  //   // notice that rs4 needs to be registered before given to the output pipe
-  //   io.carry_rd := RegNext5(io.pipe_in.rs4)
-  // }
   when(RegNext5(io.pipe_in.opcode.set_carry)) {
     io.carry_out := RegNext5(io.pipe_in.immediate(0))
   } otherwise {
@@ -295,7 +287,7 @@ class ExecuteComb(
         io.pipe_in.opcode.send.toUInt +
         io.pipe_in.opcode.set.toUInt +
         io.pipe_in.opcode.config_cfu.toUInt
-    // io.pipe_in.opcode.configure_luts(0) // This is a replicated signal, so just 1 of them suffices.
+    // This is a replicated signal, so just 1 of them suffices.
 
     when(num_decoded > 1.U) {
       dprintf("\tERROR multiple decoded operations (%d)!\n", num_decoded)

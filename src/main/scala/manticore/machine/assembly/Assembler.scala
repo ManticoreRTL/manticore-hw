@@ -67,23 +67,12 @@ object Assembler {
       case ConfigCfu(ramIdx, functIdx, equation) =>
         val inst = BinaryInstructionBuilder() ++
           (ManticoreBaseISA.ConfigCfu.value, ManticoreBaseISA.OpcodeBits) ++
-          (0, ManticoreBaseISA.IdBits - ManticoreBaseISA.LogCustomRams) ++ 
+          (0, ManticoreBaseISA.IdBits - ManticoreBaseISA.LogCustomRams) ++
           (ramIdx, ManticoreBaseISA.LogCustomRams) ++
           (functIdx, ManticoreBaseISA.FunctBits) ++
           (0, 4 * ManticoreBaseISA.IdBits - ManticoreBaseISA.DataBits) ++
           (equation, ManticoreBaseISA.DataBits)
         inst.build
-
-      // case ConfigureLuts(rs1, rs2, rs3, rs4) =>
-      //   val inst = BinaryInstructionBuilder() ++
-      //     (ManticoreBaseISA.ConfigureLuts.value, ManticoreBaseISA.OpcodeBits) ++
-      //     (0, ManticoreBaseISA.IdBits) ++
-      //     (0, ManticoreBaseISA.FunctBits) ++
-      //     (rs1.index, ManticoreBaseISA.IdBits) ++
-      //     (rs2.index, ManticoreBaseISA.IdBits) ++
-      //     (rs3.index, ManticoreBaseISA.IdBits) ++
-      //     (rs4.index, ManticoreBaseISA.IdBits)
-      //   inst.build
 
       case Slice(rd, rs, offset, length) =>
         // We compute the slice mask at compile time and embed it in the
@@ -128,7 +117,7 @@ object Assembler {
         arithmetic(ISA.Functs.SRA)(rd, rs1, rs2)
       case Mux2(rd, tval, fval, sel) =>
         arithmetic(ISA.Functs.MUX)(rd, tval, fval, sel)
-      case Addc(rd, rs1, rs2, cin) => 
+      case Addc(rd, rs1, rs2, cin) =>
         arithmetic(ISA.Functs.ADDC)(rd, rs1, rs2, cin)
       case LocalLoad(rd, base, offset) =>
         val inst: BinaryInstructionBuilder = BinaryInstructionBuilder() ++

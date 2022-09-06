@@ -37,7 +37,7 @@ class UniProcessorLocalMemoryTester extends AnyFlatSpec with Matchers with Chise
   val initialRegs = ArrayBuffer.fill(ManticoreBaseISA.numRegs)(UIntWide(0, ManticoreBaseISA.DataBits))
   // initialRegs(0) = UIntWide(rdgen.nextInt(1 << ManticoreBaseISA.IdBits), ManticoreBaseISA.DataBits) // base
   initialRegs(0) = UIntWide(0, ManticoreBaseISA.DataBits) // base
-  initialRegs(1) = UIntWide(1, ManticoreBaseISA.DataBits)                                           // predicate
+  initialRegs(1) = UIntWide(1, ManticoreBaseISA.DataBits) // predicate
   Range(2, initialRegs.size).foreach { i =>
     initialRegs(i) = UIntWide(rdgen.nextInt(1 << ManticoreBaseISA.DataBits), ManticoreBaseISA.DataBits)
   }
