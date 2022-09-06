@@ -13,6 +13,7 @@ import manticore.machine.ISA
 import manticore.machine.ManticoreBaseISA
 import manticore.machine.ManticoreFullISA
 import manticore.machine.core.BareNoCBundle
+import manticore.machine.core.ClockDistribution
 import manticore.machine.core.Processor
 import manticore.machine.core.ProcessorInterface
 import manticore.machine.memory.CacheBackInterface
@@ -25,7 +26,6 @@ import java.io.PrintWriter
 import java.nio.file.Files
 import java.nio.file.Path
 import scala.annotation.tailrec
-import manticore.machine.core.ClockDistribution
 
 object UniProcessorTestUtils {
 
@@ -33,7 +33,7 @@ object UniProcessorTestUtils {
     Files.createDirectories(filepath.getParent)
     val fw = new PrintWriter(filepath.toFile)
     data.foreach { v =>
-      fw.println(s"%016d".format(v.toBinaryString.toLong))
+      fw.println(s"%017d".format(v.toBinaryString.toLong))
     }
     fw.close()
     filepath.toString

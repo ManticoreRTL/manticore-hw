@@ -93,9 +93,9 @@ class ExecuteInterface(
   val pipe_out   = Output(new PipeOut(config))
   val debug_time = Input(UInt(64.W))
 
-  val carry_rd  = Output(UInt(log2Ceil(config.CarryCount).W))
+  // val carry_rd  = Output(UInt(log2Ceil(config.CarryCount).W))
   val carry_wen = Output(Bool())
-  val carry_din = Output(UInt(1.W))
+  val carry_out = Output(UInt(1.W))
 
   val lutdata_din = Input(UInt(config.DataBits.W))
 
@@ -138,12 +138,17 @@ class ExecuteComb(
   val custom_alu = Module(
     new CustomAlu(config.DataBits, config.FunctBits, config.LutArity, equations, custom_alu_enable)
   )
-  custom_alu.io.rsx := Vec(io.regs_in.rs1, io.regs_in.rs2, io.regs_in.rs3, io.regs_in.rs4)
+  custom_alu.io.rsx := Vec(
+    io.regs_in.rs1,
+    io.regs_in.rs2,
+    io.regs_in.rs3,
+    io.regs_in.rs4
+  )
   for (i <- Range(0, config.DataBits)) {
     // Only one line (16 bits) is written at a time, out of 16 RAMs with 32 lines each.
-    // The `cust_ram_idx` field (4 bits) chooses one RAM out of 16, and the `funct` field (5 bits) 
+    // The `cust_ram_idx` field (4 bits) chooses one RAM out of 16, and the `funct` field (5 bits)
     // chooses one line out of 32.
-    // The input data (`lutdata_din`) fans out to all 16 RAMs, and only one of 16 RAMs has a 
+    // The input data (`lutdata_din`) fans out to all 16 RAMs, and only one of 16 RAMs has a
     // positive `writeEnable` value.
     custom_alu.io.config(i).writeEnable := RegNext(
       ((io.pipe_in.cust_ram_idx === i.asUInt(config.LogCustomRams.W)) && io.pipe_in.opcode.config_cfu).asBool
@@ -207,8 +212,11 @@ class ExecuteComb(
   }
   standard_alu.io.funct := RegNext(alu_funct_in)
 
-  standard_alu.io.in.select := io.regs_in.rs3
-  standard_alu.io.in.carry  := io.carry_in
+  val carry_en = Wire(UInt(1.W))
+  carry_en := io.pipe_in.opcode.arith & (io.pipe_in.funct) === ISA.Functs.ADDC.id.U
+
+  standard_alu.io.in.select := io.regs_in.rs3(0)
+  standard_alu.io.in.carry  := io.carry_in & RegNext(carry_en)
 
   when(RegNext(io.pipe_in.opcode.set || io.pipe_in.opcode.send)) {
     standard_alu.io.in.x := 0.U
@@ -231,24 +239,19 @@ class ExecuteComb(
   io.pipe_out.rd        := RegNext5(io.pipe_in.rd)
   io.pipe_out.immediate := RegNext5(io.pipe_in.immediate)
 
-  // Need to check the num of regs for carry outputs
+  // // Need to check the num of regs for carry outputs
+  // when(RegNext5(io.pipe_in.opcode.set_carry)) {
+  //   io.carry_rd := RegNext5(io.pipe_in.rd)
+  // } otherwise {
+  //   // notice that rs4 needs to be registered before given to the output pipe
+  //   io.carry_rd := RegNext5(io.pipe_in.rs4)
+  // }
   when(RegNext5(io.pipe_in.opcode.set_carry)) {
-    io.carry_rd := RegNext5(io.pipe_in.rd)
+    io.carry_out := RegNext5(io.pipe_in.immediate(0))
   } otherwise {
-    // notice that rs4 needs to be registered before given to the output pipe
-    io.carry_rd := RegNext5(io.pipe_in.rs4)
+    io.carry_out := RegNext(standard_alu.io.carry_out)
   }
-  when(RegNext5(io.pipe_in.opcode.set_carry)) {
-    io.carry_din := RegNext5(io.pipe_in.immediate(0))
-  } otherwise {
-    io.carry_din := RegNext(standard_alu.io.carry_out)
-  }
-  io.carry_wen :=
-    RegNext5(
-      (io.pipe_in.opcode.arith & (io.pipe_in.funct) === ISA.Functs.ADDC.id.U) | (
-        io.pipe_in.opcode.set_carry
-      )
-    )
+  io.carry_wen := RegNext5(carry_en | io.pipe_in.opcode.set_carry)
 
   // enable/disable predicate
   when(RegNext(io.pipe_in.opcode.predicate)) {
@@ -292,7 +295,7 @@ class ExecuteComb(
         io.pipe_in.opcode.send.toUInt +
         io.pipe_in.opcode.set.toUInt +
         io.pipe_in.opcode.config_cfu.toUInt
-        // io.pipe_in.opcode.configure_luts(0) // This is a replicated signal, so just 1 of them suffices.
+    // io.pipe_in.opcode.configure_luts(0) // This is a replicated signal, so just 1 of them suffices.
 
     when(num_decoded > 1.U) {
       dprintf("\tERROR multiple decoded operations (%d)!\n", num_decoded)

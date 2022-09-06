@@ -54,6 +54,10 @@ class Processor(
 ) extends Module {
   val io: ProcessorInterface = IO(new ProcessorInterface(config, DimX, DimY))
 
+  def RegNext3[T <: Data](src: T): T = {
+    RegNext(RegNext(RegNext(src)))
+  }
+
   object ProcessorPhase extends ChiselEnum {
     val DynamicReceiveProgramLength, // wait for the first message that indicates the length of the program
     DynamicReceiveInstruction,       // wait for a dynamic number of cycles to receive all instructions
@@ -116,8 +120,8 @@ class Processor(
 
   val memory_stage = Module(new MemoryAccess(config, DimX, DimY))
 
-  val register_file       = Module(new RegisterFile(config, initial_registers, enable_custom_alu))
-  val carry_register_file = Module(new CarryRegisterFile(config))
+  val register_file = Module(new RegisterFile(config, initial_registers, enable_custom_alu))
+  // val carry_register_file = Module(new CarryRegisterFile(config))
 
   val lut_load_regs = Module(new LutLoadDataRegisterFile(config, enable_custom_alu))
 
@@ -125,7 +129,7 @@ class Processor(
     new SimpleDualPortMemory(
       ADDRESS_WIDTH = 14,
       DATA_WIDTH = config.DataBits,
-      STYLE = MemStyle.URAMReal,
+      STYLE = MemStyle.URAMReal
     )
   )
 
@@ -350,7 +354,7 @@ class Processor(
     forwarding_signals
   )
   execute_stage.io.regs_in.rs3 := ForwardPath(
-    register_file.io.rs3.dout,
+    register_file.io.rs3.dout(config.DataBits - 1, 0),
     decode_stage.io.pipe_out.rs3,
     forwarding_signals
   )
@@ -359,6 +363,7 @@ class Processor(
     decode_stage.io.pipe_out.rs4,
     forwarding_signals
   )
+  execute_stage.io.carry_in := RegNext(register_file.io.rs3.dout(config.DataBits))
   execute_stage.io.valid_in := decode_stage.io.pipe_out.opcode.mul || decode_stage.io.pipe_out.opcode.mulh
   register_file.io.rs1.addr := decode_stage.io.pipe_out.rs1
   register_file.io.rs2.addr := decode_stage.io.pipe_out.rs2
@@ -370,17 +375,23 @@ class Processor(
 
   register_file.io.w.addr := memory_stage.io.pipe_out.rd
   when(memory_stage.io.valid_out) {
-    register_file.io.w.din := Mux(memory_stage.io.pipe_out.mulh, multiplier_res_high, multiplier_res_low)
+    register_file.io.w.din := Cat(
+      0.U(1.W),
+      Mux(memory_stage.io.pipe_out.mulh, multiplier_res_high, multiplier_res_low)
+    )
   } otherwise {
-    register_file.io.w.din := memory_stage.io.pipe_out.result
+    register_file.io.w.din := Cat(
+      RegNext3(execute_stage.io.carry_wen & execute_stage.io.carry_out),
+      memory_stage.io.pipe_out.result
+    )
   }
   register_file.io.w.en := memory_stage.io.pipe_out.write_back
 
-  carry_register_file.io.raddr := decode_stage.io.pipe_out.rs3
-  execute_stage.io.carry_in    := carry_register_file.io.dout
-  carry_register_file.io.wen   := execute_stage.io.carry_wen
-  carry_register_file.io.waddr := execute_stage.io.carry_rd
-  carry_register_file.io.din   := execute_stage.io.carry_din
+  // carry_register_file.io.raddr := decode_stage.io.pipe_out.rs3
+  // execute_stage.io.carry_in    := carry_register_file.io.dout
+  // carry_register_file.io.wen   := execute_stage.io.carry_wen
+  // carry_register_file.io.waddr := execute_stage.io.carry_rd
+  // carry_register_file.io.din   := execute_stage.io.carry_din
 
   lut_load_regs.io.din         := decode_stage.io.pipe_out.immediate
   lut_load_regs.io.wen         := decode_stage.io.pipe_out.opcode.config_cfu
@@ -448,7 +459,7 @@ object ProcessorEmitter extends App {
       config = ManticoreFullISA,
       equations = equations,
       DimX = 16,
-      DimY = 16, 
+      DimY = 16,
       enable_custom_alu = true
     )
 

@@ -134,6 +134,15 @@ object Instruction {
     override def toString: String = s"MUX\t${rd}, ${fval}, ${tval}, ${sel}"
   }
 
+  case class Addc(
+    rd: Register, 
+    rs1: Register,
+    rs2: Register,
+    cin: Register 
+  ) extends ArithmeticInstruction {
+    override def toString: String = s"ADDC\t${rd}, ${rs1}, ${rs2}, ${cin}"
+  }
+
   case class ShiftLeftLogic(
     rd: Register,
     rs1: Register,
