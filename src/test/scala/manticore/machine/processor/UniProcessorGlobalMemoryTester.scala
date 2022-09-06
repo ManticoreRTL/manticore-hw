@@ -5,8 +5,10 @@ import chiseltest._
 import manticore.machine.ISA
 import manticore.machine.ManticoreBaseISA
 import manticore.machine.ManticoreFullISA
+import manticore.machine.UIntWide
 import manticore.machine.assembly
 import manticore.machine.assembly.Assembler
+import manticore.machine.assembly.Instruction
 import manticore.machine.assembly.Instruction.Add2
 import manticore.machine.assembly.Instruction.GlobalLoad
 import manticore.machine.assembly.Instruction.GlobalStore
@@ -24,60 +26,79 @@ import org.scalatest.matchers.should.Matchers
 import java.io.File
 import java.nio.file.Paths
 import scala.annotation.tailrec
-
+import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.Map
 
 
 
 class UniProcessorGlobalMemoryTester extends AnyFlatSpec with Matchers with ChiselScalatestTester {
 
   val rdgen = new scala.util.Random(0)
+  val numTests = 10
 
-  val base_addr = rdgen.nextLong() % (1 << (3 * ManticoreBaseISA.IdBits * 3))
-  val addr_lo_init = rdgen.nextInt((1 << ManticoreBaseISA.DataBits) - 1024)
-  val addr_mid_init = rdgen.nextInt(1 << ManticoreBaseISA.DataBits)
-  val addr_hi_init = rdgen.nextInt(1 << ManticoreBaseISA.DataBits)
-  val addr_lo = R(2)
-  val addr_mi = R(0)
-  val addr_hi = R(0)
-  val const_1 = R(1)
-  val const_0 = R(2)
-  val val_reg = R(3) // initially zero
-  val program = Array[Instruction](
-    GlobalLoad(val_reg, addr_hi, addr_mi, addr_lo),
-    Nop(),
-    Nop(),
-    Nop(),
-    Nop(),
-    Nop(),
-    Nop(),
-    Nop(),
-    Nop(),
-    Nop(),
-    Nop(),
-    Add2(val_reg, val_reg, const_1),
-    Nop(),
-    Nop(),
-    Nop(),
-    Nop(),
-    Nop(),
-    Nop(),
-    Nop(),
-    Nop(),
-    Nop(),
-    Predicate(const_1),
-    GlobalStore(val_reg, addr_hi, addr_mi, addr_lo),
-    Add2(val_reg, const_0, const_0),
-    Nop(),
-    Nop(),
-    Nop(),
-    Nop(),
-    Nop(),
-    Nop(),
-    Nop(),
-    Nop(),
-    Nop(),
-    Nop()
-  )
+  val initialRegs = ArrayBuffer.fill(ManticoreBaseISA.numRegs)(0)
+  val reg_lo = ArrayBuffer.fill(numTests)(R(0))
+  val reg_mid = ArrayBuffer.fill(numTests)(R(0))
+  val reg_hi = ArrayBuffer.fill(numTests)(R(0))
+  val reg_store = ArrayBuffer.fill(numTests)(R(0))
+  val val_store = ArrayBuffer.fill(numTests)(0)
+  val addr_store = ArrayBuffer.fill(numTests)(0.toLong)
+  val reg_load = ArrayBuffer.fill(numTests)(R(0))
+  val mem = Map[Long,Int]()
+  Range(0, numTests).foreach { i => 
+    // addr_lo
+    initialRegs(i) = rdgen.nextInt(2)
+    reg_lo(i) = R(i)
+  }
+  Range(numTests, 2 * numTests).foreach { i => 
+    // addr_mid 
+    initialRegs(i) = rdgen.nextInt(1 << ManticoreBaseISA.DataBits)
+    reg_mid(i - numTests) = R(i)
+  }
+  Range(2 * numTests, 3 * numTests).foreach { i => 
+    // addr_hi
+    initialRegs(i) = rdgen.nextInt(1 << ManticoreBaseISA.DataBits)
+    reg_hi(i - 2 * numTests) = R(i)
+  }
+  Range(3 * numTests, 4 * numTests).foreach { i => 
+    // store value 
+    initialRegs(i) = rdgen.nextInt(1 << ManticoreBaseISA.DataBits)
+    reg_store(i - 3 * numTests) = R(i)
+    val_store(i - 3 * numTests) = initialRegs(i)
+  }
+  Range(4 * numTests, 5 * numTests).foreach { i => 
+    // load value
+    reg_load(i - 4 * numTests) = R(i)
+  }
+
+  Range(0, numTests).foreach { i => 
+    val_store(i) = initialRegs(i + 3 * numTests)
+    addr_store(i) = 
+      (initialRegs(i).toLong << (2 * ManticoreBaseISA.DataBits)) + 
+      (initialRegs(i + numTests).toLong << ManticoreBaseISA.DataBits) + 
+      initialRegs(i + 2 * numTests).toLong
+  }
+  // const 
+  initialRegs(5 * numTests) = 0
+  initialRegs(5 * numTests + 1) = 1
+  val reg_const_0 = R(5 * numTests)
+  val reg_const_1 = R(5 * numTests + 1)
+
+  val program = ArrayBuffer.empty[Instruction.Instruction]
+  val expectedSends = ArrayBuffer.empty[Int]
+  Range(0, numTests).foreach { i => 
+    program += Predicate(reg_const_1)
+    program += GlobalStore(reg_store(i), reg_hi(i), reg_mid(i), reg_lo(i))
+  }
+  Range(0, numTests).foreach { i => 
+    program += GlobalLoad(reg_load(i), reg_hi(i), reg_mid(i), reg_lo(i))
+  }
+  Range(0, numTests).foreach { i => 
+    // program += Instruction.Send(reg_load(i), reg_load(i), 1, 1)
+    program += Instruction.Nop()
+    mem += (addr_store(i) -> val_store(i))
+    expectedSends += val_store(i)
+  }
 
   val equations = Seq.fill(1 << ManticoreFullISA.FunctBits) {
     Seq.fill(ManticoreFullISA.DataBits) {
@@ -92,18 +113,7 @@ class UniProcessorGlobalMemoryTester extends AnyFlatSpec with Matchers with Chis
       equations,
       UniProcessorTestUtils.createMemoryDataFiles(
         Seq.tabulate(1 << ManticoreFullISA.IdBits) {
-          i =>
-            if (i == val_reg.index) {
-              0
-            } else if (i == addr_lo.index) {
-              addr_lo_init
-            } else if (i == addr_mi.index) {
-              addr_mid_init
-            } else if (i == addr_hi.index) {
-              addr_hi_init
-            } else {
-              i
-            }
+          i => initialRegs(i)
         }
       ) {
         Paths.get("test_data_dir" + File.separator +
@@ -120,7 +130,7 @@ class UniProcessorGlobalMemoryTester extends AnyFlatSpec with Matchers with Chis
   behavior of
     "Processor accessing global memory"
 
-  it should "should correctly handle register spilling to global" +
+  it should "correctly handle register spilling to global" +
     " memory when the clock gating works correctly" in {
 
     test {
@@ -160,9 +170,9 @@ class UniProcessorGlobalMemoryTester extends AnyFlatSpec with Matchers with Chis
                   dut.io.periphery.cache.addr.peek().litValue.toLong,
                   10 max rdgen.nextInt(20)
                 )
-                if (mem.getOrElse(new_req.address, 0) + 1 != new_req.value) {
+                if (mem.getOrElse(new_req.address, 0) != new_req.value) {
                   fail(s"Expected Mem[${new_req.address}] = " +
-                    s"${mem.getOrElse(new_req.address, 0) + 1} but got ${new_req.value}")
+                    s"${mem.getOrElse(new_req.address, 0)} but got ${new_req.value}")
                 }
                 println(s"GlobalStore will take ${new_req.latency} cycles")
                 val new_mem = mem + (new_req.address -> new_req.value)
@@ -240,7 +250,7 @@ class UniProcessorGlobalMemoryTester extends AnyFlatSpec with Matchers with Chis
       ) {
         true
       }
-      simulate(10000)(TickState(None, None, Map()))
+      simulate(10000)(TickState(None, None, mem))
 
     }
 
