@@ -95,13 +95,11 @@ class StandardALUComb(DATA_BITS: Int) extends Module {
       opmode  := "b000110011".asUInt(9.W)
       alumode := "b0000".asUInt(4.W)
       setinst := 0.asUInt(2.W)
-      // alu_res := sum_res(DATA_BITS - 1, 0)
     }
     is(ISA.Functs.SUB2.id.U) {
       opmode  := "b000110011".asUInt(9.W)
       alumode := "b0011".asUInt(4.W)
       setinst := 0.asUInt(2.W)
-      // alu_res := io.in.x - io.in.y
     }
     // The multiplier used to be handled through a parallel path to Execute and
     // Memory stages, but as the other operations are now calculated using DSPs,
@@ -122,43 +120,36 @@ class StandardALUComb(DATA_BITS: Int) extends Module {
       opmode  := "b000110011".asUInt(9.W)
       alumode := "b1100".asUInt(4.W)
       setinst := 0.asUInt(2.W)
-      // alu_res := io.in.x & io.in.y
     }
     is(ISA.Functs.OR2.id.U) {
       opmode  := "b000111011".asUInt(9.W)
       alumode := "b1100".asUInt(4.W)
       setinst := 0.asUInt(2.W)
-      // alu_res := io.in.x | io.in.y
     }
     is(ISA.Functs.XOR2.id.U) {
       opmode  := "b000110011".asUInt(9.W)
       alumode := "b0100".asUInt(4.W)
       setinst := 0.asUInt(2.W)
-      // alu_res := io.in.x ^ io.in.y
     }
     is(ISA.Functs.SEQ.id.U) {
       opmode  := "b000110011".asUInt(9.W)
       alumode := "b0011".asUInt(4.W)
       setinst := 1.asUInt(2.W)
-      // alu_res := (io.in.x === io.in.y).asUInt
     }
     is(ISA.Functs.SLTU.id.U) {
       opmode  := "b000110011".asUInt(9.W)
       alumode := "b0011".asUInt(4.W)
       setinst := 2.asUInt(2.W)
-      // alu_res := (io.in.x < io.in.y).asUInt
     }
     is(ISA.Functs.SLTS.id.U) {
       opmode  := "b000110011".asUInt(9.W)
       alumode := "b0011".asUInt(4.W)
       setinst := 3.asUInt(2.W)
-      // alu_res := (io.in.x.asSInt < io.in.y.asSInt).asUInt
     }
     is(ISA.Functs.ADDC.id.U) {
       opmode  := "b000110011".asUInt(9.W)
       alumode := "b0000".asUInt(4.W)
       setinst := 0.asUInt(2.W)
-      // alu_res := sum_with_carry(DATA_BITS - 1, 0)
     }
 
     // The shift and mux operations are calculated without DSP
@@ -208,6 +199,5 @@ object StandardALUGenerator extends App {
 
   new ChiselStage()
     .emitVerilog(new StandardALUComb(4), Array("--target-dir", "gen-dir"))
-  // new ChiselStage().emitVerilog(new StandardALU(4))
 
 }

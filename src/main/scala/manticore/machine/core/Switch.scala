@@ -244,11 +244,11 @@ class Switch(DimX: Int, DimY: Int, config: ISA, n_hop: Int = 2) extends Module {
   }
 
   if (n_hop == 2) {
-    io.xOutput  := RegNext(x_reg)
-    io.yOutput  := RegNext(y_reg)
+    io.xOutput := RegNext(x_reg)
+    io.yOutput := RegNext(y_reg)
   } else {
-    io.xOutput  := x_reg
-    io.yOutput  := y_reg
+    io.xOutput := x_reg
+    io.yOutput := y_reg
   }
   io.terminal := terminal_reg
 

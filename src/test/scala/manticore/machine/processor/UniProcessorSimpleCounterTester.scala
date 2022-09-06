@@ -16,9 +16,7 @@ import java.io.File
 import java.nio.file.Paths
 import scala.annotation.tailrec
 
-class UniProcessorSimpleCounterTester extends AnyFlatSpec with Matchers with ChiselScalatestTester{
-
-
+class UniProcessorSimpleCounterTester extends AnyFlatSpec with Matchers with ChiselScalatestTester {
 
   val rdgen = new scala.util.Random(0)
 
@@ -38,29 +36,36 @@ class UniProcessorSimpleCounterTester extends AnyFlatSpec with Matchers with Chi
     Send(R(3), R(3), 3, 3),
     Send(R(4), R(4), 4, 4),
     Send(R(5), R(5), 5, 5),
-    Send(R(6), R(6), 6, 6),
+    Send(R(6), R(6), 6, 6)
   ) ++ Seq.fill(20) { Nop() }
 
   // create random LUT equations
   val equations: Seq[Seq[BigInt]] = Seq.fill(32)(Seq.fill(16)(BigInt(rdgen.nextInt(1 << 16))))
 
   def makeProcessor =
-    new Processor(config = ManticoreBaseISA,
-      DimX = 16, DimY = 16,
+    new Processor(
+      config = ManticoreBaseISA,
+      DimX = 16,
+      DimY = 16,
       equations = equations,
-      initial_registers =
-        UniProcessorTestUtils.createMemoryDataFiles {
-          Range(0, 1 << ManticoreBaseISA.IdBits).updated(2, 0)
-        } {
-             Paths.get("test_data_dir" + File.separator +
-                getTestName + File.separator + "rf.data").toAbsolutePath
+      initial_registers = UniProcessorTestUtils.createMemoryDataFiles {
+        Range(0, 1 << ManticoreBaseISA.IdBits).updated(2, 0)
+      } {
+        Paths
+          .get(
+            "test_data_dir" + File.separator +
+              getTestName + File.separator + "rf.data"
+          )
+          .toAbsolutePath
       },
-      initial_array =
-        UniProcessorTestUtils.createMemoryDataFiles(
-          Seq.fill(1 << ManticoreBaseISA.IdBits)(0)) {
-          Paths.get("test_data_dir" + File.separator +
-            getTestName + File.separator + "ra.data").toAbsolutePath
-        }
+      initial_array = UniProcessorTestUtils.createMemoryDataFiles(Seq.fill(1 << ManticoreBaseISA.IdBits)(0)) {
+        Paths
+          .get(
+            "test_data_dir" + File.separator +
+              getTestName + File.separator + "ra.data"
+          )
+          .toAbsolutePath
+      }
     )
 
   behavior of "Processor"
@@ -68,16 +73,18 @@ class UniProcessorSimpleCounterTester extends AnyFlatSpec with Matchers with Chi
   it should "match the interpretation of a counter" in {
 
     test(makeProcessor).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { dut =>
-
-      val instructions = PROGRAM.map(Assembler.assemble(_)(equations))
-      val sleep_length = 10
+      val instructions    = PROGRAM.map(Assembler.assemble(_)(equations))
+      val sleep_length    = 10
       val epilogue_length = 0
-      val countdown = 20
-
+      val countdown       = 20
 
       UniProcessorTestUtils.programProcessor(
-        instructions.toIndexedSeq, epilogue_length, sleep_length, countdown, dut
-      ){
+        instructions.toIndexedSeq,
+        epilogue_length,
+        sleep_length,
+        countdown,
+        dut
+      ) {
         rdgen.nextInt(10) == 0
       }
 

@@ -80,8 +80,8 @@ class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
 
   io.pipe_out.packet := RegNext(RegNext(packet_reg))
 
-  val lload_w = Wire(Bool())
-  val gload_w = Wire(Bool())
+  val lload_w    = Wire(Bool())
+  val gload_w    = Wire(Bool())
   val out_result = Wire(UInt(config.DataBits.W))
 
   def pipeIt[T <: Data](dest: T)(source: T): Unit = {

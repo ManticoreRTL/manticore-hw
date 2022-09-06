@@ -42,14 +42,9 @@ object Decode {
     val nop: Bool        = Bool()
     val set_carry: Bool  = Bool()
     val config_cfu: Bool = Bool()
-    // // We intentionally use a vector of bool here instead of a simple bool
-    // // as we want to force the FPGA tools to create a dedicated register
-    // // for every LUT vector. Otherwise it will fan-out a single signal to
-    // // many LUTs and it may not achieve the same frequency scaling.
-    // val configure_luts: Vec[Bool] = Vec(numFuncts, Bool())
-    val slice: Bool = Bool()
-    val mul: Bool   = Bool() // unsigned  low result
-    val mulh: Bool  = Bool() // unsigned high result
+    val slice: Bool      = Bool()
+    val mul: Bool        = Bool() // unsigned  low result
+    val mulh: Bool       = Bool() // unsigned high result
   }
 
   class PipeOut(config: ISA) extends Bundle {
@@ -134,7 +129,6 @@ class Decode(config: ISA) extends Module {
   opcode_regs.set_carry  := (opcode === config.SetCarry.value.U)
   opcode_regs.slice      := (opcode === config.Slice.value.U)
   opcode_regs.config_cfu := (opcode === config.ConfigCfu.value.U)
-  // opcode_regs.configure_luts := Vec.fill(config.numFuncts)((opcode === config.ConfigureLuts.value.U))
 
   funct_reg        := funct
   immediate_reg    := immediate
