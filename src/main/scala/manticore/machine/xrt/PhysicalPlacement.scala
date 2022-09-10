@@ -311,9 +311,6 @@ class IterativePlacement(
       val yIncr = coreInAnchor.y - x0y0.y
 
       val verticallyRotatedCoreToPblock = horizontallyRotatedCoreToPblock.map { case (core, pblock) =>
-        if (core == x0y0) {
-          println("test")
-        }
         val newCore = Core(core.x, modPos(core.y + yIncr, dimY))
         newCore -> pblock
       }
