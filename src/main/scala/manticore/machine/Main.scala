@@ -8,6 +8,7 @@ import scopt.OParser
 import java.io.File
 import manticore.machine.xrt.PhysicalPlacement
 import java.io.PrintWriter
+import manticore.machine.xrt.IterativePlacement
 
 object Main {
 
@@ -130,7 +131,8 @@ object Main {
       sys.exit(0)
     }
     if (cfg.do_placement) {
-      val placer = new PhysicalPlacement(cfg.dimx, cfg.dimy, cfg.anchor, cfg.max_cores_per_pblock)
+      // val placer = new PhysicalPlacement(cfg.dimx, cfg.dimy, cfg.anchor, cfg.max_cores_per_pblock)
+      val placer = new IterativePlacement(cfg.dimx, cfg.dimy, IterativePlacement.Pblock(7, IterativePlacement.Right))
       val writer = new PrintWriter(cfg.output)
       writer.write(placer.pblockConstraint)
       writer.close()

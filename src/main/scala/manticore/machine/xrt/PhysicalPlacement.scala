@@ -330,7 +330,7 @@ class IterativePlacement(
     anchoredSolution
   }
 
-  def solutionTcl: String = {
+  def pblockConstraint: String = {
     val coreToPblock = solution
 
     coreToPblock
@@ -499,6 +499,6 @@ object Tester extends App {
   //   }
   //   .mkString("\n")
   // println(solutionStr)
-  val solutionTclStr = placer.solutionTcl
+  val solutionTclStr = placer.pblockConstraint
   println(solutionTclStr)
 }
