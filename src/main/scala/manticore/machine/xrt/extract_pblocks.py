@@ -218,13 +218,13 @@ def emit_pblocks(pblocks: dict[int, dict[Side, list[str]]]) -> dict[int, dict[Si
 
   for (crY, sideDict) in pblocks.items():
     for (side, names) in sideDict.items():
-      pblockName = f"pblock_y{crY}_{side.name}"
+      pblockName = f"pblock_Y{crY}_{side.name}"
       pblockContents = " ".join(names)
       pblockDefinition = (
-        f"startgroup\n"
+        # f"startgroup\n"
         f"create_pblock {pblockName}\n"
         f"resize_pblock {pblockName} -add {{ {pblockContents} }}\n"
-        f"endgroup"
+        # f"endgroup"
       )
       res[crY][side] = pblockDefinition
 
@@ -245,4 +245,3 @@ if __name__ == "__main__":
   for (crY, sideDict) in pblocksTcl.items():
     for (side, pblockTclStr) in sideDict.items():
       print(pblockTclStr)
-      print()

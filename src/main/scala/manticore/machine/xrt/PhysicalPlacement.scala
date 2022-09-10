@@ -311,6 +311,9 @@ class IterativePlacement(
       val yIncr = coreInAnchor.y - x0y0.y
 
       val verticallyRotatedCoreToPblock = horizontallyRotatedCoreToPblock.map { case (core, pblock) =>
+        if (core == x0y0) {
+          println("test")
+        }
         val newCore = Core(core.x, modPos(core.y + yIncr, dimY))
         newCore -> pblock
       }
@@ -329,6 +332,44 @@ class IterativePlacement(
 
     anchoredSolution
   }
+
+  def solutionTcl: String = {
+    val coreToPblock = solution
+
+    coreToPblock
+      .groupMap(_._2)(_._1)
+      .toSeq
+      .sortBy { case (pblock, cores) =>
+        (pblock.clockRegionRow, pblock.side.toString())
+      }
+      .map { case (pblock, cores) =>
+        val cells = cores
+          .map { core =>
+            val others = if (core.x == 0 && core.y == 0) {
+              s"\t\tlevel0_i/ulp/ManticoreKernel_1/inst/manticore/controller \\\n" +
+                s"\t\tlevel0_i/ulp/ManticoreKernel_1/inst/manticore/controller \\\n" +
+                s"\t\tlevel0_i/ulp/ManticoreKernel_1/inst/clock_distribution   \\\n"
+            } else {
+              ""
+            }
+            others + s"\t\tlevel0_i/ulp/ManticoreKernel_1/inst/manticore/compute_array/core_${core.x}_${core.y} \\"
+          }
+          .mkString("\n")
+
+        val pbName      = s"pblock_Y${pblock.clockRegionRow}_${pblock.side.toString()}"
+        val pbResources = pblockDeviceResources(pblock)
+
+        s"""|
+            |create_pblock ${pbName}
+            |resize_pblock ${pbName} -add ${pbResources}
+            |add_cells_to_pblock ${pbName} [ get_cell [ list \\
+            |${cells}
+            |]]
+            |
+            |""".stripMargin
+      }
+      .mkString("\n")
+  }
 }
 
 object IterativePlacement {
@@ -343,6 +384,41 @@ object IterativePlacement {
     override def toString(): String = "Right"
   }
   case class Pblock(clockRegionRow: Int, side: Side)
+
+  // format: off
+  val pblockDeviceResources = Map(
+    Pblock(0, Left)   -> "SLICE_X0Y0:SLICE_X84Y59 DSP48E2_X0Y0:DSP48E2_X9Y23 RAMB18_X0Y0:RAMB18_X5Y23 RAMB36_X0Y0:RAMB36_X5Y11 URAM288_X0Y0:URAM288_X1Y15",
+    Pblock(0, Right)  -> "SLICE_X85Y0:SLICE_X168Y59 RAMB18_X6Y0:RAMB18_X11Y23 RAMB36_X6Y0:RAMB36_X11Y11 DSP48E2_X10Y0:DSP48E2_X18Y23 URAM288_X2Y0:URAM288_X3Y15",
+    Pblock(1, Left)   -> "SLICE_X0Y60:SLICE_X84Y119 DSP48E2_X0Y24:DSP48E2_X9Y47 RAMB18_X0Y24:RAMB18_X5Y47 RAMB36_X0Y12:RAMB36_X5Y23 URAM288_X0Y16:URAM288_X1Y31",
+    Pblock(1, Right)  -> "SLICE_X85Y60:SLICE_X168Y119 RAMB18_X6Y24:RAMB18_X11Y47 RAMB36_X6Y12:RAMB36_X11Y23 DSP48E2_X10Y24:DSP48E2_X18Y47 URAM288_X2Y16:URAM288_X3Y31",
+    Pblock(2, Left)   -> "SLICE_X0Y120:SLICE_X84Y179 DSP48E2_X0Y48:DSP48E2_X9Y71 RAMB18_X0Y48:RAMB18_X5Y71 RAMB36_X0Y24:RAMB36_X5Y35 URAM288_X0Y32:URAM288_X1Y47",
+    Pblock(2, Right)  -> "SLICE_X85Y120:SLICE_X168Y179 RAMB18_X6Y48:RAMB18_X11Y71 RAMB36_X6Y24:RAMB36_X11Y35 DSP48E2_X10Y48:DSP48E2_X18Y71 URAM288_X2Y32:URAM288_X3Y47",
+    Pblock(3, Left)   -> "SLICE_X0Y180:SLICE_X84Y239 DSP48E2_X0Y72:DSP48E2_X9Y95 RAMB18_X0Y72:RAMB18_X5Y95 RAMB36_X0Y36:RAMB36_X5Y47 URAM288_X0Y48:URAM288_X1Y63",
+    Pblock(3, Right)  -> "SLICE_X85Y180:SLICE_X168Y239 RAMB18_X6Y72:RAMB18_X11Y95 RAMB36_X6Y36:RAMB36_X11Y47 DSP48E2_X10Y72:DSP48E2_X18Y95 URAM288_X2Y48:URAM288_X3Y63",
+    Pblock(4, Left)   -> "SLICE_X0Y240:SLICE_X84Y299 DSP48E2_X0Y96:DSP48E2_X9Y119 RAMB18_X0Y96:RAMB18_X5Y119 RAMB36_X0Y48:RAMB36_X5Y59 URAM288_X0Y64:URAM288_X1Y79",
+    Pblock(4, Right)  -> "SLICE_X85Y240:SLICE_X168Y299 RAMB18_X6Y96:RAMB18_X11Y119 RAMB36_X6Y48:RAMB36_X11Y59 DSP48E2_X10Y96:DSP48E2_X18Y119 URAM288_X2Y64:URAM288_X3Y79",
+    Pblock(5, Left)   -> "SLICE_X0Y300:SLICE_X50Y359 DSP48E2_X0Y120:DSP48E2_X6Y143 RAMB18_X0Y120:RAMB18_X3Y143 RAMB36_X0Y60:RAMB36_X3Y71 URAM288_X0Y80:URAM288_X0Y95",
+    Pblock(5, Right)  -> "DSP48E2_X7Y120:DSP48E2_X10Y143 SLICE_X51Y300:SLICE_X87Y359 RAMB18_X4Y120:RAMB18_X6Y143 RAMB36_X4Y60:RAMB36_X6Y71 URAM288_X1Y80:URAM288_X1Y95",
+    Pblock(6, Left)   -> "SLICE_X0Y360:SLICE_X50Y419 DSP48E2_X0Y144:DSP48E2_X6Y167 RAMB18_X0Y144:RAMB18_X3Y167 RAMB36_X0Y72:RAMB36_X3Y83 URAM288_X0Y96:URAM288_X0Y111",
+    Pblock(6, Right)  -> "DSP48E2_X7Y144:DSP48E2_X10Y167 SLICE_X51Y360:SLICE_X87Y419 RAMB18_X4Y144:RAMB18_X6Y167 RAMB36_X4Y72:RAMB36_X6Y83 URAM288_X1Y96:URAM288_X1Y111",
+    Pblock(7, Left)   -> "SLICE_X0Y420:SLICE_X50Y479 DSP48E2_X0Y168:DSP48E2_X6Y191 RAMB18_X0Y168:RAMB18_X3Y191 RAMB36_X0Y84:RAMB36_X3Y95 URAM288_X0Y112:URAM288_X0Y127",
+    Pblock(7, Right)  -> "DSP48E2_X7Y168:DSP48E2_X10Y191 SLICE_X51Y420:SLICE_X87Y479 RAMB18_X4Y168:RAMB18_X6Y191 RAMB36_X4Y84:RAMB36_X6Y95 URAM288_X1Y112:URAM288_X1Y127",
+    Pblock(8, Left)   -> "SLICE_X0Y480:SLICE_X50Y539 DSP48E2_X0Y192:DSP48E2_X6Y215 RAMB18_X0Y192:RAMB18_X3Y215 RAMB36_X0Y96:RAMB36_X3Y107 URAM288_X0Y128:URAM288_X0Y143",
+    Pblock(8, Right)  -> "DSP48E2_X7Y192:DSP48E2_X10Y215 SLICE_X51Y480:SLICE_X87Y539 RAMB18_X4Y192:RAMB18_X6Y215 RAMB36_X4Y96:RAMB36_X6Y107 URAM288_X1Y128:URAM288_X1Y143",
+    Pblock(9, Left)   -> "SLICE_X0Y540:SLICE_X50Y599 DSP48E2_X0Y216:DSP48E2_X6Y239 RAMB18_X0Y216:RAMB18_X3Y239 RAMB36_X0Y108:RAMB36_X3Y119 URAM288_X0Y144:URAM288_X0Y159",
+    Pblock(9, Right)  -> "DSP48E2_X7Y216:DSP48E2_X10Y239 SLICE_X51Y540:SLICE_X87Y599 RAMB18_X4Y216:RAMB18_X6Y239 RAMB36_X4Y108:RAMB36_X6Y119 URAM288_X1Y144:URAM288_X1Y159",
+    Pblock(10, Left)  -> "SLICE_X0Y600:SLICE_X84Y659 DSP48E2_X0Y240:DSP48E2_X9Y263 RAMB18_X0Y240:RAMB18_X5Y263 RAMB36_X0Y120:RAMB36_X5Y131 URAM288_X0Y160:URAM288_X1Y175",
+    Pblock(10, Right) -> "SLICE_X85Y600:SLICE_X168Y659 RAMB18_X6Y240:RAMB18_X11Y263 RAMB36_X6Y120:RAMB36_X11Y131 DSP48E2_X10Y240:DSP48E2_X18Y263 URAM288_X2Y160:URAM288_X3Y175",
+    Pblock(11, Left)  -> "SLICE_X0Y660:SLICE_X84Y719 DSP48E2_X0Y264:DSP48E2_X9Y287 RAMB18_X0Y264:RAMB18_X5Y287 RAMB36_X0Y132:RAMB36_X5Y143 URAM288_X0Y176:URAM288_X1Y191",
+    Pblock(11, Right) -> "SLICE_X85Y660:SLICE_X168Y719 RAMB18_X6Y264:RAMB18_X11Y287 RAMB36_X6Y132:RAMB36_X11Y143 DSP48E2_X10Y264:DSP48E2_X18Y287 URAM288_X2Y176:URAM288_X3Y191",
+    Pblock(12, Left)  -> "SLICE_X0Y720:SLICE_X84Y779 DSP48E2_X0Y288:DSP48E2_X9Y311 RAMB18_X0Y288:RAMB18_X5Y311 RAMB36_X0Y144:RAMB36_X5Y155 URAM288_X0Y192:URAM288_X1Y207",
+    Pblock(12, Right) -> "SLICE_X85Y720:SLICE_X168Y779 RAMB18_X6Y288:RAMB18_X11Y311 RAMB36_X6Y144:RAMB36_X11Y155 DSP48E2_X10Y288:DSP48E2_X18Y311 URAM288_X2Y192:URAM288_X3Y207",
+    Pblock(13, Left)  -> "SLICE_X0Y780:SLICE_X84Y839 DSP48E2_X0Y312:DSP48E2_X9Y335 RAMB18_X0Y312:RAMB18_X5Y335 RAMB36_X0Y156:RAMB36_X5Y167 URAM288_X0Y208:URAM288_X1Y223",
+    Pblock(13, Right) -> "SLICE_X85Y780:SLICE_X168Y839 RAMB18_X6Y312:RAMB18_X11Y335 RAMB36_X6Y156:RAMB36_X11Y167 DSP48E2_X10Y312:DSP48E2_X18Y335 URAM288_X2Y208:URAM288_X3Y223",
+    Pblock(14, Left)  -> "SLICE_X0Y840:SLICE_X84Y899 DSP48E2_X0Y336:DSP48E2_X9Y359 RAMB18_X0Y336:RAMB18_X5Y359 RAMB36_X0Y168:RAMB36_X5Y179 URAM288_X0Y224:URAM288_X1Y239",
+    Pblock(14, Right) -> "SLICE_X85Y840:SLICE_X168Y899 RAMB18_X6Y336:RAMB18_X11Y359 RAMB36_X6Y168:RAMB36_X11Y179 DSP48E2_X10Y336:DSP48E2_X18Y359 URAM288_X2Y224:URAM288_X3Y239",
+  )
+  // format: on
 
   // Mapping from an abstract position on a 2D grid to a Core in a torus network.
   // This generates the torus network coordinates at the appropriate place in
@@ -412,7 +488,7 @@ object Tester extends App {
 
   val dimX = 10
   val dimY = 25
-  // val anchor   = (2, 7)
+  // val anchor = (2, 7)
   val anchor   = Pblock(7, Right)
   val maxCores = 5
 
@@ -420,10 +496,12 @@ object Tester extends App {
   // println(placer.pblockConstraint)
 
   val placer = new IterativePlacement(dimX, dimY, anchor)
-  val solutionStr = placer.solution.toSeq
-    .sortBy { case (core, pblock) =>
-      (pblock.clockRegionRow, pblock.side.toString())
-    }
-    .mkString("\n")
-  println(solutionStr)
+  // val solutionStr = placer.solution.toSeq
+  //   .sortBy { case (core, pblock) =>
+  //     (pblock.clockRegionRow, pblock.side.toString())
+  //   }
+  //   .mkString("\n")
+  // println(solutionStr)
+  val solutionTclStr = placer.solutionTcl
+  println(solutionTclStr)
 }
