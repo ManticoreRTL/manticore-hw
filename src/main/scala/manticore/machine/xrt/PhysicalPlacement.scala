@@ -235,6 +235,11 @@ class IterativePlacement(
   // - Place 2 rows of the grid per clock region row in SLR2.
   // - Place 1 row  of the grid per clock region row in SLR1.
   // - Place 2 rows of the grid per clock region row in SLR0.
+  //
+  // This allows for a maximum dimY value of 25:
+  // - 2 gridLoc rows * 5 clockRegion rows = 10 gridLoc rows in SLR2.
+  // - 1 gridLoc row  * 5 clockRegion rows =  5 gridLoc rows in SLR1.
+  // - 2 gridLoc rows * 5 clockRegion rows = 10 gridLoc rows in SLR0.
 
   def solution: Map[Core, Pblock] = {
 
@@ -254,21 +259,21 @@ class IterativePlacement(
 
       val res = MMap.empty[Core, Pblock]
 
-      var y              = 0
+      var gridLocY       = 0
       var clockRegionRow = 0
-      while (y < dimY) {
+      while (gridLocY < dimY) {
         var rowsTaken = 0
         val rowBound  = if (inSlr1(clockRegionRow)) 1 else 2
 
         while (rowsTaken < rowBound) {
-          gridLocRows(y).foreach { gridLoc =>
+          gridLocRows(gridLocY).foreach { gridLoc =>
             // Assign locs in row to either the left or right pblock.
             val side = if (gridLoc.c < dimX / 2) Left else Right
             val core = gridLocToCore(gridLoc)
             res += core -> Pblock(clockRegionRow, side)
           }
           rowsTaken += 1
-          y += 1
+          gridLocY += 1
         }
 
         clockRegionRow += 1
@@ -289,32 +294,23 @@ class IterativePlacement(
 
       val x0y0 = Core(0, 0)
 
-      // Swap Pblock sides if x0y0 is not on the correct side.
-      val horizontallyRotatedCoreToPblock = if (coreToPblock(x0y0).side != anchor.side) {
-        // Invert the "side" of all cores.
-        coreToPblock.map { case (core, pblock) =>
-          val newSide = if (pblock.side == Left) Right else Left
-          core -> pblock.copy(side = newSide)
+      var rotatedCoreToPblock = coreToPblock
+
+      // Rotate core X values until we are on the same side as the anchor.
+      while (rotatedCoreToPblock(x0y0).side != anchor.side) {
+        rotatedCoreToPblock = rotatedCoreToPblock.map { case (Core(x, y), pblock) =>
+          Core(modPos(x + 1, dimX), y) -> pblock
         }
-      } else {
-        coreToPblock
       }
 
-      val coreInAnchor = horizontallyRotatedCoreToPblock
-        .find { case (core, pblock) =>
-          pblock == anchor
+      // Rotate core Y values until we are in the same clock region row as the anchor.
+      while (rotatedCoreToPblock(x0y0).clockRegionRow != anchor.clockRegionRow) {
+        rotatedCoreToPblock = rotatedCoreToPblock.map { case (Core(x, y), pblock) =>
+          Core(x, modPos(y + 1, dimY)) -> pblock
         }
-        .get
-        ._1
-
-      val yIncr = coreInAnchor.y - x0y0.y
-
-      val verticallyRotatedCoreToPblock = horizontallyRotatedCoreToPblock.map { case (core, pblock) =>
-        val newCore = Core(core.x, modPos(core.y + yIncr, dimY))
-        newCore -> pblock
       }
 
-      verticallyRotatedCoreToPblock
+      rotatedCoreToPblock
     }
 
     val defaultSolution = getDefaultSolution
@@ -339,7 +335,10 @@ class IterativePlacement(
         (pblock.clockRegionRow, pblock.side.toString())
       }
       .map { case (pblock, cores) =>
-        val cells = cores
+        val cells = cores.toSeq
+          .sortBy { case Core(x, y) =>
+            (y, x)
+          }
           .map { core =>
             val others = if (core.x == 0 && core.y == 0) {
               s"\t\tlevel0_i/ulp/ManticoreKernel_1/inst/manticore/controller \\\n" +
@@ -489,8 +488,8 @@ object Tester extends App {
   // val placer = new PhysicalPlacement(dimX, dimY, anchor, maxCores)
   // println(placer.pblockConstraint)
 
-  val anchor   = Pblock(7, Right)
-  val placer = new IterativePlacement(dimX, dimY, anchor)
+  val anchor         = Pblock(7, Right)
+  val placer         = new IterativePlacement(dimX, dimY, anchor)
   val solutionTclStr = placer.pblockConstraint
   println(solutionTclStr)
 }
