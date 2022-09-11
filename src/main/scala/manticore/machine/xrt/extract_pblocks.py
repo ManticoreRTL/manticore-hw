@@ -202,7 +202,7 @@ def compact_resource_ranges(pblocks: dict[int, dict[Side, list[str]]]) -> dict[i
         resourceType = match.group("resource")
         resourceType_sites[resourceType].append(site)
 
-      for (resourceType, sites) in resourceType_sites.items():
+      for (resourceType, sites) in sorted(resourceType_sites.items()):
         # Get X/Y bounds of each resource so we can construct a range.
         (minX, maxX, minY, maxY) = xy_bounds(sites)
         pblocksCompacted[crY][side].append(f"{resourceType}_X{minX}Y{minY}:{resourceType}_X{maxX}Y{maxY}")
