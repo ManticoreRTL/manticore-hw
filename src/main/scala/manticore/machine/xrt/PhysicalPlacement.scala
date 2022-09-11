@@ -27,7 +27,6 @@ class PhysicalPlacement(dimX: Int, dimY: Int, anchor: (Int, Int), maxCores: Int 
           .map { case (x, y) =>
             val others = if (x == 0 && y == 0) {
               s"\t\tlevel0_i/ulp/ManticoreKernel_1/inst/manticore/controller \\\n" +
-                s"\t\tlevel0_i/ulp/ManticoreKernel_1/inst/manticore/controller \\\n" +
                 s"\t\tlevel0_i/ulp/ManticoreKernel_1/inst/clock_distribution   \\\n"
 
             } else {
@@ -344,7 +343,6 @@ class IterativePlacement(
           .map { core =>
             val others = if (core.x == 0 && core.y == 0) {
               s"\t\tlevel0_i/ulp/ManticoreKernel_1/inst/manticore/controller \\\n" +
-                s"\t\tlevel0_i/ulp/ManticoreKernel_1/inst/manticore/controller \\\n" +
                 s"\t\tlevel0_i/ulp/ManticoreKernel_1/inst/clock_distribution   \\\n"
             } else {
               ""
