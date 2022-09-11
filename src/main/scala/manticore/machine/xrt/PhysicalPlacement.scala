@@ -358,7 +358,7 @@ class IterativePlacement(
 
         s"""|
             |create_pblock ${pbName}
-            |resize_pblock ${pbName} -add ${pbResources}
+            |resize_pblock ${pbName} -add { ${pbResources} }
             |add_cells_to_pblock ${pbName} [ get_cell [ list \\
             |${cells}
             |]]
