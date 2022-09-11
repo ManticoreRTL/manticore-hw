@@ -248,6 +248,16 @@ class IterativePlacement(
 
       val gridLocToCore = getGridLocToCoreMap(dimX, dimY)
 
+      // // Debug
+      // for (r <- Range.inclusive(0, dimY - 1)) {
+      //   for (c <- Range.inclusive(0, dimX - 1)) {
+      //     val gridLoc = GridLoc(c, r)
+      //     val core    = gridLocToCore(gridLoc)
+      //     print(s"${gridLoc}->${core}    ")
+      //   }
+      //   println()
+      // }
+
       val gridLocRows = gridLocToCore
         .groupMap(_._1.r)(_._1)
         .map { case (gridLoc, group) =>
