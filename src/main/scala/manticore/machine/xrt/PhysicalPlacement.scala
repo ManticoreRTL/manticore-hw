@@ -356,7 +356,7 @@ class IterativePlacement(
             } else {
               ""
             }
-            others + s"\t\tlevel0_i/ulp/ManticoreKernel_1/inst/manticore/compute_array/core_${core.x}_${core.y} \\"
+            others + s"\t\tlevel0_i/ulp/ManticoreKernel_1/inst/manticore/compute_array/core_${core.x}_${core.y}/processor \\"
           }
           .mkString("\n")
 

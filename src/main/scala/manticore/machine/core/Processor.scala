@@ -12,6 +12,10 @@ import manticore.machine.memory.MemStyle
 import manticore.machine.memory.SimpleDualPortMemory
 
 import scala.util.Random
+import chisel3.experimental.annotate
+import chisel3.experimental.ChiselAnnotation
+import firrtl.annotations.Annotation
+import firrtl.AttributeAnnotation
 
 class NamedError(nameBits: Int) extends Bundle {
   val error: Bool = Bool()
@@ -36,6 +40,54 @@ class ProcessorInterface(config: ISA, DimX: Int, DimY: Int) extends Bundle {
   val periphery: PeripheryProcessorInterface = new PeripheryProcessorInterface(
     config
   )
+
+}
+
+class ProcessorWithSendPipe(
+    config: ISA,
+    DimX: Int,
+    DimY: Int,
+    equations: Seq[Seq[BigInt]],
+    initial_registers: String = "",
+    initial_array: String = "",
+    name_tag: String = "core",
+    debug_enable: Boolean = false,
+    debug_level: Int = 0,
+    enable_custom_alu: Boolean = true
+) extends Module {
+  val io: ProcessorInterface = IO(new ProcessorInterface(config, DimX, DimY))
+
+  val processor = Module(
+    new Processor(
+      config,
+      DimX,
+      DimY,
+      equations,
+      initial_registers,
+      initial_array,
+      name_tag,
+      debug_enable,
+      debug_level,
+      enable_custom_alu
+    )
+  )
+  processor.suggestName("processor")
+
+  io.periphery <> processor.io.periphery
+
+  // We removed 7 pipeline stages related to sending packets out from inside the core.
+  // These stages have been added outside the core such that they allow vivado to have
+  // flexibility in placing switches on the chip.
+
+  annotate(new ChiselAnnotation {
+    def toFirrtl: Annotation = AttributeAnnotation(io.packet_out.toNamed, "srl_type=\"register\"")
+  })
+  io.packet_out := Pipe(true.B, processor.io.packet_out, 7).bits
+
+  annotate(new ChiselAnnotation {
+    def toFirrtl: Annotation = AttributeAnnotation(processor.io.packet_in.toNamed, "srl_type=\"register\"")
+  })
+  processor.io.packet_in := Pipe(true.B, io.packet_in, 7).bits
 
 }
 
@@ -399,7 +451,13 @@ class Processor(
 
   register_file.io.w.addr := memory_stage.io.pipe_out.rd
 
-  io.packet_out := memory_stage.io.pipe_out.packet
+  // io.packet_out := memory_stage.io.pipe_out.packet
+  val hop_bits: Int = decode_stage.io.pipe_out.immediate.getWidth / 2
+  io.packet_out.xHops   := RegNext(decode_stage.io.pipe_out.immediate.tail(hop_bits))
+  io.packet_out.yHops   := RegNext(decode_stage.io.pipe_out.immediate.head(hop_bits))
+  io.packet_out.data    := register_file.io.rs2.dout
+  io.packet_out.address := RegNext(decode_stage.io.pipe_out.rd)
+  io.packet_out.valid   := RegNext(decode_stage.io.pipe_out.opcode.send)
 
   if (config.WithGlobalMemory) {
     memory_stage.io.global_memory_interface ==> io.periphery.cache

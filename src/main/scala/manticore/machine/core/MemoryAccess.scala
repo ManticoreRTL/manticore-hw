@@ -11,15 +11,15 @@ object MemoryAccess {
   type PipeIn = ExecuteInterface.PipeOut
 
   class PipeOut(config: ISA, DimX: Int, DimY: Int) extends Bundle {
-    val result: UInt      = UInt(config.DataBits.W)
-    val result_mul: UInt  = UInt((2 * config.DataBits).W)
-    val packet: NoCBundle = new NoCBundle(DimX, DimY, config)
-    val write_back: Bool  = Bool()
-    val rd: UInt          = UInt(config.IdBits.W)
-    val send: Bool        = Bool()
-    val nop: Bool         = Bool()
-    val mul: Bool         = Bool()
-    val mulh: Bool        = Bool()
+    val result: UInt     = UInt(config.DataBits.W)
+    val result_mul: UInt = UInt((2 * config.DataBits).W)
+    // val packet: NoCBundle = new NoCBundle(DimX, DimY, config)
+    val write_back: Bool = Bool()
+    val rd: UInt         = UInt(config.IdBits.W)
+    val send: Bool       = Bool()
+    val nop: Bool        = Bool()
+    val mul: Bool        = Bool()
+    val mulh: Bool       = Bool()
   }
 
 }
@@ -68,17 +68,17 @@ class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
 
   require(io.pipe_in.immediate.getWidth % 2 == 0)
 
-  val hop_bits: Int = io.pipe_in.immediate.getWidth / 2
+  // val hop_bits: Int = io.pipe_in.immediate.getWidth / 2
 
-  //  packet_reg.xHops := io.pipe_in.immediate(log2Ceil(DimX) - 1, 0)
-  packet_reg.xHops := io.pipe_in.immediate.tail(hop_bits)
-  packet_reg.yHops := io.pipe_in.immediate.head(hop_bits)
-  //  packet_reg.yHops := io.pipe_in.immediate(log2Ceil(DimY) + log2Ceil(DimX) - 1, log2Ceil(DimX))
-  packet_reg.data    := io.pipe_in.data
-  packet_reg.address := io.pipe_in.rd
-  packet_reg.valid   := (io.pipe_in.opcode.send)
+  // //  packet_reg.xHops := io.pipe_in.immediate(log2Ceil(DimX) - 1, 0)
+  // packet_reg.xHops := io.pipe_in.immediate.tail(hop_bits)
+  // packet_reg.yHops := io.pipe_in.immediate.head(hop_bits)
+  // //  packet_reg.yHops := io.pipe_in.immediate(log2Ceil(DimY) + log2Ceil(DimX) - 1, log2Ceil(DimX))
+  // packet_reg.data    := io.pipe_in.data
+  // packet_reg.address := io.pipe_in.rd
+  // packet_reg.valid   := (io.pipe_in.opcode.send)
 
-  io.pipe_out.packet := RegNext(RegNext(packet_reg))
+  // io.pipe_out.packet := RegNext(RegNext(packet_reg))
 
   val lload_w    = Wire(Bool())
   val gload_w    = Wire(Bool())

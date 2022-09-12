@@ -128,7 +128,7 @@ class ComputeArray(
     }
 
   def hasMemory(x: Int, y: Int): Boolean = (x == 0) && (y == 0)
-  case class FatCore(core: Processor, switch: Switch, x: Int, y: Int)
+  case class FatCore(core: ProcessorWithSendPipe, switch: Switch, x: Int, y: Int)
 
   val reset_tree = Module(new SoftResetTree(dimx, dimy))
   io.core_reset_done := reset_tree.io.last
@@ -140,7 +140,7 @@ class ComputeArray(
 
       val core = withReset(reset_tree.io.taps(x)(y)) {
         Module(
-          new Processor(
+          new ProcessorWithSendPipe(
             config = core_conf,
             DimX = dimx,
             DimY = dimy,
