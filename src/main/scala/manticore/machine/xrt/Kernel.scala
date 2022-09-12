@@ -222,14 +222,16 @@ class ManticoreFlatSimKernel(
   axi_cache.io.base := 0.U
 
   axi_cache.io.bus <> axi_mem.io.axi
-
+  axi_cache.io.core <> manticore.io.memory_backend
   axi_mem.io.sim.waddr := io.dmi.addr
   axi_mem.io.sim.raddr := io.dmi.addr
   axi_mem.io.sim.lock  := io.dmi.locked
   axi_mem.io.sim.wdata := io.dmi.wdata
+  axi_mem.io.sim.wen   := io.dmi.wen
   io.dmi.rdata         := axi_mem.io.sim.rdata
 
 }
+
 
 object GenerateIPs {
 
@@ -416,7 +418,8 @@ object BuildXclbin {
       dimx: Int,
       dimy: Int,
       top_name: String = "ManticoreKernel",
-      ext_pblock: Option[File] = None
+      ext_pblock: Option[File] = None,
+      strategy: Seq[String] = Nil
   ) = {
 
     import scala.sys.process._
@@ -487,12 +490,13 @@ object BuildXclbin {
     }
 
     val cpus = getSystemInfo() min 12
+    val extra_runs = s"--vivado.impl.strategies \"${strategy.mkString(",")}\" " + (strategy.map { s =>
+      s"--vivado.prop run.impl_${s}.STEPS.PLACE_DESIGN.TCL.PRE=${pblocks.toAbsolutePath()} "
+    }.mkString(" "))
     val command =
       s"v++ --link -g -t ${target} --platform ${platform} --save-temps " +
-        s"--optimize 3 " +
-        s"""--vivado.impl.strategies \"Performance_Explore\" """ +
-        s"""--vivado.prop run.impl_1.STEPS.PLACE_DESIGN.TCL.PRE=${pblocks.toAbsolutePath()} """ +
-        s"""--vivado.prop run.impl_Performance_Explore.STEPS.PLACE_DESIGN.TCL.PRE=${pblocks.toAbsolutePath()} """ +
+        s"--optimize 3 " + extra_runs +
+        s"--vivado.prop run.impl_1.STEPS.PLACE_DESIGN.TCL.PRE=${pblocks.toAbsolutePath()} " +
         s"--vivado.synth.jobs ${cpus} --vivado.impl.jobs ${cpus} " +
         s"${clock_constraint} -o ${xclbin_path.toAbsolutePath.toString} " +
         s"${xo_path.toAbsolutePath.toString}"
@@ -529,7 +533,8 @@ object ManticoreKernelGenerator {
       enable_custom_alu: Boolean = true,
       freqMhz: Double = 200.0,
       n_hop: Int = 2,
-      pblock: Option[File] = None
+      pblock: Option[File] = None,
+      strategy: Seq[String] = Nil
   ) = {
 
     val out_dir = Paths.get(target_dir)
@@ -584,7 +589,8 @@ object ManticoreKernelGenerator {
       platform = platform,
       dimx = dimx,
       dimy = dimy,
-      ext_pblock = pblock
+      ext_pblock = pblock,
+      strategy = strategy
     )
 
   }

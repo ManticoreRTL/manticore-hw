@@ -25,7 +25,8 @@ object Main {
       do_placement: Boolean = false,
       pblock: Option[File] = None,
       anchor: (Int, Int) = (2, 7),
-      max_cores_per_pblock: Int = 5
+      max_cores_per_pblock: Int = 5,
+      strategy: Seq[String] = Nil
   )
   def parseArgs(args: Seq[String]): CliConfig = {
     val project_version = getClass.getPackage.getImplementationVersion
@@ -64,6 +65,27 @@ object Main {
           .text(
             "desired operating frequency, default = 200"
           ),
+        opt[Seq[String]]('s', "strategy")
+          .action { case (s, c) => c.copy(strategy = s)}
+          .text("Implementation strategy (see ug904)")
+          .validate {
+            s =>
+              val validChoices = Set(
+                "Performance_Explore",
+                "Congestion_SpreadLogic_Explore",
+                "Performance_NetDelay_high",
+                "Performance_NetDelay_low",
+                "Performance_ExtraTimingOpt",
+                "Congestion_SpreadLogic_high",
+                "Congestion_SpreadLogic_medium",
+                "Congestion_SpreadLogic_low"
+              )
+              if (s.forall(validChoices.contains)) {
+                success
+              } else {
+                failure(s"Invalid strategy! Possible strategies are ${validChoices.mkString(", ")} ")
+              }
+          },
         opt[Int]("n_hop")
           .action { case (p, c) => c.copy(n_hop = p) }
           .text("number of hops between cores"),
@@ -161,7 +183,8 @@ object Main {
             enable_custom_alu = cfg.enable_custom_alu,
             freqMhz = cfg.freq,
             n_hop = cfg.n_hop,
-            pblock = cfg.pblock
+            pblock = cfg.pblock,
+            strategy = cfg.strategy
           )
 
         case "sim" =>
