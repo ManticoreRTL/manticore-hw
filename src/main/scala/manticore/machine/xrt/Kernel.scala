@@ -190,11 +190,11 @@ class ManticoreFlatSimKernel(
 
   val manticore =
     Module(new ManticoreFlatArray(DimX, DimY, debug_enable, enable_custom_alu, prefix_path))
-  manticore.io.clock_stabled := clock_distribution.io.locked
 
   manticore.io.reset         := reset
   manticore.io.control_clock := clock_distribution.io.control_clock
   manticore.io.compute_clock := clock_distribution.io.compute_clock
+  manticore.io.clock_stabled := clock_distribution.io.locked
 
   manticore.io.host_registers := io.kernel_registers.host
   io.kernel_registers.device  := manticore.io.device_registers
@@ -216,17 +216,18 @@ class ManticoreFlatSimKernel(
     clock = clock_distribution.io.control_clock,
     reset = reset
   ) {
-    Module(new AxiMemoryModel(DefaultAxiParameters, 1 << 20, ManticoreFullISA.DataBits))
+    Module(new AxiMemoryModel(AxiCacheAdapter.CacheAxiParameters, 1 << 20, ManticoreFullISA.DataBits))
   }
 
   axi_cache.io.base := 0.U
-
+  axi_cache.io.core <> manticore.io.memory_backend
   axi_cache.io.bus <> axi_mem.io.axi
 
   axi_mem.io.sim.waddr := io.dmi.addr
   axi_mem.io.sim.raddr := io.dmi.addr
   axi_mem.io.sim.lock  := io.dmi.locked
   axi_mem.io.sim.wdata := io.dmi.wdata
+  axi_mem.io.sim.wen   := io.dmi.wen
   io.dmi.rdata         := axi_mem.io.sim.rdata
 
 }
