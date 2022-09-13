@@ -338,41 +338,92 @@ class IterativePlacement(
   def pblockConstraint: String = {
     val coreToPblock = solution
 
-    coreToPblock
-      .groupMap(_._2)(_._1)
-      .toSeq
-      .sortBy { case (pblock, cores) =>
-        (pblock.clockRegionRow, pblock.side.toString())
-      }
-      .map { case (pblock, cores) =>
-        val cells = cores.toSeq
-          .sortBy { case Core(x, y) =>
-            (y, x)
-          }
-          .map { core =>
-            val others = if (core.x == 0 && core.y == 0) {
-              s"\t\tlevel0_i/ulp/ManticoreKernel_1/inst/manticore/controller \\\n" +
-                s"\t\tlevel0_i/ulp/ManticoreKernel_1/inst/clock_distribution   \\\n"
-            } else {
-              ""
+    def corePblockConstraints: String = {
+      coreToPblock
+        .groupMap(_._2)(_._1)
+        .toSeq
+        .sortBy { case (pblock, cores) =>
+          (pblock.clockRegionRow, pblock.side.toString())
+        }
+        .map { case (pblock, cores) =>
+          val cells = cores.toSeq
+            .sortBy { case Core(x, y) =>
+              (y, x)
             }
-            others + s"\t\tlevel0_i/ulp/ManticoreKernel_1/inst/manticore/compute_array/core_${core.x}_${core.y}/processor \\"
-          }
-          .mkString("\n")
+            .map { core =>
+              val auxiliary = if (core.x == 0 && core.y == 0) {
+                Seq(
+                  "level0_i/ulp/ManticoreKernel_1/inst/manticore/controller",
+                  "level0_i/ulp/ManticoreKernel_1/inst/clock_distribution"
+                )
+              } else {
+                Seq()
+              }
 
-        val pbName      = s"pblock_Y${pblock.clockRegionRow}_${pblock.side.toString()}"
-        val pbResources = pblockDeviceResources(pblock)
+              val main = Seq(
+                s"level0_i/ulp/ManticoreKernel_1/inst/manticore/compute_array/core_${core.x}_${core.y}/processor"
+                // s"level0_i/ulp/ManticoreKernel_1/inst/manticore/compute_array/switch_${core.x}_${core.y}",
+              )
 
-        s"""|
-            |create_pblock ${pbName}
-            |resize_pblock ${pbName} -add ${pbResources}
-            |add_cells_to_pblock ${pbName} [ get_cell [ list \\
-            |${cells}
-            |]]
-            |
-            |""".stripMargin
-      }
-      .mkString("\n")
+              // Insert tabs (before) and backslash (after) each entry.
+              (main ++ auxiliary).map(entry => s"\t\t${entry} \\").mkString("\n")
+            }
+            .mkString("\n")
+
+          val pbName      = s"pblock_cores_Y${pblock.clockRegionRow}_${pblock.side.toString()}"
+          val pbResources = corePblockDeviceResources(pblock)
+
+          s"""|
+              |create_pblock ${pbName}
+              |resize_pblock ${pbName} -add ${pbResources}
+              |add_cells_to_pblock ${pbName} [ get_cell [ list \\
+              |${cells}
+              |]]
+              |""".stripMargin
+        }
+        .mkString("\n")
+    }
+
+    def switchPblockConstraints: String = {
+      coreToPblock
+        .groupMap(_._2.clockRegionRow)(_._1)
+        .toSeq
+        .sortBy { case (clockRegionRow, cores) =>
+          // All switches in the same row will be in the same pblock (unlike for cores where they may be on a Left/Right
+          // pblock depending on their position on the grid).
+          clockRegionRow
+        }
+        .map { case (clockRegionRow, cores) =>
+          val cells = cores.toSeq
+            .sortBy { case Core(x, y) =>
+              (y, x)
+            }
+            .map { core =>
+              s"level0_i/ulp/ManticoreKernel_1/inst/manticore/compute_array/switch_${core.x}_${core.y}"
+            }
+            .map { entry =>
+              s"\t\t${entry} \\"
+            }
+            .mkString("\n")
+
+          val pbName      = s"pblock_switches_Y${clockRegionRow}"
+          val pbResources = switchPblockRowDeviceResources(clockRegionRow)
+
+          s"""|
+              |create_pblock ${pbName}
+              |resize_pblock ${pbName} -add ${pbResources}
+              |add_cells_to_pblock ${pbName} [ get_cell [ list \\
+              |${cells}
+              |]]
+              |""".stripMargin
+        }
+        .mkString("\n")
+    }
+
+    Seq(
+      corePblockConstraints,
+      switchPblockConstraints
+    ).mkString("\n")
   }
 }
 
@@ -390,7 +441,7 @@ object IterativePlacement {
   case class Pblock(clockRegionRow: Int, side: Side)
 
   // format: off
-  val pblockDeviceResources = Map(
+  val corePblockDeviceResources = Map(
     Pblock(0, Left)   -> "{ BUFCE_LEAF_X0Y0:BUFCE_LEAF_X431Y3 BUFCE_ROW_X0Y0:BUFCE_ROW_X0Y23 BUFCE_ROW_FSR_X0Y0:BUFCE_ROW_FSR_X95Y0 BUFGCE_X0Y0:BUFGCE_X0Y23 BUFGCE_DIV_X0Y0:BUFGCE_DIV_X0Y3 BUFGCTRL_X0Y0:BUFGCTRL_X0Y7 BUFG_GT_X0Y0:BUFG_GT_X0Y23 BUFG_GT_SYNC_X0Y0:BUFG_GT_SYNC_X0Y14 DSP48E2_X0Y0:DSP48E2_X9Y23 MMCM_X0Y0:MMCM_X0Y0 PLL_X0Y0:PLL_X0Y1 PLL_SELECT_SITE_X0Y0:PLL_SELECT_SITE_X0Y7 RAMB18_X0Y0:RAMB18_X5Y23 RAMB36_X0Y0:RAMB36_X5Y11 SLICE_X0Y0:SLICE_X83Y59 URAM288_X0Y0:URAM288_X1Y15 }",
     Pblock(0, Right)  -> "{ BUFCE_LEAF_X432Y0:BUFCE_LEAF_X863Y3 BUFCE_ROW_X1Y0:BUFCE_ROW_X1Y23 BUFCE_ROW_FSR_X96Y0:BUFCE_ROW_FSR_X188Y0 BUFGCE_X1Y0:BUFGCE_X1Y23 BUFGCE_DIV_X1Y0:BUFGCE_DIV_X1Y3 BUFGCTRL_X1Y0:BUFGCTRL_X1Y7 BUFG_GT_X1Y0:BUFG_GT_X1Y23 BUFG_GT_SYNC_X1Y0:BUFG_GT_SYNC_X1Y14 DSP48E2_X10Y0:DSP48E2_X18Y23 MMCM_X1Y0:MMCM_X1Y0 PLL_X1Y0:PLL_X1Y1 PLL_SELECT_SITE_X1Y0:PLL_SELECT_SITE_X1Y7 RAMB18_X6Y0:RAMB18_X11Y23 RAMB36_X6Y0:RAMB36_X11Y11 SLICE_X84Y0:SLICE_X168Y59 URAM288_X2Y0:URAM288_X3Y15 }",
     Pblock(1, Left)   -> "{ BUFCE_LEAF_X0Y4:BUFCE_LEAF_X431Y7 BUFCE_ROW_X0Y24:BUFCE_ROW_X0Y47 BUFCE_ROW_FSR_X0Y1:BUFCE_ROW_FSR_X95Y1 BUFGCE_X0Y24:BUFGCE_X0Y47 BUFGCE_DIV_X0Y4:BUFGCE_DIV_X0Y7 BUFGCTRL_X0Y8:BUFGCTRL_X0Y15 BUFG_GT_X0Y24:BUFG_GT_X0Y47 BUFG_GT_SYNC_X0Y15:BUFG_GT_SYNC_X0Y29 DSP48E2_X0Y24:DSP48E2_X9Y47 MMCM_X0Y1:MMCM_X0Y1 PLL_X0Y2:PLL_X0Y3 PLL_SELECT_SITE_X0Y8:PLL_SELECT_SITE_X0Y15 RAMB18_X0Y24:RAMB18_X5Y47 RAMB36_X0Y12:RAMB36_X5Y23 SLICE_X0Y60:SLICE_X83Y119 URAM288_X0Y16:URAM288_X1Y31 }",
@@ -423,6 +474,24 @@ object IterativePlacement {
     Pblock(14, Right) -> "{ BUFCE_LEAF_X432Y56:BUFCE_LEAF_X863Y59 BUFCE_ROW_X1Y336:BUFCE_ROW_X1Y359 BUFCE_ROW_FSR_X96Y14:BUFCE_ROW_FSR_X188Y14 BUFGCE_X1Y336:BUFGCE_X1Y359 BUFGCE_DIV_X1Y56:BUFGCE_DIV_X1Y59 BUFGCTRL_X1Y112:BUFGCTRL_X1Y119 BUFG_GT_X1Y336:BUFG_GT_X1Y359 BUFG_GT_SYNC_X1Y210:BUFG_GT_SYNC_X1Y224 DSP48E2_X10Y336:DSP48E2_X18Y359 MMCM_X1Y14:MMCM_X1Y14 PLL_X1Y28:PLL_X1Y29 PLL_SELECT_SITE_X1Y112:PLL_SELECT_SITE_X1Y119 RAMB18_X6Y336:RAMB18_X11Y359 RAMB36_X6Y168:RAMB36_X11Y179 SLICE_X84Y840:SLICE_X168Y899 URAM288_X2Y224:URAM288_X3Y239 }",
   )
   // format: on
+
+  val switchPblockRowDeviceResources = Map(
+    0  -> "{ CLOCKREGION_X0Y0 }",
+    1  -> "{ CLOCKREGION_X0Y1 }",
+    2  -> "{ CLOCKREGION_X0Y2 }",
+    3  -> "{ CLOCKREGION_X0Y3 }",
+    4  -> "{ CLOCKREGION_X0Y4 }",
+    5  -> "{ CLOCKREGION_X0Y5 }",
+    6  -> "{ CLOCKREGION_X0Y6 }",
+    7  -> "{ CLOCKREGION_X0Y7 }",
+    8  -> "{ CLOCKREGION_X0Y8 }",
+    9  -> "{ CLOCKREGION_X0Y9 }",
+    10 -> "{ CLOCKREGION_X0Y1 }",
+    11 -> "{ CLOCKREGION_X0Y1 }",
+    12 -> "{ CLOCKREGION_X0Y1 }",
+    13 -> "{ CLOCKREGION_X0Y1 }",
+    14 -> "{ CLOCKREGION_X0Y1 }"
+  )
 
   // Mapping from an abstract position on a 2D grid to a Core in a torus network.
   // This generates the torus network coordinates at the appropriate place in

@@ -25,6 +25,11 @@ import chisel3.DontCare
 import firrtl.ir.Width
 import manticore.machine.ISA
 
+import chisel3.experimental.annotate
+import chisel3.experimental.ChiselAnnotation
+import firrtl.annotations.Annotation
+import firrtl.AttributeAnnotation
+
 class BareNoCBundle(val config: ISA) extends Bundle {
   val data: UInt    = UInt(config.DataBits.W)
   val address: UInt = UInt(config.IdBits.W)
