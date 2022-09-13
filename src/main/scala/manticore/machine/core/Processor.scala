@@ -249,7 +249,7 @@ class Processor(
 
     is(ProcessorPhase.StaticExecutionPhase) {
 
-      when(countdown_timer === 1.U) {
+      when(countdown_timer === 0.U) {
         when(skip_sleep) {
           state := ProcessorPhase.StaticExecutionPhase
           dprintf(
@@ -285,7 +285,7 @@ class Processor(
     }
 
     is(ProcessorPhase.StaticSleepPhase) {
-      when(countdown_timer === 1.U) {
+      when(countdown_timer === 0.U) {
         when(skip_exec) {
           state           := ProcessorPhase.StaticSleepPhase
           countdown_timer := program_sleep_length
@@ -302,7 +302,7 @@ class Processor(
     }
   }
 
-  fetch_stage.io.execution_enable := (state === ProcessorPhase.StaticExecutionPhase) && (countdown_timer =/= 1.U)
+  fetch_stage.io.execution_enable := (state === ProcessorPhase.StaticExecutionPhase) && (countdown_timer =/= 0.U)
   io.periphery.active             := (state === ProcessorPhase.StaticExecutionPhase)
 
   class RegisterWriteByPass extends Bundle {
