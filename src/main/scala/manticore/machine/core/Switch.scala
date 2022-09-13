@@ -170,7 +170,7 @@ class SwitchInterface(DimX: Int, DimY: Int, config: ISA) extends Bundle {
   * @param DimY
   * @param config
   */
-class Switch(DimX: Int, DimY: Int, config: ISA, n_hop: Int = 2) extends Module {
+class Switch(DimX: Int, DimY: Int, config: ISA, n_hop: Int) extends Module {
   val io = IO(new SwitchInterface(DimX, DimY, config))
 
   val empty = Wire(NoCBundle(DimX, DimY, config))
@@ -243,13 +243,16 @@ class Switch(DimX: Int, DimY: Int, config: ISA, n_hop: Int = 2) extends Module {
     }
   }
 
-  if (n_hop == 2) {
-    io.xOutput := RegNext(x_reg)
-    io.yOutput := RegNext(y_reg)
-  } else {
-    io.xOutput := x_reg
-    io.yOutput := y_reg
-  }
+  // We subtract 1 as x_reg and y_reg count as 1 hop.
+  io.xOutput := Pipe(true.B, x_reg, n_hop - 1).bits
+  io.yOutput := Pipe(true.B, y_reg, n_hop - 1).bits
+  annotate(new ChiselAnnotation {
+    def toFirrtl: Annotation = AttributeAnnotation(io.xOutput.toNamed, "srl_type=\"register\"")
+  })
+  annotate(new ChiselAnnotation {
+    def toFirrtl: Annotation = AttributeAnnotation(io.yOutput.toNamed, "srl_type=\"register\"")
+  })
+
   io.terminal := terminal_reg
 
 }
