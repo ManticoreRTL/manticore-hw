@@ -338,6 +338,27 @@ class IterativePlacement(
   def pblockConstraint: String = {
     val coreToPblock = solution
 
+    val coreCells: Map[Core, String] = coreToPblock.map { case (core, pblock) =>
+      // We explicitly do not consider the registers in the ProcessorWithSendPipe as part of the "core" since we
+      // want vivado to have freedom to place them where it wants.
+      core -> s"level0_i/ulp/ManticoreKernel_1/inst/manticore/compute_array/core_${core.x}_${core.y}/processor"
+    }
+
+    val switchCells: Map[Core, String] = coreToPblock.map { case (core, pblock) =>
+      core -> s"level0_i/ulp/ManticoreKernel_1/inst/manticore/compute_array/switch_${core.x}_${core.y}"
+    }
+
+    def coreAuxiliaryCells(core: Core): Seq[String] = {
+      if (core.x == 0 && core.y == 0) {
+        Seq(
+          "level0_i/ulp/ManticoreKernel_1/inst/manticore/controller",
+          "level0_i/ulp/ManticoreKernel_1/inst/clock_distribution"
+        )
+      } else {
+        Seq()
+      }
+    }
+
     def corePblockConstraints: String = {
       coreToPblock
         .groupMap(_._2)(_._1)
@@ -351,22 +372,15 @@ class IterativePlacement(
               (y, x)
             }
             .map { core =>
-              val auxiliary = if (core.x == 0 && core.y == 0) {
-                Seq(
-                  "level0_i/ulp/ManticoreKernel_1/inst/manticore/controller",
-                  "level0_i/ulp/ManticoreKernel_1/inst/clock_distribution"
-                )
-              } else {
-                Seq()
-              }
+              val auxiliaryCells = coreAuxiliaryCells(core)
 
-              val main = Seq(
-                s"level0_i/ulp/ManticoreKernel_1/inst/manticore/compute_array/core_${core.x}_${core.y}/processor"
-                // s"level0_i/ulp/ManticoreKernel_1/inst/manticore/compute_array/switch_${core.x}_${core.y}",
+              val mainCells = Seq(
+                coreCells(core)
+                // switchCells(core)
               )
 
               // Insert tabs (before) and backslash (after) each entry.
-              (main ++ auxiliary).map(entry => s"\t\t${entry} \\").mkString("\n")
+              (auxiliaryCells ++ mainCells).map(entry => s"\t\t${entry} \\").mkString("\n")
             }
             .mkString("\n")
 
@@ -399,7 +413,7 @@ class IterativePlacement(
               (y, x)
             }
             .map { core =>
-              s"level0_i/ulp/ManticoreKernel_1/inst/manticore/compute_array/switch_${core.x}_${core.y}"
+              switchCells(core)
             }
             .map { entry =>
               s"\t\t${entry} \\"
@@ -420,9 +434,27 @@ class IterativePlacement(
         .mkString("\n")
     }
 
+    def hierarchyConstraints: String = {
+      coreToPblock.keys.toSeq
+        .sortBy { core =>
+          (core.y, core.x)
+        }
+        .map { core =>
+          val coreConstraint   = s"set_property keep_hierarchy yes [get_cells ${coreCells(core)}]"
+          val switchConstraint = s"set_property keep_hierarchy yes [get_cells ${switchCells(core)}]"
+
+          Seq(
+            coreConstraint,
+            switchConstraint
+          ).mkString("\n")
+        }
+        .mkString("\n")
+    }
+
     Seq(
       corePblockConstraints,
-      switchPblockConstraints
+      switchPblockConstraints,
+      hierarchyConstraints
     ).mkString("\n")
   }
 }

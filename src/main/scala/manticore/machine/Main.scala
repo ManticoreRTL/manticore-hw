@@ -153,8 +153,15 @@ object Main {
       sys.exit(0)
     }
     if (cfg.do_placement) {
+      val (x, y) = cfg.anchor
+
+      // The shell on the U200 is in X[3-5]Y[5-9].
+      // We use the "right" half-width pblock as the MMCM is there.
+      val pblockSide = IterativePlacement.Right
+
+      val placer = new IterativePlacement(cfg.dimx, cfg.dimy, IterativePlacement.Pblock(y, pblockSide))
       // val placer = new PhysicalPlacement(cfg.dimx, cfg.dimy, cfg.anchor, cfg.max_cores_per_pblock)
-      val placer = new IterativePlacement(cfg.dimx, cfg.dimy, IterativePlacement.Pblock(7, IterativePlacement.Right))
+
       val writer = new PrintWriter(cfg.output)
       writer.write(placer.pblockConstraint)
       writer.close()
