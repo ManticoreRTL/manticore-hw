@@ -518,11 +518,11 @@ object IterativePlacement {
     7  -> "{ CLOCKREGION_X0Y7 }",
     8  -> "{ CLOCKREGION_X0Y8 }",
     9  -> "{ CLOCKREGION_X0Y9 }",
-    10 -> "{ CLOCKREGION_X0Y1 }",
-    11 -> "{ CLOCKREGION_X0Y1 }",
-    12 -> "{ CLOCKREGION_X0Y1 }",
-    13 -> "{ CLOCKREGION_X0Y1 }",
-    14 -> "{ CLOCKREGION_X0Y1 }"
+    10 -> "{ CLOCKREGION_X0Y10 }",
+    11 -> "{ CLOCKREGION_X0Y11 }",
+    12 -> "{ CLOCKREGION_X0Y12 }",
+    13 -> "{ CLOCKREGION_X0Y13 }",
+    14 -> "{ CLOCKREGION_X0Y14 }"
   )
 
   // Mapping from an abstract position on a 2D grid to a Core in a torus network.
