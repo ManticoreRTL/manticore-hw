@@ -6,9 +6,11 @@ import manticore.machine.xrt.ManticoreKernelGenerator
 import scopt.OParser
 
 import java.io.File
-import manticore.machine.xrt.PhysicalPlacement
 import java.io.PrintWriter
-import manticore.machine.xrt.IterativePlacement
+import manticore.machine.xrt.Floorplanning
+import manticore.machine.xrt.SwitchLeftHighway
+import manticore.machine.xrt.SwitchCentralIsland
+import manticore.machine.xrt.U200
 
 object Main {
 
@@ -23,6 +25,7 @@ object Main {
       freq: Double = 200.0,
       n_hop: Int = 1,
       do_placement: Boolean = false,
+      placement_alg: String = "island",
       pblock: Option[File] = None,
       anchor: (Int, Int) = (2, 7),
       max_cores_per_pblock: Int = 5,
@@ -66,25 +69,24 @@ object Main {
             "desired operating frequency, default = 200"
           ),
         opt[Seq[String]]('s', "strategy")
-          .action { case (s, c) => c.copy(strategy = s)}
+          .action { case (s, c) => c.copy(strategy = s) }
           .text("Implementation strategy (see ug904)")
-          .validate {
-            s =>
-              val validChoices = Set(
-                "Performance_Explore",
-                "Congestion_SpreadLogic_Explore",
-                "Performance_NetDelay_high",
-                "Performance_NetDelay_low",
-                "Performance_ExtraTimingOpt",
-                "Congestion_SpreadLogic_high",
-                "Congestion_SpreadLogic_medium",
-                "Congestion_SpreadLogic_low"
-              )
-              if (s.forall(validChoices.contains)) {
-                success
-              } else {
-                failure(s"Invalid strategy! Possible strategies are ${validChoices.mkString(", ")} ")
-              }
+          .validate { s =>
+            val validChoices = Set(
+              "Performance_Explore",
+              "Congestion_SpreadLogic_Explore",
+              "Performance_NetDelay_high",
+              "Performance_NetDelay_low",
+              "Performance_ExtraTimingOpt",
+              "Congestion_SpreadLogic_high",
+              "Congestion_SpreadLogic_medium",
+              "Congestion_SpreadLogic_low"
+            )
+            if (s.forall(validChoices.contains)) {
+              success
+            } else {
+              failure(s"Invalid strategy! Possible strategies are ${validChoices.mkString(", ")} ")
+            }
           },
         opt[Int]("n_hop")
           .action { case (p, c) => c.copy(n_hop = p) }
@@ -108,11 +110,26 @@ object Main {
                 c.copy(anchor = pan)
               }
               .valueName("XnYm")
-              .required()
+              // .required()
               .text("pblock anchor point which contains the privileged core."),
             opt[Int]('m', "max-cores")
               .action { case (n, c) => c.copy(max_cores_per_pblock = n) }
-              .text("maximum number of cores allowed in a pblock")
+              .text("maximum number of cores allowed in a pblock"),
+            opt[String]("algorithm")
+              .action { case (alg, c) => c.copy(placement_alg = alg) }
+              .text("placement algorithm to use")
+              .required()
+              .validate { s =>
+                val validChoices = Set(
+                  "island",
+                  "highway"
+                )
+                if (validChoices.contains(s)) {
+                  success
+                } else {
+                  failure(s"Invalid placement algorithm! Possible algorithms are ${validChoices.mkString(", ")} ")
+                }
+              }
           ),
         checkConfig { c =>
           if (!c.do_placement) {
@@ -153,17 +170,21 @@ object Main {
       sys.exit(0)
     }
     if (cfg.do_placement) {
-      val (x, y) = cfg.anchor
-
-      // The shell on the U200 is in X[3-5]Y[5-9].
-      // We use the "right" half-width pblock as the MMCM is there.
-      val pblockSide = IterativePlacement.Right
-
-      val placer = new IterativePlacement(cfg.dimx, cfg.dimy, IterativePlacement.Pblock(y, pblockSide))
-      // val placer = new PhysicalPlacement(cfg.dimx, cfg.dimy, cfg.anchor, cfg.max_cores_per_pblock)
+      val constraints = if (cfg.placement_alg == "highway") {
+        // We want to anchor in clock region X2Y7. Setting the anchor to c2y12 in the grid results in x0y0 being assigned
+        // to pblock_cores_Y7_Left (experimentally verified, no algorithm to derive automatically).
+        new SwitchLeftHighway(cfg.dimx, cfg.dimy, Floorplanning.GridLoc(2, 12), U200).getConstraints()
+      } else if (cfg.placement_alg == "island") {
+        // We want to anchor core x0y0 in clock region X2Y10. We are lucky and it so happens to be that setting the
+        // anchor to c2y10 in the grid results in x0y0 being assigned to pblock_cores_Y10_Left (experimentally derived,
+        // no algorithm to derive automatically).
+        new SwitchCentralIsland(cfg.dimx, cfg.dimy, Floorplanning.GridLoc(2, 10), U200).getConstraints()
+      } else {
+        ""
+      }
 
       val writer = new PrintWriter(cfg.output)
-      writer.write(placer.pblockConstraint)
+      writer.write(constraints)
       writer.close()
     } else {
 
