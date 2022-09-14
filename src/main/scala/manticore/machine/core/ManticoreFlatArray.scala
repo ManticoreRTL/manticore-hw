@@ -101,7 +101,7 @@ class ComputeArray(
     dimy: Int,
     debug_enable: Boolean = false,
     enable_custom_alu: Boolean = true,
-    prefix_path: String = "./",
+    prefix_path: String = ".",
     n_hop: Int = 1
 ) extends Module {
 
@@ -239,7 +239,7 @@ class ManticoreFlatArray(
     dimy: Int,
     debug_enable: Boolean = false,
     enable_custom_alu: Boolean = true,
-    prefix_path: String = "./",
+    prefix_path: String = ".",
     n_hop: Int = 1
 ) extends RawModule {
 

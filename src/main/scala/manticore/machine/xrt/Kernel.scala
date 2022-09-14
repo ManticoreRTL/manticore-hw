@@ -152,7 +152,7 @@ class ManticoreFlatSimKernel(
     DimY: Int,
     debug_enable: Boolean = false,
     enable_custom_alu: Boolean = true,
-    prefix_path: String = "./"
+    prefix_path: String = "."
 ) extends Module {
 
   clock.suggestName("ap_clk")
