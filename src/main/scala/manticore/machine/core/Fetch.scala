@@ -108,8 +108,9 @@ class FetchCore(config: ISA) extends Module {
   io.memory_interface.raddr     := pc
   io.core_interface.instruction := io.memory_interface.dout
 
-  val stopped      = RegInit(Bool(), true.B)
-  val stopped_next = RegNext(stopped)
+  val stopped       = RegInit(Bool(), true.B)
+  val stopped_next1 = RegNext(stopped)
+  val stopped_next2 = RegNext(stopped_next1)
 
   require(
     config.NumPcBits / 8 <= 8,
@@ -143,7 +144,7 @@ class FetchCore(config: ISA) extends Module {
     stopped := true.B
   }
 
-  when(stopped_next) {
+  when(stopped_next2) {
     io.core_interface.instruction := 0.U // nop
   } otherwise {
     io.core_interface.instruction := io.memory_interface.dout
