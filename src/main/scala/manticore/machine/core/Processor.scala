@@ -302,8 +302,9 @@ class Processor(
     }
   }
 
-  fetch_stage.io.execution_enable := (state === ProcessorPhase.StaticExecutionPhase) && (countdown_timer =/= 1.U)
-  io.periphery.active             := (state === ProcessorPhase.StaticExecutionPhase)
+  fetch_stage.io.execution_enable     := (state === ProcessorPhase.StaticExecutionPhase)
+  fetch_stage.io.is_final_instruction := (countdown_timer === 1.U)
+  io.periphery.active                 := (state === ProcessorPhase.StaticExecutionPhase)
 
   class RegisterWriteByPass extends Bundle {
     val value   = UInt(config.DataBits.W)
