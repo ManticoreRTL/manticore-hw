@@ -109,7 +109,8 @@ trait Topology {
     val auxiliaryCells = if (core.x == 0 && core.y == 0) {
       Seq(
         "level0_i/ulp/ManticoreKernel_1/inst/manticore/controller",
-        "level0_i/ulp/ManticoreKernel_1/inst/clock_distribution"
+        "level0_i/ulp/ManticoreKernel_1/inst/clock_distribution",
+        "level0_i/ulp/ManticoreKernel_1/inst/axi_cache",
       )
     } else {
       Seq()
