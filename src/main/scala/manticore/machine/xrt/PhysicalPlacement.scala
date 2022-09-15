@@ -19,6 +19,8 @@ trait Device {
   val pblockGrid: Map[(Int, Side), GridPblock]
 
   def inShellSlr(clockRegionRow: Int): Boolean
+
+  def ShellSlrNonShellPblock(): ArbitraryPblock
 }
 
 object U200 extends Device {
@@ -81,6 +83,18 @@ object U200 extends Device {
   // format: on
 
   def inShellSlr(clockRegionRow: Int): Boolean = (5 <= clockRegionRow) && (clockRegionRow <= 9)
+
+  def ShellSlrNonShellPblock(): ArbitraryPblock = {
+    val pblockResources = ArrayBuffer.empty[String]
+
+    Range.inclusive(5, 9).foreach { clockRegionRow =>
+      Range.inclusive(0, 2).foreach { clockRegionCol =>
+        pblockResources += s"CLOCKREGION_X${clockRegionCol}Y${clockRegionRow}"
+      }
+    }
+
+    ArbitraryPblock(s"{ ${pblockResources.mkString(" ")} }")
+  }
 }
 
 // The goal of a topology is to map each element in a GridLoc to a Pblock.
@@ -108,9 +122,11 @@ trait Topology {
   def augmentedCoreCells(core: TorusLoc): Seq[String] = {
     val auxiliaryCells = if (core.x == 0 && core.y == 0) {
       Seq(
-        "level0_i/ulp/ManticoreKernel_1/inst/manticore/controller",
-        "level0_i/ulp/ManticoreKernel_1/inst/clock_distribution",
         "level0_i/ulp/ManticoreKernel_1/inst/axi_cache",
+        "level0_i/ulp/ManticoreKernel_1/inst/bootloader",
+        "level0_i/ulp/ManticoreKernel_1/inst/clock_distribution",
+        "level0_i/ulp/ManticoreKernel_1/inst/manticore/controller",
+        "level0_i/ulp/ManticoreKernel_1/inst/memory_intercept"
       )
     } else {
       Seq()
@@ -150,17 +166,16 @@ trait Topology {
 
     switchToPblock.toSeq
       .groupMap(_._2)(_._1)
-      .toSeq
-      .sortBy { case (pblock, switches) =>
-        pblock.clockRegionRow
-      }
-      .foreach { case (pblock, switches) =>
+      .zipWithIndex
+      .foreach { case ((pblock, switches), idx) =>
         val cells = switches.sortBy(switch => (switch.y, switch.x)).map(switch => getSwitchCell(switch))
-        // Switches can either have GridPblocks or LeftColumnPblocks. The naming differs for both and we must
-        // handle them here (LeftColumnPblock has a unique name per clock region row, whereas GridPblock does not).
+        // Switches can either have GridPblocks, LeftColumnPblocks, or ArbitraryPblocks. The naming differs for each and
+        // we must handle them here (LeftColumnPblock has a unique name per clock region row, whereas GridPblock does
+        // not, and Arbitrary has no real name and we use an index instead).
         val pblockName = pblock match {
-          case GridPblock(clockRegionRow, side, resources) => s"pblock_cores_Y${clockRegionRow}_${side.toString()}"
+          case GridPblock(clockRegionRow, side, resources) => s"pblock_switches_Y${clockRegionRow}_${side.toString()}"
           case LeftColumnPblock(clockRegionRow, resources) => s"pblock_switches_Y${clockRegionRow}"
+          case ArbitraryPblock(resources)                  => s"pblock_switches_${idx}"
         }
         constraints += pblock.toTcl(pblockName, cells)
       }
@@ -335,39 +350,48 @@ class SwitchCentralIsland(
   def getSwitchToPblockMap(): Map[TorusLoc, Pblock] = {
     assert(dimY <= 20)
 
-    val gridToTorus = getGridLocToTorusLocMap(dimX, dimY, anchor)
-
-    val gridRows = gridToTorus
-      .groupMap(_._1.r)(_._1)
-      .map { case (gridLoc, group) =>
-        gridLoc -> group.toSeq.sortBy(_.c)
-      }
-
-    val torusToPblock = MMap.empty[TorusLoc, GridPblock]
-
-    var gridY          = 0
-    var clockRegionRow = 0
-    while (gridY < dimY) {
-      var rowsTaken = 0
-      // Place 4 or 0 rows of torus nodes in a clock region row depending on whether we are in SLR1 or not.
-      val rowBound = if (device.inShellSlr(clockRegionRow)) 4 else 0
-
-      while (rowsTaken < rowBound) {
-        gridRows(gridY).foreach { gridLoc =>
-          // Assign locs in row to either the left or right pblock.
-          val side   = if (gridLoc.c < dimX / 2) Left else Right
-          val core   = gridToTorus(gridLoc)
-          val pblock = device.pblockGrid((clockRegionRow, side))
-          torusToPblock += core -> pblock
+    Range
+      .inclusive(0, dimX - 1)
+      .flatMap { x =>
+        Range.inclusive(0, dimY - 1).map { y =>
+          TorusLoc(x, y) -> device.ShellSlrNonShellPblock()
         }
-        rowsTaken += 1
-        gridY += 1
       }
+      .toMap
 
-      clockRegionRow += 1
-    }
+    // val gridToTorus = getGridLocToTorusLocMap(dimX, dimY, anchor)
 
-    torusToPblock.toMap
+    // val gridRows = gridToTorus
+    //   .groupMap(_._1.r)(_._1)
+    //   .map { case (gridLoc, group) =>
+    //     gridLoc -> group.toSeq.sortBy(_.c)
+    //   }
+
+    // val torusToPblock = MMap.empty[TorusLoc, GridPblock]
+
+    // var gridY          = 0
+    // var clockRegionRow = 0
+    // while (gridY < dimY) {
+    //   var rowsTaken = 0
+    //   // Place 4 or 0 rows of torus nodes in a clock region row depending on whether we are in SLR1 or not.
+    //   val rowBound = if (device.inShellSlr(clockRegionRow)) 4 else 0
+
+    //   while (rowsTaken < rowBound) {
+    //     gridRows(gridY).foreach { gridLoc =>
+    //       // Assign locs in row to either the left or right pblock.
+    //       val side   = if (gridLoc.c < dimX / 2) Left else Right
+    //       val core   = gridToTorus(gridLoc)
+    //       val pblock = device.pblockGrid((clockRegionRow, side))
+    //       torusToPblock += core -> pblock
+    //     }
+    //     rowsTaken += 1
+    //     gridY += 1
+    //   }
+
+    //   clockRegionRow += 1
+    // }
+
+    // torusToPblock.toMap
   }
 }
 
@@ -384,7 +408,6 @@ object Floorplanning {
   }
 
   trait Pblock {
-    val clockRegionRow: Int
     val resources: String
 
     def toTcl(
@@ -403,7 +426,10 @@ object Floorplanning {
   }
 
   case class GridPblock(clockRegionRow: Int, side: Side, resources: String) extends Pblock
-  case class LeftColumnPblock(clockRegionRow: Int, resources: String)       extends Pblock
+
+  case class LeftColumnPblock(clockRegionRow: Int, resources: String) extends Pblock
+
+  case class ArbitraryPblock(resources: String) extends Pblock
 
   // Mapping from an abstract position on a 2D grid to a Core in a torus network.
   // This generates the torus network coordinates at the appropriate place in
