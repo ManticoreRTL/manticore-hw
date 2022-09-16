@@ -115,7 +115,8 @@ class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
       if (config.WithGlobalMemory) io.pipe_in.opcode.gload else false.B
     } ||
     io.pipe_in.opcode.set ||
-    io.pipe_in.opcode.slice
+    io.pipe_in.opcode.slice ||
+    io.pipe_in.opcode.set_carry
   }
   pipeIt3(io.pipe_out.rd) {
     io.pipe_in.rd
