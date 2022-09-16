@@ -208,16 +208,6 @@ object U200Floorplan {
     def getSwitchToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, GridPblock] = {
       assert(dimY <= 20)
 
-      // // Single pblock.
-      // Range
-      //   .inclusive(0, dimX - 1)
-      //   .flatMap { x =>
-      //     Range.inclusive(0, dimY - 1).map { y =>
-      //       TorusLoc(x, y) -> device.ShellSlrNonShellPblock()
-      //     }
-      //   }
-      //   .toMap
-
       val gridToTorus = getGridLocToTorusLocMap(dimX, dimY, anchor)
 
       val gridRows = gridToTorus
