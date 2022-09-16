@@ -142,7 +142,11 @@ object Main {
       sys.exit(0)
     }
     if (cfg.do_placement) {
-      val platform = ManticoreKernelGenerator.platformDevice(cfg.platform)
+      val platform = ManticoreKernelGenerator.platformDevice.get(cfg.platform) match {
+        case None => sys.error(s"Platform not specified!")
+        case Some(value) => value
+      }
+
       val constraints = platform.device match {
         case U200 =>
           val validChoices = Set("highway", "rigid-island", "loose-island")

@@ -147,8 +147,11 @@ trait Floorplan {
 
     coreToPblock
       .groupMap(_._2)(_._1)
-      .zipWithIndex
-      .foreach { case ((pblock, cores), idx) =>
+      .toSeq
+      .sortBy { case (pblock, cores) =>
+        pblock.name
+      }
+      .foreach { case (pblock, cores) =>
         val cells = cores.toSeq
           .sortBy(core => (core.y, core.x))
           .flatMap { core =>
@@ -156,8 +159,7 @@ trait Floorplan {
             val coreCell = getCoreCellName(core.x, core.y)
             auxCells :+ coreCell
           }
-        val pblockName = s"pblock_cores_${idx}"
-        constraints += pblock.toTcl(pblockName, cells)
+        constraints += pblock.toTcl(cells)
       }
 
     constraints.mkString("\n")
@@ -170,16 +172,18 @@ trait Floorplan {
 
     switchToPblock.toSeq
       .groupMap(_._2)(_._1)
-      .zipWithIndex
-      .foreach { case ((pblock, switches), idx) =>
+      .toSeq
+      .sortBy { case (pblock, switches) =>
+        pblock.name
+      }
+      .foreach { case (pblock, switches) =>
         val cells = switches
           .sortBy(switch => (switch.y, switch.x))
           .map { switch =>
             val switchCell = getSwitchCellName(switch.x, switch.y)
             switchCell
           }
-        val pblockName = s"pblock_switches_${idx}"
-        constraints += pblock.toTcl(pblockName, cells)
+        constraints += pblock.toTcl(cells)
       }
 
     constraints.mkString("\n")
@@ -228,10 +232,10 @@ trait Floorplan {
 }
 
 trait Pblock {
+  val name: String
   val resources: String
 
   def toTcl(
-      name: String,
       cells: Seq[String]
   ): String = {
     val cellsStr = cells.map(cell => s"\t\t${cell} \\").mkString("\n")
