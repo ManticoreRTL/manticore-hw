@@ -314,6 +314,7 @@ class ManticoreFlatArray(
   memory_intercept.io.cache_flush := controller.io.cache_flush_start
   memory_intercept.io.cache_reset := controller.io.cache_reset_start
 
+  // TODO (skashani): Modify the controller and bootloader to take 7 cycle latency into account.
   // We use 7 pipeline stages here as each core also has 7 pipeline registers before its packet_out interface.
   annotate(new ChiselAnnotation {
     def toFirrtl: Annotation = AttributeAnnotation(compute_array.io.config_enable.toNamed, "srl_type=\"register\"")

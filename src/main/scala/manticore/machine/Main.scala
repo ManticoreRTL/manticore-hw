@@ -11,6 +11,7 @@ import manticore.machine.xrt.ManticoreKernelGenerator.U200
 import manticore.machine.xrt.ManticoreKernelGenerator.U250
 import manticore.machine.xrt.ManticoreKernelGenerator.U280
 import manticore.machine.xrt.U200Floorplan
+import manticore.machine.xrt.U250Floorplan
 
 object Main {
 
@@ -143,7 +144,7 @@ object Main {
     }
     if (cfg.do_placement) {
       val platform = ManticoreKernelGenerator.platformDevice.get(cfg.platform) match {
-        case None => sys.error(s"Platform not specified!")
+        case None        => sys.error(s"Platform not specified!")
         case Some(value) => value
       }
 
@@ -163,7 +164,7 @@ object Main {
         case U250 =>
           val validChoices = Set("loose-slr2-slr3")
           if (cfg.placement_alg == "loose-slr2-slr3") {
-            ""
+            U250Floorplan.LooseSlr2Slr3.toTcl(cfg.dimx, cfg.dimy)
           } else {
             sys.error(s"Invalid placement algorithm! Valid choices are ${validChoices.mkString(", ")}")
           }

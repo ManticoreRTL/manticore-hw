@@ -142,77 +142,60 @@ trait Floorplan {
     anchoredMapping
   }
 
-  def getCorePblockConstraints(dimX: Int, dimY: Int): String = {
-    val constraints = ArrayBuffer.empty[String]
+  def getPblockConstrains(dimX: Int, dimY: Int): String = {
+    val pblockCells = MMap.empty[Pblock, Set[String]].withDefaultValue(Set.empty)
 
-    val coreToPblock = getCoreToPblockMap(dimX, dimY)
+    val coreToPblock   = getCoreToPblockMap(dimX, dimY)
+    val switchToPblock = getSwitchToPblockMap(dimX, dimY)
 
     coreToPblock
       .groupMap(_._2)(_._1)
-      .toSeq
-      .sortBy { case (pblock, cores) =>
-        pblock.name
-      }
       .foreach { case (pblock, cores) =>
-        val cells = cores.toSeq
-          .sortBy(core => (core.y, core.x))
+        val cells = cores
           .flatMap { core =>
             val auxCells = getCoreAuxiliaryCellNames(core.x, core.y)
             val coreCell = getCoreCellName(core.x, core.y)
             auxCells :+ coreCell
           }
-        constraints += pblock.toTcl(cells)
+
+        pblockCells(pblock) ++= cells
       }
 
-    constraints.mkString("\n")
-  }
-
-  def getSwitchPblockConstraints(dimX: Int, dimY: Int): String = {
-    val constraints = ArrayBuffer.empty[String]
-
-    val switchToPblock = getSwitchToPblockMap(dimX, dimY)
-
-    switchToPblock.toSeq
+    switchToPblock
       .groupMap(_._2)(_._1)
-      .toSeq
-      .sortBy { case (pblock, switches) =>
-        pblock.name
-      }
-      .foreach { case (pblock, switches) =>
-        val cells = switches
-          .sortBy(switch => (switch.y, switch.x))
+      .foreach { case (pblock, switch) =>
+        val cells = switch
           .map { switch =>
             val switchCell = getSwitchCellName(switch.x, switch.y)
             switchCell
           }
-        constraints += pblock.toTcl(cells)
+
+        pblockCells(pblock) ++= cells
+      }
+
+    val constraints = ArrayBuffer.empty[String]
+
+    // TODO (skashani): Find a way to do natural sorting here as otherwise the pblocks are hard to read.
+    pblockCells.toSeq
+      .sortBy { case (pblock, cells) => pblock.name }
+      .foreach { case (pblock, cells) =>
+        val cellsSorted = cells.toSeq.sorted
+        constraints += pblock.toTcl(cellsSorted)
       }
 
     constraints.mkString("\n")
   }
 
-  def getCoreHierarchyConstraints(dimX: Int, dimY: Int): String = {
+  def getHierarchyConstraints(dimX: Int, dimY: Int): String = {
     val constraints = ArrayBuffer.empty[String]
 
     Range.inclusive(0, dimY - 1).foreach { y =>
       Range.inclusive(0, dimX - 1).foreach { x =>
-        val core = TorusLoc(x, y)
-        val cell = getCoreCellName(core.x, core.y)
-        constraints += s"set_property keep_hierarchy yes [get_cells ${cell}]"
-      }
-    }
-
-    constraints.mkString("\n")
-  }
-
-  def getSwitchHierarchyConstraints(dimX: Int, dimY: Int): String = {
-    val constraints = ArrayBuffer.empty[String]
-
-    Range.inclusive(0, dimY - 1).foreach { y =>
-      Range.inclusive(0, dimX - 1).foreach { x =>
-        val switch = TorusLoc(x, y)
-        val cell   = getSwitchCellName(switch.x, switch.y)
-        constraints += s"set_property keep_hierarchy yes [get_cells ${cell}]"
+        val torusLoc   = TorusLoc(x, y)
+        val coreCell   = getCoreCellName(torusLoc.x, torusLoc.y)
+        val switchCell = getSwitchCellName(torusLoc.x, torusLoc.y)
+        constraints += s"set_property keep_hierarchy yes [get_cells ${coreCell}]"
+        constraints += s"set_property keep_hierarchy yes [get_cells ${switchCell}]"
       }
     }
 
@@ -221,10 +204,8 @@ trait Floorplan {
 
   def toTcl(dimX: Int, dimY: Int): String = {
     Seq(
-      getCorePblockConstraints(dimX, dimY),
-      getSwitchPblockConstraints(dimX, dimY),
-      getCoreHierarchyConstraints(dimX, dimY),
-      getSwitchHierarchyConstraints(dimX, dimY)
+      getPblockConstrains(dimX, dimY),
+      getHierarchyConstraints(dimX, dimY)
     ).mkString("\n")
   }
 
