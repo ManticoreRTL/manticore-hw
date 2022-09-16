@@ -350,48 +350,49 @@ class SwitchCentralIsland(
   def getSwitchToPblockMap(): Map[TorusLoc, Pblock] = {
     assert(dimY <= 20)
 
-    Range
-      .inclusive(0, dimX - 1)
-      .flatMap { x =>
-        Range.inclusive(0, dimY - 1).map { y =>
-          TorusLoc(x, y) -> device.ShellSlrNonShellPblock()
-        }
-      }
-      .toMap
-
-    // val gridToTorus = getGridLocToTorusLocMap(dimX, dimY, anchor)
-
-    // val gridRows = gridToTorus
-    //   .groupMap(_._1.r)(_._1)
-    //   .map { case (gridLoc, group) =>
-    //     gridLoc -> group.toSeq.sortBy(_.c)
-    //   }
-
-    // val torusToPblock = MMap.empty[TorusLoc, GridPblock]
-
-    // var gridY          = 0
-    // var clockRegionRow = 0
-    // while (gridY < dimY) {
-    //   var rowsTaken = 0
-    //   // Place 4 or 0 rows of torus nodes in a clock region row depending on whether we are in SLR1 or not.
-    //   val rowBound = if (device.inShellSlr(clockRegionRow)) 4 else 0
-
-    //   while (rowsTaken < rowBound) {
-    //     gridRows(gridY).foreach { gridLoc =>
-    //       // Assign locs in row to either the left or right pblock.
-    //       val side   = if (gridLoc.c < dimX / 2) Left else Right
-    //       val core   = gridToTorus(gridLoc)
-    //       val pblock = device.pblockGrid((clockRegionRow, side))
-    //       torusToPblock += core -> pblock
+    // // Single pblock.
+    // Range
+    //   .inclusive(0, dimX - 1)
+    //   .flatMap { x =>
+    //     Range.inclusive(0, dimY - 1).map { y =>
+    //       TorusLoc(x, y) -> device.ShellSlrNonShellPblock()
     //     }
-    //     rowsTaken += 1
-    //     gridY += 1
     //   }
+    //   .toMap
 
-    //   clockRegionRow += 1
-    // }
+    val gridToTorus = getGridLocToTorusLocMap(dimX, dimY, anchor)
 
-    // torusToPblock.toMap
+    val gridRows = gridToTorus
+      .groupMap(_._1.r)(_._1)
+      .map { case (gridLoc, group) =>
+        gridLoc -> group.toSeq.sortBy(_.c)
+      }
+
+    val torusToPblock = MMap.empty[TorusLoc, GridPblock]
+
+    var gridY          = 0
+    var clockRegionRow = 0
+    while (gridY < dimY) {
+      var rowsTaken = 0
+      // Place 4 or 0 rows of torus nodes in a clock region row depending on whether we are in SLR1 or not.
+      val rowBound = if (device.inShellSlr(clockRegionRow)) 4 else 0
+
+      while (rowsTaken < rowBound) {
+        gridRows(gridY).foreach { gridLoc =>
+          // Assign locs in row to either the left or right pblock.
+          val side   = if (gridLoc.c < dimX / 2) Left else Right
+          val core   = gridToTorus(gridLoc)
+          val pblock = device.pblockGrid((clockRegionRow, side))
+          torusToPblock += core -> pblock
+        }
+        rowsTaken += 1
+        gridY += 1
+      }
+
+      clockRegionRow += 1
+    }
+
+    torusToPblock.toMap
   }
 }
 

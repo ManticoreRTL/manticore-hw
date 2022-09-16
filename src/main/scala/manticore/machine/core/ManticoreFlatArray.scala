@@ -224,7 +224,6 @@ class ComputeArray(
     // connect the configuration packet to the master core switch
     when(io.config_enable) {
       master_core.switch.io.xInput := io.config_packet
-
     }
 
     io.exception_id       := master_core.core.io.periphery.exception.id
@@ -310,8 +309,9 @@ class ManticoreFlatArray(
   memory_intercept.io.cache_flush := controller.io.cache_flush_start
   memory_intercept.io.cache_reset := controller.io.cache_reset_start
 
-  compute_array.io.config_enable := controller.io.config_enable
-  compute_array.io.config_packet := bootloader.io.packet_out
+  // We use 7 pipeline stages here as each core also has 7 pipeline registers before its packet_out interface.
+  compute_array.io.config_enable := Pipe(true.B, controller.io.config_enable, 7)
+  compute_array.io.config_packet := Pipe(true.B, bootloader.io.packet_out, 7)
 
   compute_array.io.mem_access <> memory_intercept.io.core
   bootloader.io.memory_backend <> memory_intercept.io.boot
