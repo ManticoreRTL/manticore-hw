@@ -23,10 +23,10 @@ trait Floorplan {
     if (x == 0 && y == 0) {
       Seq(
         "level0_i/ulp/ManticoreKernel_1/inst/axi_cache",
-        "level0_i/ulp/ManticoreKernel_1/inst/bootloader",
         "level0_i/ulp/ManticoreKernel_1/inst/clock_distribution",
+        "level0_i/ulp/ManticoreKernel_1/inst/manticore/bootloader",
         "level0_i/ulp/ManticoreKernel_1/inst/manticore/controller",
-        "level0_i/ulp/ManticoreKernel_1/inst/memory_intercept"
+        "level0_i/ulp/ManticoreKernel_1/inst/manticore/memory_intercept"
       )
     } else {
       Seq()
