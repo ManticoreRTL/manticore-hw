@@ -291,18 +291,14 @@ object PackageKernel {
     val temp_project_path      = temp_kernel_package_path
     val verilog_directory      = verilog_path
     val substitutions = Map(
-      "@VERILOG_PATH@" ->
-        verilog_directory.toAbsolutePath().toString(),
-      "@PACKAGED_PATH@" ->
-        package_directory_path.toAbsolutePath().toString(),
-      "@TEMP_KERNEL_PACKAGE_PATH@" ->
-        temp_project_path.toAbsolutePath().toString(),
-      "@KERNEL_XML@" ->
-        kernel_xml_path.toAbsolutePath().toString(),
-      "@SLAVE_INTERFACE@" -> slave_interface,
-      "@IP_PATH@"         -> ip_path.toAbsolutePath().toString(),
-      "@FPGA_NAME@"       -> ManticoreKernelGenerator.platformDevice(platform),
-      "@TARGET@"          -> target
+      "@VERILOG_PATH@"             -> verilog_directory.toAbsolutePath().toString(),
+      "@PACKAGED_PATH@"            -> package_directory_path.toAbsolutePath().toString(),
+      "@TEMP_KERNEL_PACKAGE_PATH@" -> temp_project_path.toAbsolutePath().toString(),
+      "@KERNEL_XML@"               -> kernel_xml_path.toAbsolutePath().toString(),
+      "@SLAVE_INTERFACE@"          -> slave_interface,
+      "@IP_PATH@"                  -> ip_path.toAbsolutePath().toString(),
+      "@FPGA_NAME@"                -> ManticoreKernelGenerator.platformDevice(platform).part,
+      "@TARGET@"                   -> target
     ) ++ master_interface.zipWithIndex.map { case (m, i) =>
       ("@MASTER_INTERFACE_" + i + "@") -> m
     }.toMap
@@ -350,8 +346,7 @@ object PackageKernel {
           |""".stripMargin
     }
 
-    val packaging_tcl_fp =
-      createTclScript("package_kernel", line => substitute(line, substitutions))
+    val packaging_tcl_fp = createTclScript("package_kernel", line => substitute(line, substitutions))
     val gen_xo_tcl_fp = createTclScript(
       "gen_xo",
       line =>
@@ -519,12 +514,30 @@ object ManticoreKernelGenerator {
     val Slave, Master, Kernel, Xml, Xo, Xclbin = Value
   }
 
+  sealed abstract class Device
+  object U200 extends Device
+  object U250 extends Device
+  object U280 extends Device
+
+  case class Platform(name: String, part: String, device: Device)
+
   val platformDevice = Map(
-    "xilinx_u280_gen3x16_xdma_1_202211_1"   -> "xcu280-fsvh2892-2L-e",
-    "xilinx_u250_gen3x16_xdma_3_1_202020_1" -> "xcu250-figd2104-2l-e",
-    "xilinx_u250_gen3x16_xdma_4_1_202210_1" -> "xcu250-figd2104-2l-e",
-    "xilinx_u200_gen3x16_xdma_1_202110_1"   -> "xcu200-fsgd2104-2-e",
-    "xilinx_u200_gen3x16_xdma_2_202110_1"   -> "xcu200-fsgd2104-2-e"
+    {
+      val name = "xilinx_u200_gen3x16_xdma_1_202110_1"
+      name -> Platform(name, "xcu200-fsgd2104-2-e", U200)
+    }, {
+      val name = "xilinx_u200_gen3x16_xdma_2_202110_1"
+      name -> Platform(name, "xcu200-fsgd2104-2-e", U200)
+    }, {
+      val name = "xilinx_u250_gen3x16_xdma_3_1_202020_1"
+      name -> Platform(name, "xcu250-figd2104-2l-e", U250)
+    }, {
+      val name = "xilinx_u250_gen3x16_xdma_4_1_202210_1"
+      name -> Platform(name, "xcu250-figd2104-2l-e", U250)
+    }, {
+      val name = "xilinx_u280_gen3x16_xdma_1_202211_1"
+      name -> Platform(name, "xcu280-fsvh2892-2L-e", U280)
+    }
   )
 
   def apply(
@@ -566,7 +579,7 @@ object ManticoreKernelGenerator {
     GenerateIPs(
       ip_dir = ip_path,
       scripts_path = out_dir.resolve("scripts"),
-      part_number = platformDevice(platform),
+      part_number = platformDevice(platform).part,
       freq = freqMhz.toString(),
       cacheline_width = CacheConfig.CacheLineBits
     )

@@ -7,10 +7,10 @@ import scopt.OParser
 
 import java.io.File
 import java.io.PrintWriter
-import manticore.machine.xrt.Floorplanning
-import manticore.machine.xrt.SwitchLeftHighway
-import manticore.machine.xrt.SwitchCentralIsland
-import manticore.machine.xrt.U200
+import manticore.machine.xrt.ManticoreKernelGenerator.U200
+import manticore.machine.xrt.ManticoreKernelGenerator.U250
+import manticore.machine.xrt.ManticoreKernelGenerator.U280
+import manticore.machine.xrt.U200Floorplan
 
 object Main {
 
@@ -30,6 +30,7 @@ object Main {
       max_cores_per_pblock: Int = 5,
       strategy: Seq[String] = Nil
   )
+
   def parseArgs(args: Seq[String]): CliConfig = {
     val project_version = getClass.getPackage.getImplementationVersion
     val parser = {
@@ -59,9 +60,7 @@ object Main {
           .text("build target (hw, hw_emu, sim)"),
         opt[String]('p', "platform")
           .action { case (p, c) => c.copy(platform = p) }
-          .text(
-            "build platform (use --list to see a list of available ones), only affects hw and hw_emu"
-          ),
+          .text("build platform (use --list to see a list of available ones), only affects hw and hw_emu"),
         opt[Double]('f', "freq")
           .action { case (p, c) => c.copy(freq = p) }
           .text(
@@ -84,7 +83,7 @@ object Main {
             if (s.forall(validChoices.contains)) {
               success
             } else {
-              failure(s"Invalid strategy! Possible strategies are ${validChoices.mkString(", ")} ")
+              failure(s"Invalid strategy! Possible strategies are ${validChoices.mkString(", ")}")
             }
           },
         opt[Int]("n_hop")
@@ -104,17 +103,6 @@ object Main {
               .action { case (alg, c) => c.copy(placement_alg = alg) }
               .text("placement algorithm to use")
               .required()
-              .validate { s =>
-                val validChoices = Set(
-                  "island",
-                  "highway"
-                )
-                if (validChoices.contains(s)) {
-                  success
-                } else {
-                  failure(s"Invalid placement algorithm! Possible algorithms are ${validChoices.mkString(", ")} ")
-                }
-              }
           ),
         checkConfig { c =>
           if (!c.do_placement) {
@@ -139,7 +127,6 @@ object Main {
   }
 
   def listPlatforms(): Unit = {
-
     Console.println("Available platforms: \n")
     ManticoreKernelGenerator.platformDevice.foreach { case (p, _) =>
       println(s"\t${p}")
@@ -155,17 +142,35 @@ object Main {
       sys.exit(0)
     }
     if (cfg.do_placement) {
-      val constraints = if (cfg.placement_alg == "highway") {
-        // We want to anchor in clock region X2Y7. Setting the anchor to c2y12 in the grid results in x0y0 being assigned
-        // to pblock_cores_Y7_Left (experimentally verified, no algorithm to derive automatically).
-        new SwitchLeftHighway(cfg.dimx, cfg.dimy, Floorplanning.GridLoc(2, 12), U200).getConstraints()
-      } else if (cfg.placement_alg == "island") {
-        // We want to anchor core x0y0 in clock region X2Y10. We are lucky and it so happens to be that setting the
-        // anchor to c2y10 in the grid results in x0y0 being assigned to pblock_cores_Y10_Left (experimentally derived,
-        // no algorithm to derive automatically).
-        new SwitchCentralIsland(cfg.dimx, cfg.dimy, Floorplanning.GridLoc(2, 10), U200).getConstraints()
-      } else {
-        ""
+      val platform = ManticoreKernelGenerator.platformDevice(cfg.platform)
+      val constraints = platform.device match {
+        case U200 =>
+          val validChoices = Set("highway", "rigid-island", "loose-island")
+          if (cfg.placement_alg == "highway") {
+            U200Floorplan.HighwaySwitch.toTcl(cfg.dimx, cfg.dimy)
+          } else if (cfg.placement_alg == "rigid-island") {
+            U200Floorplan.RigidIslandSwitch.toTcl(cfg.dimx, cfg.dimy)
+          } else if (cfg.placement_alg == "loose-island") {
+            U200Floorplan.LooseIslandSwitch.toTcl(cfg.dimx, cfg.dimy)
+          } else {
+            sys.error(s"Invalid placement algorithm! Valid choices are ${validChoices.mkString(", ")}")
+          }
+
+        case U250 =>
+          val validChoices = Set("loose-slr2-slr3")
+          if (cfg.placement_alg == "loose-slr2-slr3") {
+            ""
+          } else {
+            sys.error(s"Invalid placement algorithm! Valid choices are ${validChoices.mkString(", ")}")
+          }
+
+        case U280 =>
+          val validChoices = Set("loose-slr1-slr2-slr3")
+          if (cfg.placement_alg == "loose-slr1-slr2-slr3") {
+            ""
+          } else {
+            sys.error(s"Invalid placement algorithm! Valid choices are ${validChoices.mkString(", ")}")
+          }
       }
 
       val writer = new PrintWriter(cfg.output)

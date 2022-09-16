@@ -1,30 +1,25 @@
 package manticore.machine.xrt
 
-import com.google.ortools.Loader
-import com.google.ortools.constraintsolver.IntVar
-import com.google.ortools.sat.BoolVar
-import com.google.ortools.sat.CpModel
-import com.google.ortools.sat.CpSolver
-import com.google.ortools.sat.CpSolverStatus
-import com.google.ortools.sat.LinearArgument
-import com.google.ortools.sat.LinearExpr
-
-import scala.collection.mutable.ArrayBuffer
-
 import collection.mutable.{Map => MMap}
 
-trait Device {
-  import Floorplanning._
+object U200Floorplan {
+  import Coordinates._
 
-  val pblockGrid: Map[(Int, Side), GridPblock]
+  sealed abstract class Side
 
-  def inShellSlr(clockRegionRow: Int): Boolean
+  object Left extends Side {
+    override def toString(): String = "Left"
+  }
 
-  def ShellSlrNonShellPblock(): ArbitraryPblock
-}
+  object Right extends Side {
+    override def toString(): String = "Right"
+  }
 
-object U200 extends Device {
-  import Floorplanning._
+  case class GridPblock(clockRegionRow: Int, side: Side, resources: String) extends Pblock
+
+  case class LeftColumnPblock(clockRegionRow: Int, resources: String) extends Pblock
+
+  case class ArbitraryPblock(resources: String) extends Pblock
 
   // SLR2 and SLR0 can technically have 4 pblocks per row such that each pblock has roughly the
   // same number of URAM columns (1) and BRAM columns (3-4).
@@ -82,474 +77,211 @@ object U200 extends Device {
   )
   // format: on
 
+  // format: off
+  val slr1NonShellPblock = ArbitraryPblock("{ CLOCKREGION_X0Y5 CLOCKREGION_X1Y5 CLOCKREGION_X2Y5 CLOCKREGION_X0Y6 CLOCKREGION_X1Y6 CLOCKREGION_X2Y6 CLOCKREGION_X0Y7 CLOCKREGION_X1Y7 CLOCKREGION_X2Y7 CLOCKREGION_X0Y8 CLOCKREGION_X1Y8 CLOCKREGION_X2Y8 CLOCKREGION_X0Y9 CLOCKREGION_X1Y9 CLOCKREGION_X2Y9 }")
+  // format: on
+
   def inShellSlr(clockRegionRow: Int): Boolean = (5 <= clockRegionRow) && (clockRegionRow <= 9)
 
-  def ShellSlrNonShellPblock(): ArbitraryPblock = {
-    val pblockResources = ArrayBuffer.empty[String]
+  // Cores are placed as follows:
+  // - Place 2 rows of the grid per clock region row in SLR2.
+  // - Place 1 row  of the grid per clock region row in SLR1.
+  // - Place 2 rows of the grid per clock region row in SLR0.
+  // This allows for a maximum dimY value of 25:
+  // - 2 gridLoc rows * 5 clockRegion rows = 10 gridLoc rows in SLR2.
+  // - 1 gridLoc row  * 5 clockRegion rows =  5 gridLoc rows in SLR1.
+  // - 2 gridLoc rows * 5 clockRegion rows = 10 gridLoc rows in SLR0.
+  //
+  // Switches are placed as follows:
+  // - switch_x_y is placed in the leftmost clock region of the clock
+  //   region row in which core_x_y is placed.
+  object HighwaySwitch extends Floorplan {
+    // We want to anchor in clock region X2Y7. Setting the anchor to c2y12 in the grid results in x0y0 being assigned
+    // to pblock_cores_Y7_Left (experimentally verified, no algorithm to derive automatically).
+    val anchor = GridLoc(2, 12)
 
-    Range.inclusive(5, 9).foreach { clockRegionRow =>
-      Range.inclusive(0, 2).foreach { clockRegionCol =>
-        pblockResources += s"CLOCKREGION_X${clockRegionCol}Y${clockRegionRow}"
-      }
-    }
+    def getCoreToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, GridPblock] = {
+      assert(dimY == 25, "Highway placement requires dimY == 25")
 
-    ArbitraryPblock(s"{ ${pblockResources.mkString(" ")} }")
-  }
-}
+      val gridToTorus = getGridLocToTorusLocMap(dimX, dimY, anchor)
 
-// The goal of a topology is to map each element in a GridLoc to a Pblock.
-trait Topology {
-  import Floorplanning._
-
-  val dimX: Int
-  val dimY: Int
-  val anchor: GridLoc
-
-  // Cores are always placed on a GridPblock.
-  def getCoreToPblockMap(): Map[TorusLoc, GridPblock]
-
-  // Switches may be placed in a GridPblock or in a LeftColumnPblock.
-  def getSwitchToPblockMap(): Map[TorusLoc, Pblock]
-
-  def getCoreCell(core: TorusLoc): String = {
-    // We explicitly do not consider the registers in the ProcessorWithSendPipe as part of the "core" since we
-    // want vivado to have freedom to place them where it wants. Hence why we see "/processor" and don't just stop
-    // at "/core_x_y".
-    s"level0_i/ulp/ManticoreKernel_1/inst/manticore/compute_array/core_${core.x}_${core.y}/processor"
-  }
-
-  // The core wrapped with the controller and clock distribution circuitry (if it is the privileged core).
-  def augmentedCoreCells(core: TorusLoc): Seq[String] = {
-    val auxiliaryCells = if (core.x == 0 && core.y == 0) {
-      Seq(
-        "level0_i/ulp/ManticoreKernel_1/inst/axi_cache",
-        "level0_i/ulp/ManticoreKernel_1/inst/bootloader",
-        "level0_i/ulp/ManticoreKernel_1/inst/clock_distribution",
-        "level0_i/ulp/ManticoreKernel_1/inst/manticore/controller",
-        "level0_i/ulp/ManticoreKernel_1/inst/memory_intercept"
-      )
-    } else {
-      Seq()
-    }
-
-    auxiliaryCells :+ getCoreCell(core)
-  }
-
-  def getSwitchCell(switch: TorusLoc): String = {
-    s"level0_i/ulp/ManticoreKernel_1/inst/manticore/compute_array/switch_${switch.x}_${switch.y}"
-  }
-
-  def getCorePblockConstraints(): String = {
-    val constraints = ArrayBuffer.empty[String]
-
-    val coreToPblock = getCoreToPblockMap()
-
-    coreToPblock
-      .groupMap(_._2)(_._1)
-      .toSeq
-      .sortBy { case (pblock, cores) =>
-        (pblock.clockRegionRow, pblock.side.toString())
-      }
-      .foreach { case (pblock, cores) =>
-        val cells      = cores.toSeq.sortBy(core => (core.y, core.x)).flatMap(core => augmentedCoreCells(core))
-        val pblockName = s"pblock_cores_Y${pblock.clockRegionRow}_${pblock.side.toString()}"
-        constraints += pblock.toTcl(pblockName, cells)
-      }
-
-    constraints.mkString("\n")
-  }
-
-  def getSwitchPblockConstraints(): String = {
-    val constraints = ArrayBuffer.empty[String]
-
-    val switchToPblock = getSwitchToPblockMap()
-
-    switchToPblock.toSeq
-      .groupMap(_._2)(_._1)
-      .zipWithIndex
-      .foreach { case ((pblock, switches), idx) =>
-        val cells = switches.sortBy(switch => (switch.y, switch.x)).map(switch => getSwitchCell(switch))
-        // Switches can either have GridPblocks, LeftColumnPblocks, or ArbitraryPblocks. The naming differs for each and
-        // we must handle them here (LeftColumnPblock has a unique name per clock region row, whereas GridPblock does
-        // not, and Arbitrary has no real name and we use an index instead).
-        val pblockName = pblock match {
-          case GridPblock(clockRegionRow, side, resources) => s"pblock_switches_Y${clockRegionRow}_${side.toString()}"
-          case LeftColumnPblock(clockRegionRow, resources) => s"pblock_switches_Y${clockRegionRow}"
-          case ArbitraryPblock(resources)                  => s"pblock_switches_${idx}"
+      val gridRows = gridToTorus
+        .groupMap(_._1.r)(_._1)
+        .map { case (gridLoc, group) =>
+          gridLoc -> group.toSeq.sortBy(_.c)
         }
-        constraints += pblock.toTcl(pblockName, cells)
-      }
 
-    constraints.mkString("\n")
-  }
+      val torusToPblock = MMap.empty[TorusLoc, GridPblock]
 
-  def getCoreHierarchyConstraints(): String = {
-    val constraints = ArrayBuffer.empty[String]
+      var gridY          = 0
+      var clockRegionRow = 0
+      while (gridY < dimY) {
+        var rowsTaken = 0
+        // Place 1 or 2 rows of torus nodes in a clock region row depending on whether we are in SLR1 or not.
+        val rowBound = if (inShellSlr(clockRegionRow)) 1 else 2
 
-    Range.inclusive(0, dimY - 1).foreach { y =>
-      Range.inclusive(0, dimX - 1).foreach { x =>
-        val core = TorusLoc(x, y)
-        val cell = getCoreCell(core)
-        constraints += s"set_property keep_hierarchy yes [get_cells ${cell}]"
-      }
-    }
-
-    constraints.mkString("\n")
-  }
-
-  def getSwitchHierarchyConstraints(): String = {
-    val constraints = ArrayBuffer.empty[String]
-
-    Range.inclusive(0, dimY - 1).foreach { y =>
-      Range.inclusive(0, dimX - 1).foreach { x =>
-        val switch = TorusLoc(x, y)
-        val cell   = getSwitchCell(switch)
-        constraints += s"set_property keep_hierarchy yes [get_cells ${cell}]"
-      }
-    }
-
-    constraints.mkString("\n")
-  }
-
-  def getConstraints(): String = {
-    Seq(
-      getCorePblockConstraints(),
-      getSwitchPblockConstraints(),
-      getCoreHierarchyConstraints(),
-      getSwitchHierarchyConstraints()
-    ).mkString("\n")
-  }
-}
-
-// Cores are placed as follows:
-// - Place 2 rows of the grid per clock region row in SLR2.
-// - Place 1 row  of the grid per clock region row in SLR1.
-// - Place 2 rows of the grid per clock region row in SLR0.
-// This allows for a maximum dimY value of 25:
-// - 2 gridLoc rows * 5 clockRegion rows = 10 gridLoc rows in SLR2.
-// - 1 gridLoc row  * 5 clockRegion rows =  5 gridLoc rows in SLR1.
-// - 2 gridLoc rows * 5 clockRegion rows = 10 gridLoc rows in SLR0.
-//
-// Switches are placed as follows:
-// - switch_x_y is placed in the leftmost clock region of the clock
-//   region row in which core_x_y is placed.
-class SwitchLeftHighway(
-    val dimX: Int,
-    val dimY: Int,
-    val anchor: Floorplanning.GridLoc,
-    device: Device
-) extends Topology {
-  import Floorplanning._
-
-  def getCoreToPblockMap(): Map[TorusLoc, GridPblock] = {
-    assert(dimY == 25, "Highway placement requires dimY == 25")
-
-    val gridToTorus = getGridLocToTorusLocMap(dimX, dimY, anchor)
-
-    val gridRows = gridToTorus
-      .groupMap(_._1.r)(_._1)
-      .map { case (gridLoc, group) =>
-        gridLoc -> group.toSeq.sortBy(_.c)
-      }
-
-    val torusToPblock = MMap.empty[TorusLoc, GridPblock]
-
-    var gridY          = 0
-    var clockRegionRow = 0
-    while (gridY < dimY) {
-      var rowsTaken = 0
-      // Place 1 or 2 rows of torus nodes in a clock region row depending on whether we are in SLR1 or not.
-      val rowBound = if (device.inShellSlr(clockRegionRow)) 1 else 2
-
-      while (rowsTaken < rowBound) {
-        gridRows(gridY).foreach { gridLoc =>
-          // Assign locs in row to either the left or right pblock.
-          val side   = if (gridLoc.c < dimX / 2) Left else Right
-          val core   = gridToTorus(gridLoc)
-          val pblock = device.pblockGrid((clockRegionRow, side))
-          torusToPblock += core -> pblock
-        }
-        rowsTaken += 1
-        gridY += 1
-      }
-
-      clockRegionRow += 1
-    }
-
-    torusToPblock.toMap
-  }
-
-  def getSwitchToPblockMap(): Map[TorusLoc, Pblock] = {
-    val torusToPblock = getCoreToPblockMap()
-
-    torusToPblock.map { case (torusLoc, pblock) =>
-      val clockRegionRow = pblock.clockRegionRow
-      val resources      = s"{ CLOCKREGION_X0Y${clockRegionRow} }"
-      torusLoc -> LeftColumnPblock(clockRegionRow, resources)
-    }.toMap
-  }
-}
-
-// Cores are placed as follows:
-// - Place 2 rows of the grid per clock region row in SLR2.
-// - Place 0 rows of the grid per clock region row in SLR1.
-// - Place 2 rows of the grid per clock region row in SLR0.
-// This allows for a maximum dimY value of 20:
-// - 2 gridLoc rows * 5 clockRegion rows = 10 gridLoc rows in SLR2.
-// - 0 gridLoc row  * 5 clockRegion rows =  0 gridLoc rows in SLR1.
-// - 2 gridLoc rows * 5 clockRegion rows = 10 gridLoc rows in SLR0.
-//
-// Switches are placed as follows:
-// - Place 4 rows of switches per clock region row in SLR1.
-class SwitchCentralIsland(
-    val dimX: Int,
-    val dimY: Int,
-    val anchor: Floorplanning.GridLoc,
-    device: Device
-) extends Topology {
-  import Floorplanning._
-
-  def getCoreToPblockMap(): Map[TorusLoc, GridPblock] = {
-    assert(dimY == 20, "Island placement requires dimY == 20")
-
-    val gridToTorus = getGridLocToTorusLocMap(dimX, dimY, anchor)
-
-    val gridRows = gridToTorus
-      .groupMap(_._1.r)(_._1)
-      .map { case (gridLoc, group) =>
-        gridLoc -> group.toSeq.sortBy(_.c)
-      }
-
-    val torusToPblock = MMap.empty[TorusLoc, GridPblock]
-
-    var gridY          = 0
-    var clockRegionRow = 0
-    while (gridY < dimY) {
-      var rowsTaken = 0
-      // Place 0 or 2 rows of torus nodes in a clock region row depending on whether we are in SLR1 or not.
-      val rowBound = if (device.inShellSlr(clockRegionRow)) 0 else 2
-
-      while (rowsTaken < rowBound) {
-        gridRows(gridY).foreach { gridLoc =>
-          // Assign locs in row to either the left or right pblock.
-          val side   = if (gridLoc.c < dimX / 2) Left else Right
-          val core   = gridToTorus(gridLoc)
-          val pblock = device.pblockGrid((clockRegionRow, side))
-          torusToPblock += core -> pblock
-        }
-        rowsTaken += 1
-        gridY += 1
-      }
-
-      clockRegionRow += 1
-    }
-
-    torusToPblock.toMap
-  }
-
-  def getSwitchToPblockMap(): Map[TorusLoc, Pblock] = {
-    assert(dimY <= 20)
-
-    // // Single pblock.
-    // Range
-    //   .inclusive(0, dimX - 1)
-    //   .flatMap { x =>
-    //     Range.inclusive(0, dimY - 1).map { y =>
-    //       TorusLoc(x, y) -> device.ShellSlrNonShellPblock()
-    //     }
-    //   }
-    //   .toMap
-
-    val gridToTorus = getGridLocToTorusLocMap(dimX, dimY, anchor)
-
-    val gridRows = gridToTorus
-      .groupMap(_._1.r)(_._1)
-      .map { case (gridLoc, group) =>
-        gridLoc -> group.toSeq.sortBy(_.c)
-      }
-
-    val torusToPblock = MMap.empty[TorusLoc, GridPblock]
-
-    var gridY          = 0
-    var clockRegionRow = 0
-    while (gridY < dimY) {
-      var rowsTaken = 0
-      // Place 4 or 0 rows of torus nodes in a clock region row depending on whether we are in SLR1 or not.
-      val rowBound = if (device.inShellSlr(clockRegionRow)) 4 else 0
-
-      while (rowsTaken < rowBound) {
-        gridRows(gridY).foreach { gridLoc =>
-          // Assign locs in row to either the left or right pblock.
-          val side   = if (gridLoc.c < dimX / 2) Left else Right
-          val core   = gridToTorus(gridLoc)
-          val pblock = device.pblockGrid((clockRegionRow, side))
-          torusToPblock += core -> pblock
-        }
-        rowsTaken += 1
-        gridY += 1
-      }
-
-      clockRegionRow += 1
-    }
-
-    torusToPblock.toMap
-  }
-}
-
-object Floorplanning {
-  case class GridLoc(c: Int, r: Int)
-  case class TorusLoc(x: Int, y: Int)
-
-  sealed abstract class Side
-  object Left extends Side {
-    override def toString(): String = "Left"
-  }
-  object Right extends Side {
-    override def toString(): String = "Right"
-  }
-
-  trait Pblock {
-    val resources: String
-
-    def toTcl(
-        name: String,
-        cells: Seq[String]
-    ): String = {
-      val cellsStr = cells.map(cell => s"\t\t${cell} \\").mkString("\n")
-      s"""|
-          |create_pblock ${name}
-          |resize_pblock ${name} -add ${resources}
-          |add_cells_to_pblock ${name} [ get_cell [ list \\
-          |${cellsStr}
-          |]]
-          |""".stripMargin
-    }
-  }
-
-  case class GridPblock(clockRegionRow: Int, side: Side, resources: String) extends Pblock
-
-  case class LeftColumnPblock(clockRegionRow: Int, resources: String) extends Pblock
-
-  case class ArbitraryPblock(resources: String) extends Pblock
-
-  // Mapping from an abstract position on a 2D grid to a Core in a torus network.
-  // This generates the torus network coordinates at the appropriate place in
-  // a grid so the folded nature of the torus network is visible, yet retains the
-  // "plain" 2D grid coordinates so we know where we are on the plane.
-  def getGridLocToTorusLocMap(
-      dimX: Int,
-      dimY: Int,
-      // Position within the grid to which torus location x0y0 should be aligned.
-      anchor: GridLoc
-  ): Map[GridLoc, TorusLoc] = {
-    def getPlainMapping(): Map[GridLoc, TorusLoc] = {
-      def getGridAxisToTorusAxisMap(dim: Int): Map[Int, Int] = {
-        // Algorithm (c-to-x map, but same for r-to-y):
-        // - i = 0
-        // - c[i] -> 0
-        // - i++
-        // - c[i] -> 1
-        // - i++
-        // - dec_from_max = 0
-        // - inc_from_min = 0
-        // - While (c[i] exists)
-        //   - if i even:
-        //     - c[i] -> dimX - 1 - dec_from_max
-        //     - dec_from_max++
-        //   - else i odd:
-        //     - c[i] -> 2 + inc_from_min
-        //     - inc_from_min++
-
-        val mapping = MMap.empty[Int, Int]
-
-        var i            = 0
-        var dec_from_max = 0
-        var inc_from_min = 0
-
-        mapping += i -> 0
-        i += 1
-        mapping += i -> 1
-        i += 1
-
-        while (i < dim) {
-          val isEven = (i % 2) == 0
-          if (isEven) {
-            mapping += i -> (dim - 1 - dec_from_max)
-            dec_from_max += 1
-          } else {
-            mapping += i -> (2 + inc_from_min)
-            inc_from_min += 1
+        while (rowsTaken < rowBound) {
+          gridRows(gridY).foreach { gridLoc =>
+            // Assign locs in row to either the left or right pblock.
+            val side   = if (gridLoc.c < dimX / 2) Left else Right
+            val core   = gridToTorus(gridLoc)
+            val pblock = pblockGrid((clockRegionRow, side))
+            torusToPblock += core -> pblock
           }
-          i += 1
+          rowsTaken += 1
+          gridY += 1
         }
 
-        mapping.toMap
+        clockRegionRow += 1
       }
 
-      val cToX = getGridAxisToTorusAxisMap(dimX)
-      val rToY = getGridAxisToTorusAxisMap(dimY)
-
-      val gridToTorus = MMap.empty[GridLoc, TorusLoc]
-      cToX.foreach { case (c, x) =>
-        rToY.foreach { case (r, y) =>
-          gridToTorus += GridLoc(c, r) -> TorusLoc(x, y)
-        }
-      }
-
-      gridToTorus.toMap
+      torusToPblock.toMap
     }
 
-    def getAnchoredMapping(
-        plainGridToTorus: Map[GridLoc, TorusLoc]
-    ): Map[GridLoc, TorusLoc] = {
-      // Modulus that ensures result is positive.
-      def modPos(a: Int, m: Int): Int = {
-        val res = a % m
-        if (res < 0) res + m else res
-      }
+    def getSwitchToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, LeftColumnPblock] = {
+      val torusToPblock = getCoreToPblockMap(dimX, dimY)
 
-      val x0y0 = TorusLoc(0, 0)
-
-      var rotatedTorusToGrid = plainGridToTorus.map(_.swap)
-
-      // Rotate torus X values until the gridLoc X value matches that of the anchor.
-      while (rotatedTorusToGrid(x0y0).c != anchor.c) {
-        rotatedTorusToGrid = rotatedTorusToGrid.map { case (TorusLoc(x, y), gridLoc) =>
-          TorusLoc(modPos(x + 1, dimX), y) -> gridLoc
-        }
-      }
-
-      // Rotate torus Y values until the gridLoc Y value matches that of the anchor.
-      while (rotatedTorusToGrid(x0y0).r != anchor.r) {
-        rotatedTorusToGrid = rotatedTorusToGrid.map { case (TorusLoc(x, y), gridLoc) =>
-          TorusLoc(x, modPos(y + 1, dimY)) -> gridLoc
-        }
-      }
-
-      val rotatedGridToTorus = rotatedTorusToGrid.toMap.map(_.swap)
-      rotatedGridToTorus
+      torusToPblock.map { case (torusLoc, pblock) =>
+        val clockRegionRow = pblock.clockRegionRow
+        val resources      = s"{ CLOCKREGION_X0Y${clockRegionRow} }"
+        torusLoc -> LeftColumnPblock(clockRegionRow, resources)
+      }.toMap
     }
-
-    val plainMapping    = getPlainMapping()
-    val anchoredMapping = getAnchoredMapping(plainMapping)
-    anchoredMapping
   }
-}
 
-object Tester extends App {
+  // Cores are placed as follows:
+  // - Place 2 rows of the grid per clock region row in SLR2.
+  // - Place 0 rows of the grid per clock region row in SLR1.
+  // - Place 2 rows of the grid per clock region row in SLR0.
+  // This allows for a maximum dimY value of 20:
+  // - 2 gridLoc rows * 5 clockRegion rows = 10 gridLoc rows in SLR2.
+  // - 0 gridLoc row  * 5 clockRegion rows =  0 gridLoc rows in SLR1.
+  // - 2 gridLoc rows * 5 clockRegion rows = 10 gridLoc rows in SLR0.
+  //
+  // Switches are placed as follows:
+  // - Place 4 rows of switches per clock region row in SLR1.
+  object RigidIslandSwitch extends Floorplan {
+    // We want to anchor core x0y0 in clock region X2Y10. We are lucky and it so happens to be that setting the
+    // anchor to c2y10 in the grid results in x0y0 being assigned to pblock_cores_Y10_Left (experimentally derived,
+    // no algorithm to derive automatically).
+    val anchor = GridLoc(2, 10)
 
-  import Floorplanning._
+    def getCoreToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, GridPblock] = {
+      assert(dimY == 20, "Island placement requires dimY == 20")
 
-  val dimX = 10
-  val dimY = 25
+      val gridToTorus = getGridLocToTorusLocMap(dimX, dimY, anchor)
 
-  // val anchor = (2, 7)
-  // val maxCores = 5
-  // val placer = new PhysicalPlacement(dimX, dimY, anchor, maxCores)
-  // println(placer.pblockConstraint)
+      val gridRows = gridToTorus
+        .groupMap(_._1.r)(_._1)
+        .map { case (gridLoc, group) =>
+          gridLoc -> group.toSeq.sortBy(_.c)
+        }
 
-  // val anchor         = Pblock(7, Right)
-  // val placer         = new IterativePlacement(dimX, dimY, anchor)
-  // val solutionTclStr = placer.pblockConstraint
-  // println(solutionTclStr)
+      val torusToPblock = MMap.empty[TorusLoc, GridPblock]
+
+      var gridY          = 0
+      var clockRegionRow = 0
+      while (gridY < dimY) {
+        var rowsTaken = 0
+        // Place 0 or 2 rows of torus nodes in a clock region row depending on whether we are in SLR1 or not.
+        val rowBound = if (inShellSlr(clockRegionRow)) 0 else 2
+
+        while (rowsTaken < rowBound) {
+          gridRows(gridY).foreach { gridLoc =>
+            // Assign locs in row to either the left or right pblock.
+            val side   = if (gridLoc.c < dimX / 2) Left else Right
+            val core   = gridToTorus(gridLoc)
+            val pblock = pblockGrid((clockRegionRow, side))
+            torusToPblock += core -> pblock
+          }
+          rowsTaken += 1
+          gridY += 1
+        }
+
+        clockRegionRow += 1
+      }
+
+      torusToPblock.toMap
+    }
+
+    def getSwitchToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, GridPblock] = {
+      assert(dimY <= 20)
+
+      // // Single pblock.
+      // Range
+      //   .inclusive(0, dimX - 1)
+      //   .flatMap { x =>
+      //     Range.inclusive(0, dimY - 1).map { y =>
+      //       TorusLoc(x, y) -> device.ShellSlrNonShellPblock()
+      //     }
+      //   }
+      //   .toMap
+
+      val gridToTorus = getGridLocToTorusLocMap(dimX, dimY, anchor)
+
+      val gridRows = gridToTorus
+        .groupMap(_._1.r)(_._1)
+        .map { case (gridLoc, group) =>
+          gridLoc -> group.toSeq.sortBy(_.c)
+        }
+
+      val torusToPblock = MMap.empty[TorusLoc, GridPblock]
+
+      var gridY          = 0
+      var clockRegionRow = 0
+      while (gridY < dimY) {
+        var rowsTaken = 0
+        // Place 4 or 0 rows of torus nodes in a clock region row depending on whether we are in SLR1 or not.
+        val rowBound = if (inShellSlr(clockRegionRow)) 4 else 0
+
+        while (rowsTaken < rowBound) {
+          gridRows(gridY).foreach { gridLoc =>
+            // Assign locs in row to either the left or right pblock.
+            val side   = if (gridLoc.c < dimX / 2) Left else Right
+            val core   = gridToTorus(gridLoc)
+            val pblock = pblockGrid((clockRegionRow, side))
+            torusToPblock += core -> pblock
+          }
+          rowsTaken += 1
+          gridY += 1
+        }
+
+        clockRegionRow += 1
+      }
+
+      torusToPblock.toMap
+    }
+  }
+
+  // Cores are placed as follows:
+  // - Place 2 rows of the grid per clock region row in SLR2.
+  // - Place 0 rows of the grid per clock region row in SLR1.
+  // - Place 2 rows of the grid per clock region row in SLR0.
+  // This allows for a maximum dimY value of 20:
+  // - 2 gridLoc rows * 5 clockRegion rows = 10 gridLoc rows in SLR2.
+  // - 0 gridLoc row  * 5 clockRegion rows =  0 gridLoc rows in SLR1.
+  // - 2 gridLoc rows * 5 clockRegion rows = 10 gridLoc rows in SLR0.
+  //
+  // Switches are placed as follows:
+  // - Place all switches in a single Pblock that covers the non-shell area of SLR1.
+  // - We let vivado handle switch placement.
+  object LooseIslandSwitch extends Floorplan {
+    def getCoreToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, GridPblock] = {
+      RigidIslandSwitch.getCoreToPblockMap(dimX, dimY)
+    }
+
+    def getSwitchToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, ArbitraryPblock] = {
+      assert(dimY <= 20)
+
+      // Single pblock.
+      Range
+        .inclusive(0, dimX - 1)
+        .flatMap { x =>
+          Range.inclusive(0, dimY - 1).map { y =>
+            TorusLoc(x, y) -> slr1NonShellPblock
+          }
+        }
+        .toMap
+    }
+  }
 }
