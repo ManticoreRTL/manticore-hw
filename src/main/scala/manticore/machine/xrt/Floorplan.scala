@@ -24,6 +24,8 @@ trait Floorplan {
       Seq(
         "level0_i/ulp/ManticoreKernel_1/inst/axi_cache",
         "level0_i/ulp/ManticoreKernel_1/inst/clock_distribution",
+        "level0_i/ulp/ManticoreKernel_1/inst/m_axi_bank_0_clock_crossing",
+        "level0_i/ulp/ManticoreKernel_1/inst/s_axi_clock_crossing",
         "level0_i/ulp/ManticoreKernel_1/inst/manticore/bootloader",
         "level0_i/ulp/ManticoreKernel_1/inst/manticore/controller",
         "level0_i/ulp/ManticoreKernel_1/inst/manticore/memory_intercept"
