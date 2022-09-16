@@ -27,7 +27,6 @@ object Main {
       do_placement: Boolean = false,
       placement_alg: String = "island",
       pblock: Option[File] = None,
-      anchor: (Int, Int) = (2, 7),
       max_cores_per_pblock: Int = 5,
       strategy: Seq[String] = Nil
   )
@@ -101,20 +100,6 @@ object Main {
           .action { case (_, c) => c.copy(do_placement = true) }
           .text("generate a pblock constraint file")
           .children(
-            opt[String]('a', "anchor")
-              .action { case (a, c) =>
-                val an = raw"X(\d+)Y(\d+)".r
-                val pan = a match {
-                  case an(x, y) => (x.toInt, y.toInt)
-                }
-                c.copy(anchor = pan)
-              }
-              .valueName("XnYm")
-              // .required()
-              .text("pblock anchor point which contains the privileged core."),
-            opt[Int]('m', "max-cores")
-              .action { case (n, c) => c.copy(max_cores_per_pblock = n) }
-              .text("maximum number of cores allowed in a pblock"),
             opt[String]("algorithm")
               .action { case (alg, c) => c.copy(placement_alg = alg) }
               .text("placement algorithm to use")

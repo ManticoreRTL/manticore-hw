@@ -232,7 +232,6 @@ class ManticoreFlatSimKernel(
 
 }
 
-
 object GenerateIPs {
 
   def apply(
@@ -490,9 +489,11 @@ object BuildXclbin {
     }
 
     val cpus = getSystemInfo() min 12
-    val extra_runs = s"--vivado.impl.strategies \"${strategy.mkString(",")}\" " + (strategy.map { s =>
-      s"--vivado.prop run.impl_${s}.STEPS.PLACE_DESIGN.TCL.PRE=${pblocks.toAbsolutePath()} "
-    }.mkString(" "))
+    val extra_runs = s"--vivado.impl.strategies \"${strategy.mkString(",")}\" " + (strategy
+      .map { s =>
+        s"--vivado.prop run.impl_${s}.STEPS.PLACE_DESIGN.TCL.PRE=${pblocks.toAbsolutePath()} "
+      }
+      .mkString(" "))
     val command =
       s"v++ --link -g -t ${target} --platform ${platform} --save-temps " +
         s"--optimize 3 " + extra_runs +
@@ -519,14 +520,16 @@ object ManticoreKernelGenerator {
   }
 
   val platformDevice = Map(
+    "xilinx_u280_gen3x16_xdma_1_202211_1"   -> "xcu280-fsvh2892-2L-e",
     "xilinx_u250_gen3x16_xdma_3_1_202020_1" -> "xcu250-figd2104-2l-e",
+    "xilinx_u250_gen3x16_xdma_4_1_202210_1" -> "xcu250-figd2104-2l-e",
     "xilinx_u200_gen3x16_xdma_1_202110_1"   -> "xcu200-fsgd2104-2-e",
     "xilinx_u200_gen3x16_xdma_2_202110_1"   -> "xcu200-fsgd2104-2-e"
   )
 
   def apply(
       target_dir: String,
-      platform: String = "xilinx_u250_gen3x16_xdma_3_1_202020_1",
+      platform: String = "xilinx_u200_gen3x16_xdma_2_202110_1",
       target: String = "hw_emu",
       dimx: Int = 8,
       dimy: Int = 8,
