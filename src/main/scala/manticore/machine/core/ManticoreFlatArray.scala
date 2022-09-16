@@ -12,6 +12,11 @@ import manticore.machine.memory.CacheConfig
 
 import scala.annotation.tailrec
 
+import chisel3.experimental.annotate
+import chisel3.experimental.ChiselAnnotation
+import firrtl.annotations.Annotation
+import firrtl.AttributeAnnotation
+
 /// registers written by the host
 class HostRegisters extends Bundle {
   val global_memory_instruction_base: UInt = UInt(64.W)
@@ -310,8 +315,19 @@ class ManticoreFlatArray(
   memory_intercept.io.cache_reset := controller.io.cache_reset_start
 
   // We use 7 pipeline stages here as each core also has 7 pipeline registers before its packet_out interface.
-  compute_array.io.config_enable := Pipe(true.B, controller.io.config_enable, 7)
-  compute_array.io.config_packet := Pipe(true.B, bootloader.io.packet_out, 7)
+  annotate(new ChiselAnnotation {
+    def toFirrtl: Annotation = AttributeAnnotation(compute_array.io.config_enable.toNamed, "srl_type=\"register\"")
+  })
+  annotate(new ChiselAnnotation {
+    def toFirrtl: Annotation = AttributeAnnotation(compute_array.io.config_packet.toNamed, "srl_type=\"register\"")
+  })
+  withClockAndReset(
+    clock = io.control_clock,
+    reset = controller.io.soft_reset
+  ) {
+    compute_array.io.config_enable := Pipe(true.B, controller.io.config_enable, 7).bits
+    compute_array.io.config_packet := Pipe(true.B, bootloader.io.packet_out, 7).bits
+  }
 
   compute_array.io.mem_access <> memory_intercept.io.core
   bootloader.io.memory_backend <> memory_intercept.io.boot
