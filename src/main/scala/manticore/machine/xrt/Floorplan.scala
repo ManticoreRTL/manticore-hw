@@ -24,8 +24,8 @@ trait Floorplan {
       Seq(
         "level0_i/ulp/ManticoreKernel_1/inst/axi_cache",
         "level0_i/ulp/ManticoreKernel_1/inst/clock_distribution",
-        "level0_i/ulp/ManticoreKernel_1/inst/m_axi_bank_0_clock_crossing",
-        "level0_i/ulp/ManticoreKernel_1/inst/s_axi_clock_crossing",
+        // "level0_i/ulp/ManticoreKernel_1/inst/m_axi_bank_0_clock_crossing",
+        // "level0_i/ulp/ManticoreKernel_1/inst/s_axi_clock_crossing",
         "level0_i/ulp/ManticoreKernel_1/inst/manticore/bootloader",
         "level0_i/ulp/ManticoreKernel_1/inst/manticore/controller",
         "level0_i/ulp/ManticoreKernel_1/inst/manticore/memory_intercept"
@@ -202,10 +202,25 @@ trait Floorplan {
     constraints.mkString("\n")
   }
 
+  def getClockConstraints(dimX: Int, dimY: Int): String = {
+    val x0y0         = TorusLoc(0, 0)
+    val coreToPblock = getCoreToPblockMap(dimX, dimY)
+    val pblockName   = coreToPblock(x0y0).name
+
+    s"""|
+        |set_property CLOCK_DELAY_GROUP MantictoreClk [get_nets {level0_i/ulp/ManticoreKernel_1/inst/clock_distribution/wiz/inst/clk_out1 \\
+        |                                                        level0_i/ulp/ManticoreKernel_1/inst/clock_distribution/clock_distribution_compute_clock}]
+        |set_property USER_CLOCK_ROOT ${pblockName} [get_nets {level0_i/ulp/ManticoreKernel_1/inst/clock_distribution/wiz/inst/clk_out1 \\
+        |                                                      level0_i/ulp/ManticoreKernel_1/inst/clock_distribution/clock_distribution_compute_clock}]
+        |
+        |""".stripMargin
+  }
+
   def toTcl(dimX: Int, dimY: Int): String = {
     Seq(
       getPblockConstrains(dimX, dimY),
-      getHierarchyConstraints(dimX, dimY)
+      getHierarchyConstraints(dimX, dimY),
+      getClockConstraints(dimX, dimY)
     ).mkString("\n")
   }
 

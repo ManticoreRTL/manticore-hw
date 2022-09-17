@@ -335,11 +335,8 @@ object PackageKernel {
            |set_false_path -to [get_pins clock_distribution/rst_sync1_reg/CLR]
            |set_false_path -to [get_pins clock_distribution/rst_sync2_reg/CLR]
            |set_false_path -to [get_pins clock_distribution/rst_sync3_reg/CLR]
-           |
            |""".stripMargin
     }
-    // Note that the clock root value should match the pblock constraints
-
 
     val packaging_tcl_fp = createTclScript("package_kernel", line => substitute(line, substitutions))
     val gen_xo_tcl_fp = createTclScript(
