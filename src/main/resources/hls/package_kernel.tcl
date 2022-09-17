@@ -32,7 +32,6 @@ create_project -force kernel_pack $path_to_tmp_project -part $fpga_name
 import_files -fileset [get_filesets sources_1] [glob $path_to_hdl/*.v $path_to_hdl/*.sv]
 
 import_files -fileset [get_filesets sources_1] $path_to_hdl/false_path.xdc
-import_files -fileset [get_filesets sources_1] $path_to_hdl/clock_groups.xdc
 
 import_files -fileset [get_filesets sources_1]  $path_to_ips/clk_dist/clk_dist.xci
 
