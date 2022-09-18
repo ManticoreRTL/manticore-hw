@@ -18,8 +18,21 @@ object Main {
       platform: String = "",
       list_platforms: Boolean = false,
       freq: Double = 200.0,
-      n_hop: Int = 1
+      n_hop: Int = 1,
+      strategies: Seq[String] = Seq("Performance_Explore", "Performance_NetDelay_high")
   )
+
+  private val validStrategies = Seq(
+    "Performance_Explore",
+    "Congestion_SpreadLogic_Explore",
+    "Performance_NetDelay_high",
+    "Performance_NetDelay_low",
+    "Performance_ExtraTimingOpt",
+    "Congestion_SpreadLogic_high",
+    "Congestion_SpreadLogic_medium",
+    "Congestion_SpreadLogic_low"
+  )
+
   def parseArgs(args: Seq[String]): CliConfig = {
     val project_version = getClass.getPackage.getImplementationVersion
     val parser = {
@@ -57,6 +70,15 @@ object Main {
           .text(
             "desired operating frequency, default = 200"
           ),
+        opt[Seq[String]]('s', "strategies")
+          .action { case (s, c) => c.copy(strategies = s) }
+          .validate { s =>
+            if (s.forall(validStrategies.contains)) {
+              success
+            } else {
+              failure(s"Invalid strategy. Possible strategies are ${validStrategies.mkString(",")}")
+            }
+          },
         opt[Int]("n_hop")
           .action { case (p, c) => c.copy(n_hop = p) }
           .text("number of hops between cores"),
@@ -119,7 +141,8 @@ object Main {
           target = t,
           enable_custom_alu = cfg.enable_custom_alu,
           freqMhz = cfg.freq,
-          n_hop = cfg.n_hop
+          n_hop = cfg.n_hop,
+          strategies = cfg.strategies
         )
 
       case "sim" =>

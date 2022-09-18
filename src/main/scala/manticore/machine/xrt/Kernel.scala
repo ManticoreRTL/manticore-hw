@@ -327,24 +327,21 @@ object PackageKernel {
       fp
     }
 
-
-
     def writeXdc(fname: String)(content: => String) = {
-      val fp = verilog_path.resolve(fname)
+      val fp     = verilog_path.resolve(fname)
       val writer = Files.newBufferedWriter(fp)
       writer.write(content)
       writer.close()
     }
 
     writeXdc("false_path.xdc") {
-       s"""|
+      s"""|
            |set_false_path -to [get_pins clock_distribution/rst_sync1_reg/CLR]
            |set_false_path -to [get_pins clock_distribution/rst_sync2_reg/CLR]
            |set_false_path -to [get_pins clock_distribution/rst_sync3_reg/CLR]
            |
            |""".stripMargin
     }
-
 
     val packaging_tcl_fp =
       createTclScript("package_kernel", line => substitute(line, substitutions))
@@ -410,8 +407,10 @@ object BuildXclbin {
       target: String,
       platform: String,
       freqMhz: Double,
-      dimx: Int, dimy: Int,
-      top_name: String = "ManticoreKernel"
+      dimx: Int,
+      dimy: Int,
+      top_name: String = "ManticoreKernel",
+      strategies: Seq[String] = Nil
   ) = {
 
     import scala.sys.process._
@@ -457,9 +456,7 @@ object BuildXclbin {
       cpus / thread_per_core
     }
 
-    val clock_constraint = ""
-    // s"--kernel_frequency 0:${freqMhz} "
-    // "--clock.defaultTolerance 0.1 "
+
     val xclbin_path =
       bin_dir.resolve(s"${top_name}.${target}.${platform}.xclbin")
     val max_threads = Runtime.getRuntime().availableProcessors()
@@ -470,20 +467,24 @@ object BuildXclbin {
       writer.close()
       fp
     }
-    val pblocks =  if (dimx * dimy > 160) {
+    val pblocks = if (dimx * dimy > 160) {
       createPblocksTcl("pblocks_large.xdc")
     } else {
       createPblocksTcl("pblocks_small.xdc")
     }
-    val cpus = getSystemInfo() max 12
+    val cpus = getSystemInfo() min 12
+    val extraRuns = s"--vivado.impl.strategies \"${strategies.mkString(",")}\" " + (strategies
+      .map { s =>
+        s"--vivado.prop run.impl_${s}.STEPS.PLACE_DESIGN.TCL.PRE=${pblocks.toAbsolutePath()} "
+      }
+      .mkString(" "))
+
     val command =
       s"v++ --link -g -t ${target} --platform ${platform} --save-temps " +
-        s"--optimize 3 " +
-        s"""--vivado.impl.strategies \"Performance_Explore\" """ +
-        s"""--vivado.prop run.impl_1.STEPS.PLACE_DESIGN.TCL.PRE=${pblocks.toAbsolutePath()} """ +
-        s"""--vivado.prop run.impl_Performance_Explore.STEPS.PLACE_DESIGN.TCL.PRE=${pblocks.toAbsolutePath()} """ +
+        s"--optimize 3 " + extraRuns +
+        s"--vivado.prop run.impl_1.STEPS.PLACE_DESIGN.TCL.PRE=${pblocks.toAbsolutePath()} " +
         s"--vivado.synth.jobs ${cpus} --vivado.impl.jobs ${cpus} " +
-        s"${clock_constraint} -o ${xclbin_path.toAbsolutePath.toString} " +
+        s"-o ${xclbin_path.toAbsolutePath.toString} " +
         s"${xo_path.toAbsolutePath.toString}"
 
     println(s"Executing:\n${command}")
@@ -517,7 +518,8 @@ object ManticoreKernelGenerator {
       dimy: Int = 8,
       enable_custom_alu: Boolean = true,
       freqMhz: Double = 200.0,
-      n_hop: Int = 2
+      n_hop: Int = 2,
+      strategies: Seq[String] = Nil
   ) = {
 
     val out_dir = Paths.get(target_dir)
@@ -571,7 +573,8 @@ object ManticoreKernelGenerator {
       freqMhz = freqMhz,
       platform = platform,
       dimx = dimx,
-      dimy = dimy
+      dimy = dimy,
+      strategies = strategies
     )
 
   }
