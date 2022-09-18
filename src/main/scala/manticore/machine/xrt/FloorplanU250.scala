@@ -34,5 +34,7 @@ object U250Floorplan {
     def getSwitchToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, ArbitraryPblock] = {
       getCoreToPblockMap(dimX, dimY)
     }
+
+    override def toTcl(dimX: Int, dimY: Int): String = ""
   }
 }
