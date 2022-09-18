@@ -29,6 +29,7 @@ import chisel3.experimental.annotate
 import chisel3.experimental.ChiselAnnotation
 import firrtl.annotations.Annotation
 import firrtl.AttributeAnnotation
+import manticore.machine.Helpers
 
 class BareNoCBundle(val config: ISA) extends Bundle {
   val data: UInt    = UInt(config.DataBits.W)
@@ -249,14 +250,15 @@ class Switch(DimX: Int, DimY: Int, config: ISA, n_hop: Int) extends Module {
   }
 
   // We subtract 1 as x_reg and y_reg count as 1 hop.
-  io.xOutput := Pipe(true.B, x_reg, n_hop - 1).bits
-  io.yOutput := Pipe(true.B, y_reg, n_hop - 1).bits
   annotate(new ChiselAnnotation {
-    def toFirrtl: Annotation = AttributeAnnotation(io.xOutput.toNamed, "srl_type=\"register\"")
+    def toFirrtl: Annotation = AttributeAnnotation(io.xOutput.toNamed, "srl_style=\"register\"")
   })
+  io.xOutput := Helpers.regPipe(x_reg, n_hop - 1)
+
   annotate(new ChiselAnnotation {
-    def toFirrtl: Annotation = AttributeAnnotation(io.yOutput.toNamed, "srl_type=\"register\"")
+    def toFirrtl: Annotation = AttributeAnnotation(io.yOutput.toNamed, "srl_style=\"register\"")
   })
+  io.yOutput := Helpers.regPipe(y_reg, n_hop - 1)
 
   io.terminal := terminal_reg
 

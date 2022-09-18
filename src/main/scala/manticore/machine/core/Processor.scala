@@ -16,6 +16,7 @@ import chisel3.experimental.annotate
 import chisel3.experimental.ChiselAnnotation
 import firrtl.annotations.Annotation
 import firrtl.AttributeAnnotation
+import manticore.machine.Helpers
 
 class NamedError(nameBits: Int) extends Bundle {
   val error: Bool = Bool()
@@ -80,14 +81,14 @@ class ProcessorWithSendPipe(
   // flexibility in placing switches on the chip.
 
   annotate(new ChiselAnnotation {
-    def toFirrtl: Annotation = AttributeAnnotation(io.packet_out.toNamed, "srl_type=\"register\"")
+    def toFirrtl: Annotation = AttributeAnnotation(io.packet_out.toNamed, "srl_style=\"register\"")
   })
-  io.packet_out := Pipe(true.B, processor.io.packet_out, 7).bits
+  io.packet_out := Helpers.regPipe(processor.io.packet_out, 7)
 
   annotate(new ChiselAnnotation {
-    def toFirrtl: Annotation = AttributeAnnotation(processor.io.packet_in.toNamed, "srl_type=\"register\"")
+    def toFirrtl: Annotation = AttributeAnnotation(processor.io.packet_in.toNamed, "srl_style=\"register\"")
   })
-  processor.io.packet_in := Pipe(true.B, io.packet_in, 7).bits
+  processor.io.packet_in := Helpers.regPipe(io.packet_in, 7)
 
 }
 

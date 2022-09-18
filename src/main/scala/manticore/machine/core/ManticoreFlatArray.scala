@@ -16,6 +16,7 @@ import chisel3.experimental.annotate
 import chisel3.experimental.ChiselAnnotation
 import firrtl.annotations.Annotation
 import firrtl.AttributeAnnotation
+import manticore.machine.Helpers
 
 /// registers written by the host
 class HostRegisters extends Bundle {
@@ -316,18 +317,19 @@ class ManticoreFlatArray(
 
   // TODO (skashani): Modify the controller and bootloader to take 7 cycle latency into account.
   // We use 7 pipeline stages here as each core also has 7 pipeline registers before its packet_out interface.
-  annotate(new ChiselAnnotation {
-    def toFirrtl: Annotation = AttributeAnnotation(compute_array.io.config_enable.toNamed, "srl_type=\"register\"")
-  })
-  annotate(new ChiselAnnotation {
-    def toFirrtl: Annotation = AttributeAnnotation(compute_array.io.config_packet.toNamed, "srl_type=\"register\"")
-  })
   withClockAndReset(
     clock = io.control_clock,
     reset = controller.io.soft_reset
   ) {
-    compute_array.io.config_enable := Pipe(true.B, controller.io.config_enable, 7).bits
-    compute_array.io.config_packet := Pipe(true.B, bootloader.io.packet_out, 7).bits
+    annotate(new ChiselAnnotation {
+      def toFirrtl: Annotation = AttributeAnnotation(compute_array.io.config_enable.toNamed, "srl_style=\"register\"")
+    })
+    compute_array.io.config_enable := Helpers.regPipe(controller.io.config_enable, 7)
+
+    annotate(new ChiselAnnotation {
+      def toFirrtl: Annotation = AttributeAnnotation(compute_array.io.config_packet.toNamed, "srl_style=\"register\"")
+    })
+    compute_array.io.config_packet := Helpers.regPipe(bootloader.io.packet_out, 7)
   }
 
   compute_array.io.mem_access <> memory_intercept.io.core
