@@ -210,6 +210,7 @@ trait Floorplan {
         val x0y0         = TorusLoc(0, 0)
         val coreToPblock = getCoreToPblockMap(dimX, dimY)
         val pblockName   = coreToPblock(x0y0).name
+        pblockName
       case Some(value) =>
         value
     }

@@ -150,11 +150,19 @@ object Main {
 
       val constraints = platform.device match {
         case U200 =>
-          val validChoices = Set("highway", "rigid-island", "loose-island")
+          val validChoices = Set(
+            "highway",
+            "rigid-island",
+            "rigid-island-explicit-clock-root",
+            "loose-island"
+          )
+
           if (cfg.placement_alg == "highway") {
             U200Floorplan.HighwaySwitch.toTcl(cfg.dimx, cfg.dimy)
           } else if (cfg.placement_alg == "rigid-island") {
             U200Floorplan.RigidIslandSwitch.toTcl(cfg.dimx, cfg.dimy)
+          } else if (cfg.placement_alg == "rigid-island-explicit-clock-root") {
+            U200Floorplan.RigidIslandSwitchExplicitClockRoot.toTcl(cfg.dimx, cfg.dimy)
           } else if (cfg.placement_alg == "loose-island") {
             U200Floorplan.LooseIslandSwitch.toTcl(cfg.dimx, cfg.dimy)
           } else {
