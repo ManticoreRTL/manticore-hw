@@ -100,6 +100,8 @@ object U200Floorplan {
     // to pblock_cores_Y7_Left (experimentally verified, no algorithm to derive automatically).
     val anchor = GridLoc(2, 12)
 
+    def getRootClock(): Option[String] = Some("X2Y7")
+
     def getCoreToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, GridPblock] = {
       assert(dimY == 25, "Highway placement requires dimY == 25")
 
@@ -166,6 +168,8 @@ object U200Floorplan {
     // anchor to c2y10 in the grid results in x0y0 being assigned to pblock_cores_Y10_Left (experimentally derived,
     // no algorithm to derive automatically).
     val anchor = GridLoc(2, 10)
+
+    def getRootClock(): Option[String] = Some("X2Y10")
 
     def getCoreToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, GridPblock] = {
       assert(dimY == 20, "Island placement requires dimY == 20")
@@ -257,6 +261,8 @@ object U200Floorplan {
   // - Place all switches in a single Pblock that covers the non-shell area of SLR1.
   // - We let vivado handle switch placement.
   object LooseIslandSwitch extends Floorplan {
+    def getRootClock(): Option[String] = Some("X2Y10")
+
     def getCoreToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, GridPblock] = {
       RigidIslandSwitch.getCoreToPblockMap(dimX, dimY)
     }

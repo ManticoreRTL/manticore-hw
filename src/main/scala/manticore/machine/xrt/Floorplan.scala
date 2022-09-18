@@ -203,9 +203,16 @@ trait Floorplan {
   }
 
   def getClockConstraints(dimX: Int, dimY: Int): String = {
-    val x0y0         = TorusLoc(0, 0)
-    val coreToPblock = getCoreToPblockMap(dimX, dimY)
-    val pblockName   = coreToPblock(x0y0).name
+    // Use user-specified root clock if specified, otherwise use pblock name where
+    // core x0y0 is located.
+    val userRootClock = getRootClock() match {
+      case None =>
+        val x0y0         = TorusLoc(0, 0)
+        val coreToPblock = getCoreToPblockMap(dimX, dimY)
+        val pblockName   = coreToPblock(x0y0).name
+      case Some(value) =>
+        value
+    }
 
     val computeClockNetName = "level0_i/ulp/ManticoreKernel_1/inst/clock_distribution/clock_distribution_compute_clock"
     val clockWizardClockOutNetName = "level0_i/ulp/ManticoreKernel_1/inst/clock_distribution/wiz/inst/clk_out1"
@@ -219,7 +226,7 @@ trait Floorplan {
         |set_property CLOCK_DELAY_GROUP MantictoreClk [get_nets [list \\
         |${netsStr}
         |]]
-        |set_property USER_CLOCK_ROOT [get_pblocks ${pblockName}] [get_nets [list \\
+        |set_property USER_CLOCK_ROOT ${userRootClock} [get_nets [list \\
         |${netsStr}
         |]]
         |""".stripMargin
@@ -234,6 +241,7 @@ trait Floorplan {
   }
 
   // Must be defined by subclasses which floorplan specific devices.
+  def getRootClock(): Option[String]
   def getCoreToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, Pblock]
   def getSwitchToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, Pblock]
 }
