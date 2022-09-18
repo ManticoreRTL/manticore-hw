@@ -207,12 +207,21 @@ trait Floorplan {
     val coreToPblock = getCoreToPblockMap(dimX, dimY)
     val pblockName   = coreToPblock(x0y0).name
 
+    val computeClockNetName = "level0_i/ulp/ManticoreKernel_1/inst/clock_distribution/clock_distribution_compute_clock"
+    val clockWizardClockOutNetName = "level0_i/ulp/ManticoreKernel_1/inst/clock_distribution/wiz/inst/clk_out1"
+
+    val netsStr = Seq(
+      computeClockNetName,
+      clockWizardClockOutNetName
+    ).map(net => s"\t\t${net} \\").mkString("\n")
+
     s"""|
-        |set_property CLOCK_DELAY_GROUP MantictoreClk [get_nets {level0_i/ulp/ManticoreKernel_1/inst/clock_distribution/wiz/inst/clk_out1 \\
-        |                                                        level0_i/ulp/ManticoreKernel_1/inst/clock_distribution/clock_distribution_compute_clock}]
-        |set_property USER_CLOCK_ROOT ${pblockName} [get_nets {level0_i/ulp/ManticoreKernel_1/inst/clock_distribution/wiz/inst/clk_out1 \\
-        |                                                      level0_i/ulp/ManticoreKernel_1/inst/clock_distribution/clock_distribution_compute_clock}]
-        |
+        |set_property CLOCK_DELAY_GROUP MantictoreClk [get_nets [list \\
+        |${netsStr}
+        |]]
+        |set_property USER_CLOCK_ROOT [get_pblocks ${pblockName}] [get_nets [list \\
+        |${netsStr}
+        |]]
         |""".stripMargin
   }
 
@@ -240,7 +249,7 @@ trait Pblock {
     s"""|
         |create_pblock ${name}
         |resize_pblock ${name} -add ${resources}
-        |add_cells_to_pblock ${name} [ get_cell [ list \\
+        |add_cells_to_pblock ${name} [get_cells [list \\
         |${cellsStr}
         |]]
         |""".stripMargin
