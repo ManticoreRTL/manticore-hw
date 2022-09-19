@@ -20,7 +20,7 @@ object U280FloorplanImpl {
   //
   // Switches are placed as follows:
   // - Place all switches in a single large pblock that spans SLR0:SLR2.
-  object LooseNonShell extends U250Floorplan {
+  object LooseNonShell extends U280Floorplan {
     // The anchor doesn't matter as we are leaving the cores in a single large pblock
     // that spans all SLRs.
     val anchor = GridLoc(0, 0)

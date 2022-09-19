@@ -25,7 +25,7 @@ object U250FloorplanImpl {
     // that spans 2 SLRs.
     val anchor = GridLoc(0, 0)
 
-    def getRootClock(): ClockRegion = ClockRegion(4, 11)
+    def getRootClock(): ClockRegion = ClockRegion(4, 9)
 
     def getCoreToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, ArbitraryPblock] = {
       val gridToTorus = getGridLocToTorusLocMap(dimX, dimY, anchor)
