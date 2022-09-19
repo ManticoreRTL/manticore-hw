@@ -6,6 +6,7 @@ import collection.mutable.ArrayBuffer
 object Coordinates {
   case class GridLoc(c: Int, r: Int)
   case class TorusLoc(x: Int, y: Int)
+  case class ClockRegion(x: Int, y: Int)
 }
 
 trait Floorplan {
@@ -152,10 +153,9 @@ trait Floorplan {
       .groupMap(_._2)(_._1)
       .foreach { case (pblock, cores) =>
         val cells = cores
-          .flatMap { core =>
-            val auxCells = getCoreAuxiliaryCellNames(core.x, core.y)
+          .map { core =>
             val coreCell = getProcessorCellName(core.x, core.y)
-            auxCells :+ coreCell
+            coreCell
           }
 
         pblockCells(pblock) ++= cells
@@ -207,17 +207,17 @@ trait Floorplan {
   }
 
   def getClockConstraints(dimX: Int, dimY: Int): String = {
-    // Use user-specified root clock if specified, otherwise use pblock name where
-    // core x0y0 is located.
-    val userRootClock = getRootClock() match {
-      case None =>
-        val x0y0         = TorusLoc(0, 0)
-        val coreToPblock = getCoreToPblockMap(dimX, dimY)
-        val pblockName   = coreToPblock(x0y0).name
-        pblockName
-      case Some(value) =>
-        value
+    val rootClockRegion = getRootClock()
+
+    case class ClockDistributionPblock(cr: ClockRegion) extends Pblock {
+      override val name: String = "ManticoreClkDistribution"
+
+      override val resources: String = s"{ CLOCKREGION_X${cr.x}Y${cr.y} }"
     }
+
+    val clkDistributionConstraints = ClockDistributionPblock(rootClockRegion).toTcl(
+      getCoreAuxiliaryCellNames(0, 0) :+ getProcessorCellName(0, 0)
+    )
 
     val computeClockNetName = s"${getManticoreKernelInstName()}/clock_distribution/clock_distribution_compute_clock"
     val clockWizardClockOutNetName = s"${getManticoreKernelInstName()}/clock_distribution/wiz/inst/clk_out1"
@@ -227,14 +227,20 @@ trait Floorplan {
       clockWizardClockOutNetName
     ).map(net => s"\t\t${net} \\").mkString("\n")
 
-    s"""|
-        |set_property CLOCK_DELAY_GROUP MantictoreClk [get_nets [list \\
-        |${netsStr}
-        |]]
-        |set_property USER_CLOCK_ROOT ${userRootClock} [get_nets [list \\
-        |${netsStr}
-        |]]
-        |""".stripMargin
+    val clkRootConstraints =
+      s"""|
+          |set_property CLOCK_DELAY_GROUP ManticoreClk [get_nets [list \\
+          |${netsStr}
+          |]]
+          |set_property USER_CLOCK_ROOT X${rootClockRegion.x}Y${rootClockRegion.y} [get_nets [list \\
+          |${netsStr}
+          |]]
+          |""".stripMargin
+
+    Seq(
+      clkDistributionConstraints,
+      clkRootConstraints
+    ).mkString("\n")
   }
 
   def toTcl(dimX: Int, dimY: Int): String = {
@@ -247,7 +253,7 @@ trait Floorplan {
   }
 
   // Must be defined by subclasses which floorplan specific devices.
-  def getRootClock(): Option[String]
+  def getRootClock(): ClockRegion
   def getManticoreKernelInstName(): String
   def getCoreToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, Pblock]
   def getSwitchToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, Pblock]

@@ -154,7 +154,6 @@ object Main {
           val validChoices = Set(
             "highway",
             "rigid-island",
-            "rigid-island-explicit-clock-root",
             "loose-island"
           )
 
@@ -162,8 +161,6 @@ object Main {
             U200FloorplanImpl.HighwaySwitch.toTcl(cfg.dimx, cfg.dimy)
           } else if (cfg.placement_alg == "rigid-island") {
             U200FloorplanImpl.RigidIslandSwitch.toTcl(cfg.dimx, cfg.dimy)
-          } else if (cfg.placement_alg == "rigid-island-explicit-clock-root") {
-            U200FloorplanImpl.RigidIslandSwitchExplicitClockRoot.toTcl(cfg.dimx, cfg.dimy)
           } else if (cfg.placement_alg == "loose-island") {
             U200FloorplanImpl.LooseIslandSwitch.toTcl(cfg.dimx, cfg.dimy)
           } else {
