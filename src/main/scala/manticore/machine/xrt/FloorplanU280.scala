@@ -1,7 +1,5 @@
 package manticore.machine.xrt
 
-package manticore.machine.xrt
-
 import collection.mutable.{Map => MMap}
 
 trait U280Floorplan extends Floorplan {

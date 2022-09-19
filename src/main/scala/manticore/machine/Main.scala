@@ -12,7 +12,7 @@ import manticore.machine.xrt.ManticoreKernelGenerator.U250
 import manticore.machine.xrt.ManticoreKernelGenerator.U280
 import manticore.machine.xrt.U200FloorplanImpl
 import manticore.machine.xrt.U250FloorplanImpl
-import manticore.machine.xrt.manticore.machine.xrt.U280FloorplanImpl
+import manticore.machine.xrt.U280FloorplanImpl
 
 object Main {
 
