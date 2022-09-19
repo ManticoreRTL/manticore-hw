@@ -3,7 +3,7 @@ package manticore.machine
 import chisel3._
 
 object Helpers {
-  def regPipe[T <: Data](data: T, latency: Int): T = {
+  def PipeNoSRL[T <: Data](data: T, latency: Int): T = {
     require(latency >= 0, "Pipe latency must be greater than or equal to zero!")
 
     if (latency == 0) {
@@ -12,19 +12,25 @@ object Helpers {
       notDelayed
 
     } else if (latency == 1) {
-      val delayed = RegNext(data)
-      delayed
+      // (skashani): The name "regManticorePipeNoSrl" is matched in a placement
+      // script to disable the generation of SRLs. If you modify this name here,
+      // do not forget to modify it in the placement script!
+      val regManticorePipeNoSrl = RegNext(data)
+      regManticorePipeNoSrl
 
     } else {
-      val delayed = Wire(Vec(latency + 1, chiselTypeOf(data)))
+      // (skashani): The name "regManticorePipeNoSrl" is matched in a placement
+      // script to disable the generation of SRLs. If you modify this name here,
+      // do not forget to modify it in the placement script!
+      val regManticorePipeNoSrl = Wire(Vec(latency + 1, chiselTypeOf(data)))
 
-      delayed(0) := data
+      regManticorePipeNoSrl(0) := data
       Range.inclusive(1, latency).foreach { idx =>
-        val prev = delayed(idx - 1)
-        delayed(idx) := RegNext(prev)
+        val prev = regManticorePipeNoSrl(idx - 1)
+        regManticorePipeNoSrl(idx) := RegNext(prev)
       }
 
-      delayed.last
+      regManticorePipeNoSrl.last
     }
   }
 }

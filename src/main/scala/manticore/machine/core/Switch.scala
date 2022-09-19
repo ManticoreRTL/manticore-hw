@@ -250,15 +250,8 @@ class Switch(DimX: Int, DimY: Int, config: ISA, n_hop: Int) extends Module {
   }
 
   // We subtract 1 as x_reg and y_reg count as 1 hop.
-  annotate(new ChiselAnnotation {
-    def toFirrtl: Annotation = AttributeAnnotation(io.xOutput.toNamed, "srl_style=\"register\"")
-  })
-  io.xOutput := Helpers.regPipe(x_reg, n_hop - 1)
-
-  annotate(new ChiselAnnotation {
-    def toFirrtl: Annotation = AttributeAnnotation(io.yOutput.toNamed, "srl_style=\"register\"")
-  })
-  io.yOutput := Helpers.regPipe(y_reg, n_hop - 1)
+  io.xOutput := Helpers.PipeNoSRL(x_reg, n_hop - 1)
+  io.yOutput := Helpers.PipeNoSRL(y_reg, n_hop - 1)
 
   io.terminal := terminal_reg
 

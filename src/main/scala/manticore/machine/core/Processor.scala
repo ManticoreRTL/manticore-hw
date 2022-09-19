@@ -80,15 +80,8 @@ class ProcessorWithSendPipe(
   // These stages have been added outside the core such that they allow vivado to have
   // flexibility in placing switches on the chip.
 
-  annotate(new ChiselAnnotation {
-    def toFirrtl: Annotation = AttributeAnnotation(io.packet_out.toNamed, "srl_style=\"register\"")
-  })
-  io.packet_out := Helpers.regPipe(processor.io.packet_out, 7)
-
-  annotate(new ChiselAnnotation {
-    def toFirrtl: Annotation = AttributeAnnotation(processor.io.packet_in.toNamed, "srl_style=\"register\"")
-  })
-  processor.io.packet_in := Helpers.regPipe(io.packet_in, 7)
+  io.packet_out          := Helpers.PipeNoSRL(processor.io.packet_out, 7)
+  processor.io.packet_in := Helpers.PipeNoSRL(io.packet_in, 7)
 
 }
 

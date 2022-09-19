@@ -11,7 +11,7 @@ object Coordinates {
 trait Floorplan {
   import Coordinates._
 
-  def getCoreCellName(x: Int, y: Int): String = {
+  def getProcessorCellName(x: Int, y: Int): String = {
     // We explicitly do not consider the registers in the ProcessorWithSendPipe as part of the "core" since we
     // want vivado to have freedom to place them where it wants. Hence why we see "/processor" and don't just stop
     // at "/core_x_y".
@@ -154,7 +154,7 @@ trait Floorplan {
         val cells = cores
           .flatMap { core =>
             val auxCells = getCoreAuxiliaryCellNames(core.x, core.y)
-            val coreCell = getCoreCellName(core.x, core.y)
+            val coreCell = getProcessorCellName(core.x, core.y)
             auxCells :+ coreCell
           }
 
@@ -192,7 +192,7 @@ trait Floorplan {
     Range.inclusive(0, dimY - 1).foreach { y =>
       Range.inclusive(0, dimX - 1).foreach { x =>
         val torusLoc   = TorusLoc(x, y)
-        val coreCell   = getCoreCellName(torusLoc.x, torusLoc.y)
+        val coreCell   = getProcessorCellName(torusLoc.x, torusLoc.y)
         val switchCell = getSwitchCellName(torusLoc.x, torusLoc.y)
         constraints += s"set_property keep_hierarchy yes [get_cells ${coreCell}]"
         constraints += s"set_property keep_hierarchy yes [get_cells ${switchCell}]"
@@ -200,6 +200,10 @@ trait Floorplan {
     }
 
     constraints.mkString("\n")
+  }
+
+  def getSrlConstraints(): String = {
+    "set_property srl_style register [get_cells -hierarchical -regexp .*regManticorePipeNoSrl.*]"
   }
 
   def getClockConstraints(dimX: Int, dimY: Int): String = {
@@ -237,7 +241,8 @@ trait Floorplan {
     Seq(
       getPblockConstrains(dimX, dimY),
       getHierarchyConstraints(dimX, dimY),
-      getClockConstraints(dimX, dimY)
+      getClockConstraints(dimX, dimY),
+      getSrlConstraints()
     ).mkString("\n")
   }
 

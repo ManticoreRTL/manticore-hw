@@ -321,15 +321,8 @@ class ManticoreFlatArray(
     clock = io.control_clock,
     reset = controller.io.soft_reset
   ) {
-    annotate(new ChiselAnnotation {
-      def toFirrtl: Annotation = AttributeAnnotation(compute_array.io.config_enable.toNamed, "srl_style=\"register\"")
-    })
-    compute_array.io.config_enable := Helpers.regPipe(controller.io.config_enable, 7)
-
-    annotate(new ChiselAnnotation {
-      def toFirrtl: Annotation = AttributeAnnotation(compute_array.io.config_packet.toNamed, "srl_style=\"register\"")
-    })
-    compute_array.io.config_packet := Helpers.regPipe(bootloader.io.packet_out, 7)
+    compute_array.io.config_enable := Helpers.PipeNoSRL(controller.io.config_enable, 7)
+    compute_array.io.config_packet := Helpers.PipeNoSRL(bootloader.io.packet_out, 7)
   }
 
   compute_array.io.mem_access <> memory_intercept.io.core
