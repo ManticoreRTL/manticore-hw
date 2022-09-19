@@ -2,7 +2,11 @@ package manticore.machine.xrt
 
 import collection.mutable.{Map => MMap}
 
-object U200Floorplan {
+trait U200Floorplan extends Floorplan {
+  def getManticoreKernelInstName(): String = "level0_i/ulp/ManticoreKernel_1/inst"
+}
+
+object U200FloorplanImpl {
   import Coordinates._
 
   sealed abstract class Side
@@ -95,7 +99,7 @@ object U200Floorplan {
   // Switches are placed as follows:
   // - switch_x_y is placed in the leftmost clock region of the clock
   //   region row in which core_x_y is placed.
-  object HighwaySwitch extends Floorplan {
+  object HighwaySwitch extends U200Floorplan {
     // We want to anchor in clock region X2Y7. Setting the anchor to c2y12 in the grid results in x0y0 being assigned
     // to pblock_cores_Y7_Left (experimentally verified, no algorithm to derive automatically).
     val anchor = GridLoc(2, 12)
@@ -163,7 +167,7 @@ object U200Floorplan {
   //
   // Switches are placed as follows:
   // - Place 4 rows of switches per clock region row in SLR1.
-  object RigidIslandSwitch extends Floorplan {
+  object RigidIslandSwitch extends U200Floorplan {
     // We want to anchor core x0y0 in clock region X2Y10. We are lucky and it so happens to be that setting the
     // anchor to c2y10 in the grid results in x0y0 being assigned to pblock_cores_Y10_Left (experimentally derived,
     // no algorithm to derive automatically).
@@ -248,7 +252,7 @@ object U200Floorplan {
     }
   }
 
-  object RigidIslandSwitchExplicitClockRoot extends Floorplan {
+  object RigidIslandSwitchExplicitClockRoot extends U200Floorplan {
     def getRootClock(): Option[String] = Some("X2Y10")
 
     def getCoreToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, Pblock] = {
@@ -272,7 +276,7 @@ object U200Floorplan {
   // Switches are placed as follows:
   // - Place all switches in a single Pblock that covers the non-shell area of SLR1.
   // - We let vivado handle switch placement.
-  object LooseIslandSwitch extends Floorplan {
+  object LooseIslandSwitch extends U200Floorplan {
     def getRootClock(): Option[String] = None
 
     def getCoreToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, GridPblock] = {

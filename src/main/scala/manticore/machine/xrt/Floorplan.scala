@@ -15,20 +15,20 @@ trait Floorplan {
     // We explicitly do not consider the registers in the ProcessorWithSendPipe as part of the "core" since we
     // want vivado to have freedom to place them where it wants. Hence why we see "/processor" and don't just stop
     // at "/core_x_y".
-    s"level0_i/ulp/ManticoreKernel_1/inst/manticore/compute_array/core_${x}_${y}/processor"
+    s"${getManticoreKernelInstName()}/manticore/compute_array/core_${x}_${y}/processor"
   }
 
   // The auxiliary circuitry that should be placed near the core at position x<x>y<y>.
   def getCoreAuxiliaryCellNames(x: Int, y: Int): Seq[String] = {
     if (x == 0 && y == 0) {
       Seq(
-        "level0_i/ulp/ManticoreKernel_1/inst/axi_cache",
-        "level0_i/ulp/ManticoreKernel_1/inst/clock_distribution",
-        // "level0_i/ulp/ManticoreKernel_1/inst/m_axi_bank_0_clock_crossing",
-        // "level0_i/ulp/ManticoreKernel_1/inst/s_axi_clock_crossing",
-        "level0_i/ulp/ManticoreKernel_1/inst/manticore/bootloader",
-        "level0_i/ulp/ManticoreKernel_1/inst/manticore/controller",
-        "level0_i/ulp/ManticoreKernel_1/inst/manticore/memory_intercept"
+        s"${getManticoreKernelInstName()}/axi_cache",
+        s"${getManticoreKernelInstName()}/clock_distribution",
+        // s"${getManticoreKernelInstName()}/m_axi_bank_0_clock_crossing",
+        // s"${getManticoreKernelInstName()}/s_axi_clock_crossing",
+        s"${getManticoreKernelInstName()}/manticore/bootloader",
+        s"${getManticoreKernelInstName()}/manticore/controller",
+        s"${getManticoreKernelInstName()}/manticore/memory_intercept"
       )
     } else {
       Seq()
@@ -36,7 +36,7 @@ trait Floorplan {
   }
 
   def getSwitchCellName(x: Int, y: Int): String = {
-    s"level0_i/ulp/ManticoreKernel_1/inst/manticore/compute_array/switch_${x}_${y}"
+    s"${getManticoreKernelInstName()}/manticore/compute_array/switch_${x}_${y}"
   }
 
   // Mapping from an abstract position on a 2D grid to a Core in a torus network.
@@ -215,8 +215,8 @@ trait Floorplan {
         value
     }
 
-    val computeClockNetName = "level0_i/ulp/ManticoreKernel_1/inst/clock_distribution/clock_distribution_compute_clock"
-    val clockWizardClockOutNetName = "level0_i/ulp/ManticoreKernel_1/inst/clock_distribution/wiz/inst/clk_out1"
+    val computeClockNetName = s"${getManticoreKernelInstName()}/clock_distribution/clock_distribution_compute_clock"
+    val clockWizardClockOutNetName = s"${getManticoreKernelInstName()}/clock_distribution/wiz/inst/clk_out1"
 
     val netsStr = Seq(
       computeClockNetName,
@@ -243,6 +243,7 @@ trait Floorplan {
 
   // Must be defined by subclasses which floorplan specific devices.
   def getRootClock(): Option[String]
+  def getManticoreKernelInstName(): String
   def getCoreToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, Pblock]
   def getSwitchToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, Pblock]
 }

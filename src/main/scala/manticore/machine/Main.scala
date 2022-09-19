@@ -10,8 +10,9 @@ import java.io.PrintWriter
 import manticore.machine.xrt.ManticoreKernelGenerator.U200
 import manticore.machine.xrt.ManticoreKernelGenerator.U250
 import manticore.machine.xrt.ManticoreKernelGenerator.U280
-import manticore.machine.xrt.U200Floorplan
-import manticore.machine.xrt.U250Floorplan
+import manticore.machine.xrt.U200FloorplanImpl
+import manticore.machine.xrt.U250FloorplanImpl
+import manticore.machine.xrt.manticore.machine.xrt.U280FloorplanImpl
 
 object Main {
 
@@ -158,13 +159,13 @@ object Main {
           )
 
           if (cfg.placement_alg == "highway") {
-            U200Floorplan.HighwaySwitch.toTcl(cfg.dimx, cfg.dimy)
+            U200FloorplanImpl.HighwaySwitch.toTcl(cfg.dimx, cfg.dimy)
           } else if (cfg.placement_alg == "rigid-island") {
-            U200Floorplan.RigidIslandSwitch.toTcl(cfg.dimx, cfg.dimy)
+            U200FloorplanImpl.RigidIslandSwitch.toTcl(cfg.dimx, cfg.dimy)
           } else if (cfg.placement_alg == "rigid-island-explicit-clock-root") {
-            U200Floorplan.RigidIslandSwitchExplicitClockRoot.toTcl(cfg.dimx, cfg.dimy)
+            U200FloorplanImpl.RigidIslandSwitchExplicitClockRoot.toTcl(cfg.dimx, cfg.dimy)
           } else if (cfg.placement_alg == "loose-island") {
-            U200Floorplan.LooseIslandSwitch.toTcl(cfg.dimx, cfg.dimy)
+            U200FloorplanImpl.LooseIslandSwitch.toTcl(cfg.dimx, cfg.dimy)
           } else {
             sys.error(s"Invalid placement algorithm! Valid choices are ${validChoices.mkString(", ")}")
           }
@@ -172,15 +173,15 @@ object Main {
         case U250 =>
           val validChoices = Set("loose-slr2-slr3")
           if (cfg.placement_alg == "loose-slr2-slr3") {
-            U250Floorplan.LooseSlr2Slr3.toTcl(cfg.dimx, cfg.dimy)
+            U250FloorplanImpl.LooseSlr2Slr3.toTcl(cfg.dimx, cfg.dimy)
           } else {
             sys.error(s"Invalid placement algorithm! Valid choices are ${validChoices.mkString(", ")}")
           }
 
         case U280 =>
-          val validChoices = Set("loose-slr1-slr2-slr3")
-          if (cfg.placement_alg == "loose-slr1-slr2-slr3") {
-            ""
+          val validChoices = Set("loose-non-shell")
+          if (cfg.placement_alg == "loose-non-shell") {
+            U280FloorplanImpl.LooseNonShell.toTcl(cfg.dimx, cfg.dimy)
           } else {
             sys.error(s"Invalid placement algorithm! Valid choices are ${validChoices.mkString(", ")}")
           }
