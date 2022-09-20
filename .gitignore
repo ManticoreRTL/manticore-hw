@@ -13,3 +13,4 @@ test_data_dir
 .ipcache
 project
 junk
+__pycache__/
