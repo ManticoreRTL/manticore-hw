@@ -35,6 +35,9 @@ import manticore.machine.memory.SimpleDualPortMemoryInterface
   *   - `execution_enable`: input bit that enables execution, if low then the PC
   *     is reset to zero and nops are implicitly fetched and pushed down the
   *     pipeline (i.e., pipeline never stalls)
+  * 
+  *   - `is_final_instruction`: input bit that indicates whether current 
+  *     instruction is the final one or not
   *
   *   - `instruction`: output wires to the decode unit, the fetched instruction
   *
@@ -53,9 +56,10 @@ class FetchInterface(config: ISA) extends Bundle {
     val instruction: UInt = UInt(config.NumBits.W)
     val address: UInt     = UInt(config.NumPcBits.W)
   }
-  val program_counter: UInt  = Output(UInt(config.NumPcBits.W))
-  val execution_enable: Bool = Input(Bool())
-  val instruction: UInt      = Output(UInt(config.NumBits.W))
+  val program_counter: UInt      = Output(UInt(config.NumPcBits.W))
+  val execution_enable: Bool     = Input(Bool())
+  val is_final_instruction: Bool = Input(Bool())
+  val instruction: UInt          = Output(UInt(config.NumBits.W))
 //  val packet: BareNoCBundle = Input(new BareNoCBundle(config))
 //  val init_enable: Bool = Input(Bool())
   val programmer: ProgrammingInterface = Input(new ProgrammingInterface)
@@ -69,7 +73,7 @@ class Fetch(config: ISA) extends Module {
 
   val inst_memory = Module(
     new SimpleDualPortMemory(
-      READ_LATENCY = 1,
+      READ_LATENCY = 2,
       ADDRESS_WIDTH = 12,
       DATA_WIDTH = 64,
       STYLE = MemStyle.URAM
@@ -108,7 +112,7 @@ class FetchCore(config: ISA) extends Module {
   io.memory_interface.raddr     := pc
   io.core_interface.instruction := io.memory_interface.dout
 
-  val stopped = RegInit(Bool(), true.B)
+  val stopped = Wire(Bool())
 
   require(
     config.NumPcBits / 8 <= 8,
@@ -121,34 +125,31 @@ class FetchCore(config: ISA) extends Module {
   // 8 bits of byte enable assuming 64-bit instruction
 //  val write_byte_en = RegInit(UInt((config.NUM_BITS / 8).W), 0x00003.U)
 
-  /** Handle the actual "instruction fetch", notice that once `execution_enable`
-    * is asserted, the CPU starts computing. while the CPU is working, if
-    * `execution_enable` is de-asserted, then the PC reset to 0, and keeps
-    * sending NoP instructions until execution is enabled again. This means
-    * `execution_enable` can not be arbitrarily switched on and off. A
-    * controller should know the number of instructions that a processor is
-    * supposed to execute. It starts by pulling up `init_enable` for a known
-    * number of cycles so that the instruction memory is initialized, after
-    * initialization, the controller should pull down `init_enable` and assert
-    * `execution_enable` for a known number of cycles that is the number of
-    * cycles and then pull down `execution_enable` to re-start the execution for
-    * a new simulation cycle.
+  /** Handle the actual "instruction fetch". The processor starts computing 
+    * when it enters the `StaticExecutionPhase`, i.e. when `execution_enable`
+    * is asserted. If `execution_enable` is de-asserted, then the PC is reset
+    * to 0, and the processor will keep sending NOP instructions until the
+    * execution is enabled again.
+    * The `is_final_instruction` signal indicates if the current instruction  
+    * is the final one or not. The PC is incremented when the execution is 
+    * enabled AND current instruction is not the final one, to avoid the PC
+    * value becoming bigger than the maximum value scheduled by the compiler.
     */
-  when(io.core_interface.execution_enable) {
-    pc      := pc + 1.U
-    stopped := false.B
+  when(io.core_interface.execution_enable && !io.core_interface.is_final_instruction) {
+    pc := pc + 1.U
   } otherwise {
-    pc      := 0.U
-    stopped := true.B
+    pc := 0.U
   }
 
-  when(stopped) {
+  stopped := !io.core_interface.execution_enable
+
+  when(RegNext(RegNext(stopped))) {
     io.core_interface.instruction := 0.U // nop
   } otherwise {
     io.core_interface.instruction := io.memory_interface.dout
   }
 
-  io.core_interface.program_counter := pc
+  io.core_interface.program_counter := RegNext(RegNext(pc))
 
   io.memory_interface.waddr := io.core_interface.programmer.address
   io.memory_interface.din   := io.core_interface.programmer.instruction

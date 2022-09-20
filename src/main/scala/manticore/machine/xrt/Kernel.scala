@@ -6,6 +6,7 @@ import chisel3.stage.ChiselStage
 import chisel3.util.Cat
 import chisel3.util.is
 import chisel3.util.log2Ceil
+import chisel3.util.pla
 import chisel3.util.switch
 import manticore.machine.ManticoreFullISA
 import manticore.machine.core.ClockDistribution
@@ -21,7 +22,6 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import scala.collection.immutable.ListMap
-import chisel3.util.pla
 
 class MemoryPointers extends Bundle {
   val pointer_0: UInt = UInt(64.W)
@@ -64,7 +64,8 @@ class ManticoreFlatKernel(
     DimY: Int,
     enable_custom_alu: Boolean = true,
     debug_enable: Boolean = false,
-    freqMhz: Double = 200.0
+    freqMhz: Double = 200.0,
+    n_hop: Int = 1
     // m_axi_path: Seq[String] =
     //   Seq() // path to m_axi implementation if exits, uses simulation models otherwise
 ) extends RawModule {
@@ -76,16 +77,25 @@ class ManticoreFlatKernel(
   // val reset = Wire(Bool())
   // reset := ~reset_n
 
-  val m_axi_bank_0  = IO(new AxiMasterIF)
+  val m_axi_bank_0  = IO(new AxiMasterIF(AxiCacheAdapter.CacheAxiParameters))
   val s_axi_control = IO(new AxiSlave.AxiSlaveCoreInterface())
   val interrupt     = IO(Output(Bool()))
 
   val clock_distribution = Module(new ClockDistribution())
-
+  val reset              = WireDefault(!clock_distribution.io.sync_rst_n)
+  clock_distribution.io.root_rst_n := reset_n
   clock_distribution.io.root_clock := clock
 
-  val m_axi_bank_0_clock_crossing = Module(new Axi4ClockConverter())
-  val s_axi_clock_crossing        = Module(new AxiLiteClockConverter())
+  val axi_cache = withClockAndReset(
+    clock = clock_distribution.io.control_clock,
+    reset = reset
+  ) {
+    Module(new CacheSubsystem)
+  }
+  val m_axi_bank_0_clock_crossing = Module(new Axi4ClockConverter(AxiCacheAdapter.CacheAxiParameters))
+  val s_axi_clock_crossing = Module(
+    new AxiLiteClockConverter(s_axi_control.AWADDR.getWidth, s_axi_control.WDATA.getWidth)
+  )
   m_axi_bank_0_clock_crossing.s_axi_aclk    := clock_distribution.io.control_clock
   m_axi_bank_0_clock_crossing.s_axi_aresetn := clock_distribution.io.sync_rst_n
   m_axi_bank_0_clock_crossing.m_axi_aclk    := clock // connect to shell clock
@@ -95,7 +105,6 @@ class ManticoreFlatKernel(
   s_axi_clock_crossing.s_axi_aclk           := clock
   s_axi_clock_crossing.s_axi_resetn         := reset_n
 
-  val reset = WireDefault(!clock_distribution.io.sync_rst_n)
   val slave =
     withClockAndReset(
       clock = clock_distribution.io.control_clock,
@@ -110,7 +119,7 @@ class ManticoreFlatKernel(
   interrupt := slave.io.control.interrupt
 
   val manticore =
-    Module(new ManticoreFlatArray(DimX, DimY, debug_enable, enable_custom_alu))
+    Module(new ManticoreFlatArray(DimX, DimY, debug_enable, enable_custom_alu = enable_custom_alu, n_hop = n_hop))
 
   manticore.io.reset         := reset
   manticore.io.control_clock := clock_distribution.io.control_clock
@@ -118,13 +127,6 @@ class ManticoreFlatKernel(
   manticore.io.clock_stabled := clock_distribution.io.locked
 
   clock_distribution.io.compute_clock_en := manticore.io.clock_active
-
-  val axi_cache = withClockAndReset(
-    clock = clock_distribution.io.control_clock,
-    reset = reset
-  ) {
-    Module(new CacheSubsystem)
-  }
 
   axi_cache.io.core <> manticore.io.memory_backend
 
@@ -150,7 +152,7 @@ class ManticoreFlatSimKernel(
     DimY: Int,
     debug_enable: Boolean = false,
     enable_custom_alu: Boolean = true,
-    prefix_path: String = "./"
+    prefix_path: String = "."
 ) extends Module {
 
   clock.suggestName("ap_clk")
@@ -188,11 +190,11 @@ class ManticoreFlatSimKernel(
 
   val manticore =
     Module(new ManticoreFlatArray(DimX, DimY, debug_enable, enable_custom_alu, prefix_path))
-  manticore.io.clock_stabled := clock_distribution.io.locked
 
   manticore.io.reset         := reset
   manticore.io.control_clock := clock_distribution.io.control_clock
   manticore.io.compute_clock := clock_distribution.io.compute_clock
+  manticore.io.clock_stabled := clock_distribution.io.locked
 
   manticore.io.host_registers := io.kernel_registers.host
   io.kernel_registers.device  := manticore.io.device_registers
@@ -214,22 +216,21 @@ class ManticoreFlatSimKernel(
     clock = clock_distribution.io.control_clock,
     reset = reset
   ) {
-    Module(new AxiMemoryModel(DefaultAxiParameters, 1 << 20, ManticoreFullISA.DataBits))
+    Module(new AxiMemoryModel(AxiCacheAdapter.CacheAxiParameters, 1 << 20, ManticoreFullISA.DataBits))
   }
 
   axi_cache.io.base := 0.U
-
+  axi_cache.io.core <> manticore.io.memory_backend
   axi_cache.io.bus <> axi_mem.io.axi
 
   axi_mem.io.sim.waddr := io.dmi.addr
   axi_mem.io.sim.raddr := io.dmi.addr
   axi_mem.io.sim.lock  := io.dmi.locked
   axi_mem.io.sim.wdata := io.dmi.wdata
+  axi_mem.io.sim.wen   := io.dmi.wen
   io.dmi.rdata         := axi_mem.io.sim.rdata
 
 }
-
-
 
 object GenerateIPs {
 
@@ -237,6 +238,7 @@ object GenerateIPs {
       ip_dir: Path,
       scripts_path: Path,
       part_number: String,
+      cacheline_width: Int,
       freq: String
   ) = {
 
@@ -254,7 +256,7 @@ object GenerateIPs {
 
     import scala.sys.process.{Process, ProcessLogger}
     val cmd =
-      s"vivado -mode batch -source ${fp.toAbsolutePath()} -tclargs ${part_number} ${ip_dir.toAbsolutePath} ${freq}"
+      s"vivado -mode batch -source ${fp.toAbsolutePath()} -tclargs ${part_number} ${ip_dir.toAbsolutePath} ${freq} ${cacheline_width} "
     println(s"Running:\n${cmd}")
     val ret = Process(
       command = cmd,
@@ -298,7 +300,9 @@ object PackageKernel {
       "@KERNEL_XML@" ->
         kernel_xml_path.toAbsolutePath().toString(),
       "@SLAVE_INTERFACE@" -> slave_interface,
-      "@IP_PATH@"         -> ip_path.toAbsolutePath().toString()
+      "@IP_PATH@"         -> ip_path.toAbsolutePath().toString(),
+      "@FPGA_NAME@"       -> ManticoreKernelGenerator.platformDevice(platform),
+      "@TARGET@"          -> target
     ) ++ master_interface.zipWithIndex.map { case (m, i) =>
       ("@MASTER_INTERFACE_" + i + "@") -> m
     }.toMap
@@ -321,6 +325,22 @@ object PackageKernel {
       writer.write(tcl_commands)
       writer.close()
       fp
+    }
+
+    def writeXdc(fname: String)(content: => String) = {
+      val fp     = verilog_path.resolve(fname)
+      val writer = Files.newBufferedWriter(fp)
+      writer.write(content)
+      writer.close()
+    }
+
+    writeXdc("false_path.xdc") {
+      s"""|
+           |set_false_path -to [get_pins clock_distribution/rst_sync1_reg/CLR]
+           |set_false_path -to [get_pins clock_distribution/rst_sync2_reg/CLR]
+           |set_false_path -to [get_pins clock_distribution/rst_sync3_reg/CLR]
+           |
+           |""".stripMargin
     }
 
     val packaging_tcl_fp =
@@ -387,7 +407,10 @@ object BuildXclbin {
       target: String,
       platform: String,
       freqMhz: Double,
-      top_name: String = "ManticoreKernel"
+      dimx: Int,
+      dimy: Int,
+      top_name: String = "ManticoreKernel",
+      strategies: Seq[String] = Nil
   ) = {
 
     import scala.sys.process._
@@ -433,18 +456,35 @@ object BuildXclbin {
       cpus / thread_per_core
     }
 
-    val clock_constraint = ""
-    // s"--kernel_frequency 0:${freqMhz} "
-    // "--clock.defaultTolerance 0.1 "
+
     val xclbin_path =
       bin_dir.resolve(s"${top_name}.${target}.${platform}.xclbin")
     val max_threads = Runtime.getRuntime().availableProcessors()
+    def createPblocksTcl(fname: String) = {
+      val fp     = bin_dir.resolve("pblocks.tcl")
+      val writer = Files.newBufferedWriter(fp)
+      writer.write(scala.io.Source.fromResource(s"hls/${fname}").mkString)
+      writer.close()
+      fp
+    }
+    val pblocks = if (dimx * dimy > 160) {
+      createPblocksTcl("pblocks_large.xdc")
+    } else {
+      createPblocksTcl("pblocks_small.xdc")
+    }
+    val cpus = getSystemInfo() min 12
+    val extraRuns = s"--vivado.impl.strategies \"${strategies.mkString(",")}\" " + (strategies
+      .map { s =>
+        s"--vivado.prop run.impl_${s}.STEPS.PLACE_DESIGN.TCL.PRE=${pblocks.toAbsolutePath()} "
+      }
+      .mkString(" "))
 
-    val cpus = getSystemInfo() max 12
     val command =
       s"v++ --link -g -t ${target} --platform ${platform} --save-temps " +
+        s"--optimize 3 " + extraRuns +
+        s"--vivado.prop run.impl_1.STEPS.PLACE_DESIGN.TCL.PRE=${pblocks.toAbsolutePath()} " +
         s"--vivado.synth.jobs ${cpus} --vivado.impl.jobs ${cpus} " +
-        s"${clock_constraint} -o ${xclbin_path.toAbsolutePath.toString} " +
+        s"-o ${xclbin_path.toAbsolutePath.toString} " +
         s"${xo_path.toAbsolutePath.toString}"
 
     println(s"Executing:\n${command}")
@@ -466,7 +506,8 @@ object ManticoreKernelGenerator {
 
   val platformDevice = Map(
     "xilinx_u250_gen3x16_xdma_3_1_202020_1" -> "xcu250-figd2104-2l-e",
-    "xilinx_u200_gen3x16_xdma_1_202110_1"   -> "xcu200-fsgd2104-2-e"
+    "xilinx_u200_gen3x16_xdma_1_202110_1"   -> "xcu200-fsgd2104-2-e",
+    "xilinx_u200_gen3x16_xdma_2_202110_1"   -> "xcu200-fsgd2104-2-e"
   )
 
   def apply(
@@ -476,7 +517,9 @@ object ManticoreKernelGenerator {
       dimx: Int = 8,
       dimy: Int = 8,
       enable_custom_alu: Boolean = true,
-      freqMhz: Double = 200.0
+      freqMhz: Double = 200.0,
+      n_hop: Int = 2,
+      strategies: Seq[String] = Nil
   ) = {
 
     val out_dir = Paths.get(target_dir)
@@ -490,7 +533,8 @@ object ManticoreKernelGenerator {
         DimY = dimy,
         enable_custom_alu = enable_custom_alu,
         debug_enable = false,
-        freqMhz = freqMhz
+        freqMhz = freqMhz,
+        n_hop = n_hop
       ),
       Array("--target-dir", hdl_dir.toAbsolutePath().toString())
     )
@@ -505,7 +549,8 @@ object ManticoreKernelGenerator {
       ip_dir = ip_path,
       scripts_path = out_dir.resolve("scripts"),
       part_number = platformDevice(platform),
-      freq = freqMhz.toString()
+      freq = freqMhz.toString(),
+      cacheline_width = CacheConfig.CacheLineBits
     )
 
     val xo_file = PackageKernel(
@@ -526,7 +571,10 @@ object ManticoreKernelGenerator {
       xo_path = xo_file,
       target = target,
       freqMhz = freqMhz,
-      platform = platform
+      platform = platform,
+      dimx = dimx,
+      dimy = dimy,
+      strategies = strategies
     )
 
   }

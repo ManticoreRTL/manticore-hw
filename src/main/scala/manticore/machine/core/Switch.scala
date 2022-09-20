@@ -41,8 +41,7 @@ class BareNoCBundle(val config: ISA) extends Bundle {
   * @param config
   *   the configuration of the processors
   */
-class NoCBundle(val DimX: Int, val DimY: Int, override val config: ISA)
-    extends BareNoCBundle(config) {
+class NoCBundle(val DimX: Int, val DimY: Int, override val config: ISA) extends BareNoCBundle(config) {
   val xHops: UInt = UInt(log2Ceil(DimX).W)
   val yHops: UInt = UInt(log2Ceil(DimY).W)
 }
@@ -61,7 +60,8 @@ object NoCBundle {
     */
   def empty(DIMX: Int, DIMY: Int, config: ISA): NoCBundle = {
     val bundle = Wire(new NoCBundle(DIMX, DIMY, config))
-    bundle.valid   := false.B
+    bundle.valid := false.B
+
     /** we set the others to DontCare since we really don't care
      * this way we can use [[empty]] as initial value to [[RegInit]]
      * in an optimized manner. Because Chisel will not include the signals
@@ -170,7 +170,7 @@ class SwitchInterface(DimX: Int, DimY: Int, config: ISA) extends Bundle {
   * @param DimY
   * @param config
   */
-class Switch(DimX: Int, DimY: Int, config: ISA) extends Module {
+class Switch(DimX: Int, DimY: Int, config: ISA, n_hop: Int = 2) extends Module {
   val io = IO(new SwitchInterface(DimX, DimY, config))
 
   val empty = Wire(NoCBundle(DimX, DimY, config))
@@ -243,8 +243,13 @@ class Switch(DimX: Int, DimY: Int, config: ISA) extends Module {
     }
   }
 
-  io.xOutput  := x_reg
-  io.yOutput  := y_reg
+  if (n_hop == 2) {
+    io.xOutput := RegNext(x_reg)
+    io.yOutput := RegNext(y_reg)
+  } else {
+    io.xOutput := x_reg
+    io.yOutput := y_reg
+  }
   io.terminal := terminal_reg
 
 }

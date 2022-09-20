@@ -62,8 +62,14 @@ class UniProcessorExceptionTester extends AnyFlatSpec with Matchers
         Nop(),
         Nop(),
         Nop(),
+        Nop(),
+        Nop(),
+        Nop(),
         Expect(R(reg_id), R(1), reg_id), // this should fail
         LocalLoad(R(reg_id), R(0), 0),
+        Nop(),
+        Nop(),
+        Nop(),
         Nop(),
         Nop(),
         Nop()

@@ -5,6 +5,7 @@ import chiseltest._
 import manticore.machine.ManticoreBaseISA
 import manticore.machine.assembly.Assembler
 import manticore.machine.assembly.Instruction.Add2
+import manticore.machine.assembly.Instruction.Nop
 import manticore.machine.assembly.Instruction.R
 import manticore.machine.assembly.Instruction.Send
 import manticore.machine.core.Processor
@@ -15,41 +16,56 @@ import java.io.File
 import java.nio.file.Paths
 import scala.annotation.tailrec
 
-class UniProcessorSimpleCounterTester extends AnyFlatSpec with Matchers with ChiselScalatestTester{
-
-
+class UniProcessorSimpleCounterTester extends AnyFlatSpec with Matchers with ChiselScalatestTester {
 
   val rdgen = new scala.util.Random(0)
 
   val PROGRAM = Array(
     Add2(R(2), R(2), R(1)),
+    Nop(),
+    Nop(),
+    Nop(),
+    Nop(),
+    Nop(),
+    Nop(),
+    Nop(),
+    Nop(),
+    Nop(),
+    Nop(),
+    Send(R(2), R(2), 2, 2),
     Send(R(3), R(3), 3, 3),
     Send(R(4), R(4), 4, 4),
     Send(R(5), R(5), 5, 5),
-    Send(R(6), R(6), 6, 6),
-    Send(R(2), R(2), 2, 2)
-  )
+    Send(R(6), R(6), 6, 6)
+  ) ++ Seq.fill(20) { Nop() }
 
   // create random LUT equations
   val equations: Seq[Seq[BigInt]] = Seq.fill(32)(Seq.fill(16)(BigInt(rdgen.nextInt(1 << 16))))
 
   def makeProcessor =
-    new Processor(config = ManticoreBaseISA,
-      DimX = 16, DimY = 16,
+    new Processor(
+      config = ManticoreBaseISA,
+      DimX = 16,
+      DimY = 16,
       equations = equations,
-      initial_registers =
-        UniProcessorTestUtils.createMemoryDataFiles {
-          Range(0, 1 << ManticoreBaseISA.IdBits).updated(2, 0)
-        } {
-             Paths.get("test_data_dir" + File.separator +
-                getTestName + File.separator + "rf.data").toAbsolutePath
+      initial_registers = UniProcessorTestUtils.createMemoryDataFiles {
+        Range(0, 1 << ManticoreBaseISA.IdBits).updated(2, 0)
+      } {
+        Paths
+          .get(
+            "test_data_dir" + File.separator +
+              getTestName + File.separator + "rf.data"
+          )
+          .toAbsolutePath
       },
-      initial_array =
-        UniProcessorTestUtils.createMemoryDataFiles(
-          Seq.fill(1 << ManticoreBaseISA.IdBits)(0)) {
-          Paths.get("test_data_dir" + File.separator +
-            getTestName + File.separator + "ra.data").toAbsolutePath
-        }
+      initial_array = UniProcessorTestUtils.createMemoryDataFiles(Seq.fill(1 << ManticoreBaseISA.IdBits)(0)) {
+        Paths
+          .get(
+            "test_data_dir" + File.separator +
+              getTestName + File.separator + "ra.data"
+          )
+          .toAbsolutePath
+      }
     )
 
   behavior of "Processor"
@@ -57,16 +73,18 @@ class UniProcessorSimpleCounterTester extends AnyFlatSpec with Matchers with Chi
   it should "match the interpretation of a counter" in {
 
     test(makeProcessor).withAnnotations(Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { dut =>
-
-      val instructions = PROGRAM.map(Assembler.assemble(_)(equations))
-      val sleep_length = 10
+      val instructions    = PROGRAM.map(Assembler.assemble(_)(equations))
+      val sleep_length    = 10
       val epilogue_length = 0
-      val countdown = 20
-
+      val countdown       = 20
 
       UniProcessorTestUtils.programProcessor(
-        instructions.toIndexedSeq, epilogue_length, sleep_length, countdown, dut
-      ){
+        instructions.toIndexedSeq,
+        epilogue_length,
+        sleep_length,
+        countdown,
+        dut
+      ) {
         rdgen.nextInt(10) == 0
       }
 
@@ -86,6 +104,8 @@ class UniProcessorSimpleCounterTester extends AnyFlatSpec with Matchers with Chi
             val next =
               if (dut.io.packet_out.valid.peek().litToBoolean) {
                 if (dut.io.packet_out.address.peek().litValue.toInt == 2) {
+                  // println(counter)
+                  // println(s"Got ${dut.io.packet_out.data.peekInt()} expected ${counter}")
                   dut.io.packet_out.data.expect(counter.U)
                   dut.io.packet_out.xHops.expect(2.U)
                   dut.io.packet_out.yHops.expect(2.U)
@@ -111,6 +131,7 @@ class UniProcessorSimpleCounterTester extends AnyFlatSpec with Matchers with Chi
             }
           }
         }
+        println(s"Starting vcycle $counter")
         waitForStart()
         execute(Range(3, 7), Nil)
       }

@@ -23,39 +23,47 @@ package manticore.machine.core.alu
 import Chisel._
 import chisel3.stage.ChiselStage
 import chisel3.util.HasBlackBoxResource
+
 import scala.util.Random
 
 class CustomAlu(
-  dataWidth: Int,
-  functBits: Int,
-  lutArity: Int,
-  equations: Seq[Seq[BigInt]],
-  enable: Boolean = true
+    dataWidth: Int,
+    functBits: Int,
+    lutArity: Int,
+    equations: Seq[Seq[BigInt]],
+    enable: Boolean = true
 ) extends Module {
 
   val numFuncts = 1 << functBits
 
   val io = IO(new Bundle {
-    val config = Input(Vec(numFuncts, new CustomFunctionConfigInterface(dataWidth)))
-    val rsx = Input(Vec(lutArity, UInt(dataWidth.W)))
+    val config   = Input(Vec(dataWidth, new CustomBitConfigInterface(dataWidth)))
+    val rsx      = Input(Vec(lutArity, UInt(dataWidth.W)))
     val selector = Input(UInt(functBits.W))
-    val out = Output(UInt(dataWidth.W))
+    val out      = Output(UInt(dataWidth.W))
   })
+
+  val equations_t = equations.transpose // 16x32
+  val rsx_t       = Wire(Vec(dataWidth, UInt(lutArity.W)))
+  for (i <- Range(0, dataWidth)) {
+    // transpose
+    rsx_t(i) := Vec(io.rsx(0)(i), io.rsx(1)(i), io.rsx(2)(i), io.rsx(3)(i)).asUInt
+  }
 
   if (enable) {
 
-    val results = Wire(Vec(numFuncts, UInt(dataWidth.W)))
+    val result = Wire(Vec(dataWidth, UInt(1.W)))
 
-    // Create numFunct custom functions.
-    for (i <- Range(0, numFuncts)) {
-      val customFunct = Module(new CustomFunction(dataWidth, lutArity, equations(i)))
-      customFunct.io.config := io.config(i)
-      customFunct.io.rsx := io.rsx
-      results(i) := customFunct.io.out
+    // Create dataWidth custom bits.
+    for (i <- Range(0, dataWidth)) {
+      val customBit = Module(new CustomBit(dataWidth, functBits, lutArity, equations_t(i)))
+      customBit.io.config := RegNext(io.config(i))
+      customBit.io.rsx    := RegNext(rsx_t(i))
+      customBit.io.addr   := RegNext(io.selector)
+      result(i)           := RegNext(customBit.io.out)
     }
 
-    // Select the output from one of the custom functions.
-    io.out := results(io.selector)
+    io.out := result.asUInt
 
   } else {
 
@@ -65,36 +73,42 @@ class CustomAlu(
 
 }
 
-class CustomFunctionInterface(
-  dataWidth: Int,
-  lutArity: Int
+class CustomBitInterface(
+    dataWidth: Int,
+    functBits: Int,
+    lutArity: Int
 ) extends Bundle {
-  val config = Input(new CustomFunctionConfigInterface(dataWidth))
-  val rsx = Input(Vec(lutArity, UInt(dataWidth.W)))
-  val out = Output(UInt(dataWidth.W))
+  val config = Input(new CustomBitConfigInterface(dataWidth))
+  val rsx    = Input(UInt(lutArity.W))
+  val addr   = Input(UInt(functBits.W))
+  val out    = Output(UInt(1.W))
 }
 
-class CustomFunctionConfigInterface(
-  dataWidth: Int
+class CustomBitConfigInterface(
+    dataWidth: Int
 ) extends Bundle {
   val writeEnable = Bool()
-  val loadData = UInt(dataWidth.W)
+  val loadData    = UInt(dataWidth.W)
 }
 
-class CustomFunction(
-  dataWidth: Int,
-  lutArity: Int,
-  equations: Seq[BigInt]
+class CustomBit(
+    dataWidth: Int,
+    functBits: Int,
+    lutArity: Int,
+    equations: Seq[BigInt]
 ) extends Module {
+
+  val numFuncts = 1 << functBits
+
   require(
-    (2 <= lutArity) && (lutArity <= 6),
-    s"Provided LUT arity of ${lutArity} is invalid. LUT arities must be in range 2-6."
+    lutArity == 4,
+    s"Provided LUT arity of ${lutArity} is invalid. LUT arities must be in range 4."
   )
 
   require(
-    equations.size == dataWidth,
+    equations.size == numFuncts,
     s"Invalid number of lut equations! Expected %d got %d.".format(
-      dataWidth,
+      numFuncts,
       equations.size
     )
   )
@@ -105,134 +119,72 @@ class CustomFunction(
     s"Bad lut equation %x".format(bad_equation.getOrElse(0))
   )
 
-  val io = IO(new CustomFunctionInterface(dataWidth, lutArity))
+  // As the RAM32M16 has eight ports and accepts the initial values in an interleaved format,
+  // the `equations` need to be transformed as follows:
+  //
+  //   |         Port A         |         Port B         |     |         Port H         |
+  //   |     15          14     |     13          12     | ... |      1           0     |
+  // --|------------------------|------------------------|-----|------------------------|
+  //  0|init[0][ 1]  init[0][ 0]|init[1][ 1]  init[1][ 0]|     |init[7][ 1]  init[7][ 0]|
+  //  1|init[0][ 3]  init[0][ 2]|init[1][ 3]  init[1][ 2]|     |init[7][ 3]  init[7][ 2]|
+  //  2|init[0][ 5]  init[0][ 4]|init[1][ 5]  init[1][ 4]|     |init[7][ 5]  init[7][ 4]|
+  //   |          ...           |          ...           |     |          ...           |
+  // 30|init[0][61]  init[0][60]|init[1][61]  init[1][60]|     |init[7][61]  init[7][60]|
+  // 31|init[0][63]  init[0][62]|init[1][63]  init[1][62]|     |init[7][63]  init[7][62]|
+  val init = Seq.tabulate(8) { i =>
+    equations.map(x => ((x >> (2 * (7 - i))) & 3)).foldLeft(BigInt(0)) { (a, b) =>
+      a + (b << 2).toInt
+    }
+  } // 8x64
 
-  class WrappedLut6(init: BigInt) extends BlackBox(Map("INIT" -> init)) with HasBlackBoxResource {
+  val io = IO(new CustomBitInterface(dataWidth, functBits, lutArity))
+
+  class Wrapped32x16RAM(init: Seq[BigInt])
+      extends BlackBox(
+        Map(
+          "INIT_A" -> init(0),
+          "INIT_B" -> init(1),
+          "INIT_C" -> init(2),
+          "INIT_D" -> init(3),
+          "INIT_E" -> init(4),
+          "INIT_F" -> init(5),
+          "INIT_G" -> init(6),
+          "INIT_H" -> init(7)
+        )
+      )
+      with HasBlackBoxResource {
     val io = IO(new Bundle {
       val clock = Input(Clock())
-      val we = Input(Bool())
-      val data = Input(Bool())
-      val a0 = Input(Bool())
-      val a1 = Input(Bool())
-      val a2 = Input(Bool())
-      val a3 = Input(Bool())
-      val a4 = Input(Bool())
-      val a5 = Input(Bool())
-      val out = Output(Bool())
+      val we    = Input(Bool())
+      val addr  = Input(UInt(functBits.W))
+      val din   = Input(UInt(dataWidth.W))
+      val dout  = Output(UInt(dataWidth.W))
     })
-    addResource("/verilog/WrappedLut6.v")
+    addResource("/verilog/Wrapped32x16RAM/Wrapped32x16RAM.v")
   }
 
-  val result = Wire(Vec(dataWidth, Bool()))
+  val ram   = Module(new Wrapped32x16RAM(init))
+  val dout  = Wire(UInt(16.W))
+  val mid0  = Reg(UInt(1.W))
+  val mid1  = Reg(UInt(1.W))
+  val mid2  = Reg(UInt(1.W))
+  val mid3  = Reg(UInt(1.W))
+  val rsx_1 = RegNext(io.rsx)
+  val rsx_2 = RegNext(rsx_1)
 
-  for (i <- Range(0, dataWidth)) {
-    val lut = Module(new WrappedLut6(equations(i)))
+  ram.io.clock := clock
+  ram.io.we    := io.config.writeEnable
+  ram.io.addr  := io.addr
+  ram.io.din   := io.config.loadData
+  dout         := RegNext(ram.io.dout)
 
-    // If the arity of the function is less than 6, we force the upper ax bits to 0.
-    val lutArgs = Seq(
-      lut.io.a0,
-      lut.io.a1,
-      lut.io.a2,
-      lut.io.a3,
-      lut.io.a4,
-      lut.io.a5
-    ).zipWithIndex
-    .map { case (lutInput, idx) =>
-      if (idx < lutArity) {
-        io.rsx(idx)
-      } else {
-        0.B
-      }
-    }
+  mid0 := Mux(rsx_1(1).asBool, Mux(rsx_1(0).asBool, dout(15), dout(14)), Mux(rsx_1(0).asBool, dout(13), dout(12)))
+  mid1 := Mux(rsx_1(1).asBool, Mux(rsx_1(0).asBool, dout(11), dout(10)), Mux(rsx_1(0).asBool, dout(9), dout(8)))
+  mid2 := Mux(rsx_1(1).asBool, Mux(rsx_1(0).asBool, dout(7), dout(6)), Mux(rsx_1(0).asBool, dout(5), dout(4)))
+  mid3 := Mux(rsx_1(1).asBool, Mux(rsx_1(0).asBool, dout(3), dout(2)), Mux(rsx_1(0).asBool, dout(1), dout(0)))
 
-    lut.suggestName(s"lut_${i}")
-    lut.io.clock := clock
-    lut.io.we := io.config.writeEnable
-    lut.io.data := io.config.loadData(i)
-    lut.io.a0 := lutArgs(0)(i)
-    lut.io.a1 := lutArgs(1)(i)
-    lut.io.a2 := lutArgs(2)(i)
-    lut.io.a3 := lutArgs(3)(i)
-    lut.io.a4 := lutArgs(4)(i)
-    lut.io.a5 := lutArgs(5)(i)
-    result(i) := lut.io.out
-  }
-
-  io.out := result.asUInt
+  io.out := Mux(rsx_2(3).asBool, Mux(rsx_2(2).asBool, mid0, mid1), Mux(rsx_2(2).asBool, mid2, mid3))
 }
-
-
-// ///////// OLD /////////
-
-// class CustomFunctionInterface(DATA_BITS: Int) extends Bundle {
-//   val in  = Input(new ALUInput(DATA_BITS))
-//   val out = Output(UInt(DATA_BITS.W))
-// }
-
-// class CustomFunctionComb(DATA_BITS: Int, EQUATIONS: Seq[Int]) extends Module {
-
-//   val io = IO(new CustomFunctionInterface(DATA_BITS))
-//   require(
-//     EQUATIONS.size == DATA_BITS,
-//     s"invalid number of lut EQUATIONS! Expected %d got %d.".format(
-//       DATA_BITS,
-//       EQUATIONS.size
-//     )
-//   )
-//   val bad_equation = EQUATIONS.find(e => e >= (1 << 16))
-//   require(
-//     bad_equation.isEmpty,
-//     s"Bad lut equation %x".format(bad_equation.getOrElse(0))
-//   )
-//   val result = Wire(Vec(DATA_BITS, Bool()))
-
-//   class WrappedLut4(INIT: Int)
-//       extends BlackBox(Map("INIT" -> INIT))
-//       with HasBlackBoxResource {
-//     val io = IO(new Bundle {
-//       val x   = Input(Bool())
-//       val y   = Input(Bool())
-//       val u   = Input(Bool())
-//       val v   = Input(Bool())
-//       val out = Output(Bool())
-//     })
-//     addResource("/verilog/WrappedLut4.v")
-//   }
-
-//   for (ix <- Range(0, DATA_BITS)) {
-//     val lut_impl = Module(new WrappedLut4(EQUATIONS(ix)))
-//     lut_impl.suggestName(s"lut_impl_${ix}")
-//     lut_impl.io.x := io.in.x(ix)
-//     lut_impl.io.y := io.in.y(ix)
-//     lut_impl.io.u := io.in.u(ix)
-//     lut_impl.io.v := io.in.v(ix)
-//     result(ix)    := lut_impl.io.out
-//   }
-//   io.out := result.asUInt
-// }
-
-// class CustomALUInterface(DATA_BITS: Int, FUNCT_BITS: Int)
-//     extends CustomFunctionInterface(DATA_BITS) {
-//   val funct = Input(UInt(FUNCT_BITS.W))
-// }
-//
-// class CustomALUComb(DATA_BITS: Int, EQUATIONS: Seq[Seq[Int]]) extends Module {
-
-//   val NUM_FUNCTS: Int = EQUATIONS.size
-//   val FUNCT_BITS      = log2Ceil(EQUATIONS.size)
-//   val io              = IO(new CustomALUInterface(DATA_BITS, FUNCT_BITS))
-//   val funcs = EQUATIONS.map(EQ => Module(new CustomFunctionComb(DATA_BITS, EQ)))
-//   val results = Vec(funcs.map(_.io.out))
-//   for (i <- Range(0, funcs.size)) {
-//     results(i)     := funcs(i).io.out
-//     funcs(i).io.in := io.in
-//   }
-//   io.out := results(io.funct)
-
-// }
-
-// ///////// OLD /////////
-
 
 object CustomALUGen extends App {
 
@@ -240,7 +192,7 @@ object CustomALUGen extends App {
 
   val dataWidth = 16
   val functBits = 5
-  val lutArity = 2
+  val lutArity  = 4
   val equations = Seq.fill(1 << functBits) {
     Seq.fill(dataWidth) { BigInt(rgen.nextInt(1 << 16)) }
   }

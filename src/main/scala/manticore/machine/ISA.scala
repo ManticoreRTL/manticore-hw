@@ -42,6 +42,7 @@ trait ISA {
   def CarryCount: Int
   def forwarding: Boolean = false
   def LutArity: Int       = 4
+  def LogCustomRams: Int  = 4 // 16 RAMs are used in custom ALU
   def ImmBits: Int        = 16
 
   def numFuncts = (1 << FunctBits)
@@ -67,10 +68,10 @@ trait ISA {
   object Send            extends Opcode(Instruction.Opcode.SEND.id)
   object Predicate       extends Opcode(Instruction.Opcode.PREDICATE.id)
   object SetCarry        extends Opcode(Instruction.Opcode.SETCARRY.id)
-  object SetLutData      extends Opcode(Instruction.Opcode.SETLUTDATA.id)
-  object ConfigureLuts   extends Opcode(Instruction.Opcode.CONFIGURELUTS.id)
+  object ConfigCfu       extends Opcode(Instruction.Opcode.CONFIGCFU.id)
   object Slice           extends Opcode(Instruction.Opcode.SLICE.id)
   object DestRegField    extends InstructionField(OpcodeBits, IdBits)
+  object CustRamIdxField extends InstructionField(OpcodeBits + IdBits - LogCustomRams, LogCustomRams)
   object FunctField      extends InstructionField(DestRegField.toIndex + 1, FunctBits)
   object SourceReg1Field extends InstructionField(FunctField.toIndex + 1, IdBits)
   object SourceReg2Field extends InstructionField(SourceReg1Field.toIndex + 1, IdBits)

@@ -25,6 +25,8 @@ class Management extends Module {
     val done  = Output(Bool())
     val idle  = Output(Bool())
 
+    val compute_clock = Input(Clock())
+
     val device_registers = Output(new DeviceRegisters)
 
     val boot_start    = Output(Bool())
@@ -47,10 +49,19 @@ class Management extends Module {
     val execution_active  = Input(Bool())
 
     val soft_reset = Output(Bool())
+    val soft_reset_done = Input(Bool())
   })
 
   val clock_active = RegInit(true.B)
   io.clock_active := clock_active
+
+  // these two registers help minimize the fan out of clock_active
+  val timed_out = Reg(Bool())
+  timed_out := false.B
+
+  val core_exception_id = Reg(io.exception_id.cloneType)
+
+
 
   val start_reg   = RegNext(io.start)
   val start_pulse = WireDefault((!start_reg) & io.start)
@@ -88,15 +99,8 @@ class Management extends Module {
   val execution_active_negedge = execution_active && !io.execution_active
 
   val enable_core_reset = WireDefault(false.B)
-  val core_reset = {
-    // the reset is passed through many registers to enable re-timing
-    val pipes = Seq.fill(16) { Reg(Bool()) }
-    pipes.foldLeft(state === sCoreReset) { case (prev, curr) =>
-      curr := prev
-      curr
-    }
-  }
-  io.soft_reset := core_reset
+
+  io.soft_reset := RegNext(state === sCoreReset)
   io.cache_reset_start := (state === sCacheReset)
   io.cache_flush_start := (state === sCacheFlush)
   io.boot_start        := false.B
@@ -121,7 +125,7 @@ class Management extends Module {
     }
     is(sCoreResetWait) {
       clock_active := true.B // enable the clock so that cores can be reset
-      when(core_reset) {
+      when(io.soft_reset_done) {
         state := sCacheReset
       }
     }
@@ -156,15 +160,20 @@ class Management extends Module {
       } otherwise {
         clock_active := io.core_revive_clock // revive the clock
       }
+      core_exception_id := io.exception_id
       when(clock_active) {
         // check exceptions for stopping execution
         when(io.core_exception_occurred) {
           state                 := sDone
-          dev_regs.exception_id := io.exception_id
+          // don't register here, causes large fan out on clock_active!
+          // dev_regs.exception_id := io.exception_id
+          timed_out := false.B
 
         }.elsewhen(timeout_enabled && dev_regs.virtual_cycles === timeout) {
           // or when we timeout
-          dev_regs.exception_id := EXCEPTION_TIMEOUT
+          // don't register exception_id here, causes large fan out on clock_active!
+          // dev_regs.exception_id := EXCEPTION_TIMEOUT
+          timed_out := true.B
           // give some id that users can not
           // make (they are restricted to 16 bits, i.e., up to 0xFFFF)
           // NOTE: max time out  is 1 << 56 (more than enough)
@@ -177,6 +186,7 @@ class Management extends Module {
       }
     }
     is(sDone) {
+      dev_regs.exception_id := Mux(timed_out, EXCEPTION_TIMEOUT, core_exception_id)
       clock_active := false.B
       state        := sIdle
     }

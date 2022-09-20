@@ -68,7 +68,7 @@ class MemoryInterceptTester extends AnyFlatSpec with ChiselScalatestTester with 
   }
   class MemoryInstruction extends Bundle {
     val wen   = Bool()
-    val addr  = UInt((3 * CacheConfig.DataBits).W)
+    val addr  = UInt(CacheConfig.UsedAddressBits.W)
     val wdata = UInt(CacheConfig.DataBits.W)
     val ren   = Bool()
   }
@@ -152,6 +152,8 @@ class MemoryInterceptTester extends AnyFlatSpec with ChiselScalatestTester with 
     val control    = withClock(clock = clock_dist.io.control_clock) { Module(new KerneControlModel) }
     val cache      = withClock(clock = clock_dist.io.control_clock) { Module(new CacheModel) }
     val intercept  = withClock(clock = clock_dist.io.control_clock) { Module(new MemoryIntercept) }
+    intercept.io.cache_flush := false.B
+    intercept.io.cache_reset := false.B
     val core       = withClock(clock = clock_dist.io.compute_clock) { Module(new ProcessorModel) }
     clock_dist.io.root_clock       := clock
     clock_dist.io.root_rst_n       := !(reset.asBool)

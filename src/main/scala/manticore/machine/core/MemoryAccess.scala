@@ -12,6 +12,7 @@ object MemoryAccess {
 
   class PipeOut(config: ISA, DimX: Int, DimY: Int) extends Bundle {
     val result: UInt      = UInt(config.DataBits.W)
+    val result_mul: UInt  = UInt((2 * config.DataBits).W)
     val packet: NoCBundle = new NoCBundle(DimX, DimY, config)
     val write_back: Bool  = Bool()
     val rd: UInt          = UInt(config.IdBits.W)
@@ -33,6 +34,9 @@ class MemoryInterface(config: ISA, DimX: Int, DimY: Int) extends Bundle {
     )
   )
   val global_memory_interface = Flipped(CacheConfig.frontInterface())
+
+  val valid_in  = Input(Bool()) // Asserted only for MUL and MULH
+  val valid_out = Output(Bool())
 }
 
 class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
@@ -74,7 +78,11 @@ class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
   packet_reg.address := io.pipe_in.rd
   packet_reg.valid   := (io.pipe_in.opcode.send)
 
-  io.pipe_out.packet := packet_reg
+  io.pipe_out.packet := RegNext(RegNext(packet_reg))
+
+  val lload_w    = Wire(Bool())
+  val gload_w    = Wire(Bool())
+  val out_result = Wire(UInt(config.DataBits.W))
 
   def pipeIt[T <: Data](dest: T)(source: T): Unit = {
     val pipereg = Reg(chisel3.chiselTypeOf(source))
@@ -82,48 +90,77 @@ class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
     dest    := pipereg
   }
 
-  pipeIt(io.pipe_out.write_back) {
+  def pipeIt2[T <: Data](dest: T)(source: T): Unit = {
+    val pipereg1 = Reg(chisel3.chiselTypeOf(source))
+    val pipereg2 = Reg(chisel3.chiselTypeOf(source))
+    pipereg1 := source
+    pipereg2 := pipereg1
+    dest     := pipereg2
+  }
+
+  def pipeIt3[T <: Data](dest: T)(source: T): Unit = {
+    val pipereg1 = Reg(chisel3.chiselTypeOf(source))
+    val pipereg2 = Reg(chisel3.chiselTypeOf(source))
+    val pipereg3 = Reg(chisel3.chiselTypeOf(source))
+    pipereg1 := source
+    pipereg2 := pipereg1
+    pipereg3 := pipereg2
+    dest     := pipereg3
+  }
+
+  pipeIt3(io.pipe_out.write_back) {
     io.pipe_in.opcode.lload ||
     io.pipe_in.opcode.cust ||
     io.pipe_in.opcode.arith || {
       if (config.WithGlobalMemory) io.pipe_in.opcode.gload else false.B
     } ||
     io.pipe_in.opcode.set ||
-    io.pipe_in.opcode.slice
+    io.pipe_in.opcode.slice ||
+    io.pipe_in.opcode.set_carry
   }
-  pipeIt(io.pipe_out.rd) {
+  pipeIt3(io.pipe_out.rd) {
     io.pipe_in.rd
   }
-  
-  pipeIt(io.pipe_out.nop) {
+  pipeIt3(io.pipe_out.nop) {
     io.pipe_in.opcode.nop
   }
-  pipeIt(io.pipe_out.mul) {
+  pipeIt3(io.pipe_out.mul) {
     io.pipe_in.opcode.mul
   }
-  pipeIt(io.pipe_out.mulh) {
+  pipeIt3(io.pipe_out.mulh) {
     io.pipe_in.opcode.mulh
   }
-  val lload_r = Reg(Bool())
-  val gload_r = Reg(Bool())
+  pipeIt3(io.valid_out) {
+    io.valid_in
+  }
+  pipeIt3(io.pipe_out.result_mul) {
+    io.pipe_in.result_mul
+  }
+  pipeIt2(lload_w) {
+    io.pipe_in.opcode.lload
+  }
+  pipeIt2(gload_w) {
+    io.pipe_in.opcode.gload
+  }
 
-  lload_r := io.pipe_in.opcode.lload
-  gload_r := io.pipe_in.opcode.gload
+  // Here we assume that both local and global memory has
+  // read latency of 2 cycles
   if (config.WithGlobalMemory) {
-    when(lload_r) {
-      io.pipe_out.result := io.local_memory_interface.dout
-    }.elsewhen(gload_r) {
-      io.pipe_out.result := io.global_memory_interface.rdata
+    when(lload_w) {
+      out_result := io.local_memory_interface.dout
+    }.elsewhen(gload_w) {
+      out_result := io.global_memory_interface.rdata
     } otherwise {
-      pipeIt(io.pipe_out.result) { io.pipe_in.result }
+      pipeIt2(out_result) { io.pipe_in.result }
     }
   } else {
-    when(lload_r) {
-      io.pipe_out.result := io.local_memory_interface.dout
+    when(lload_w) {
+      out_result := io.local_memory_interface.dout
     } otherwise {
-      pipeIt(io.pipe_out.result) { io.pipe_in.result }
+      pipeIt2(out_result) { io.pipe_in.result }
     }
   }
 
+  io.pipe_out.result := RegNext(out_result)
 
 }

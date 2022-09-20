@@ -24,22 +24,22 @@ class UniProcessorExecuteTester extends AnyFlatSpec with Matchers with ChiselSca
 
   val rdgen = new scala.util.Random(0)
 
-  val numTests = 500 // Set at will so long as num instructions < 4096
+  val numTests = 200 // Set at will so long as num instructions < 4096
 
-  // Populate the processor's registers with random values. We reserve the entry at
-  // address numRegs-1 to store the result of the operation under test.
-  val initialRegs = ArrayBuffer.fill(ManticoreBaseISA.numRegs)(UIntWide(0, ManticoreBaseISA.DataBits))
-  Range(1, initialRegs.size).foreach { addr =>
-    initialRegs(addr) = UIntWide(rdgen.nextInt(1 << ManticoreBaseISA.DataBits), ManticoreBaseISA.DataBits)
+  // Populate the processor's registers with random values.
+  val initialRegs = ArrayBuffer.fill(ManticoreBaseISA.numRegs)(UIntWide(0, ManticoreBaseISA.DataBits + 1))
+  Range(0, initialRegs.size).foreach { addr =>
+    initialRegs(addr) = UIntWide(rdgen.nextInt(1 << ManticoreBaseISA.DataBits + 1), ManticoreBaseISA.DataBits + 1)
   }
+  val valueRegs = initialRegs.clone()
 
   def createProgram(): (
       Seq[Instruction.Instruction],
       Seq[(UIntWide, String)] // What we expect to be sent out (data only).
   ) = {
 
-    val ZERO = UIntWide(0, ManticoreBaseISA.DataBits)
-    val ONE  = UIntWide(1, ManticoreBaseISA.DataBits)
+    val ZERO = UIntWide(0, ManticoreBaseISA.DataBits + 1)
+    val ONE  = UIntWide(1, ManticoreBaseISA.DataBits + 1)
 
     val prog          = ArrayBuffer.empty[Instruction.Instruction]
     val expectedSends = ArrayBuffer.empty[(UIntWide, String)]
@@ -47,36 +47,36 @@ class UniProcessorExecuteTester extends AnyFlatSpec with Matchers with ChiselSca
     // We cannot read the contents of the register file, so we instead compute a result and
     // send it outside the processor. We check for the expected result at the output interface.
 
-    // We reserve the last register in the register file to hold the result of the operation under test.
-    val rd = R(ManticoreBaseISA.numRegs - 1)
+    // We use only a subset of registers so that we can test the data dependency.
+    val numUsedRegister = 20
     Range(0, numTests).foreach { _ =>
       // I omit SLTS as I can't figure out how to do the signed comparison using unsigned numbers.
-      val functs = Array(ADD2, SUB2, MUL2, MUL2H, AND2, OR2, XOR2, SLL, SRL, SRA, SEQ, SLTU, MUX)
+      val functs = Array(ADD2, SUB2, MUL2, MUL2H, AND2, OR2, XOR2, SLL, SRL, SRA, SEQ, SLTU, MUX, ADDC)
 
-      // We choose random source registers. Note that these are chosen to be different from
-      // the register that holds the output of the operation under test.
-      val rs1 = R(rdgen.between(0, ManticoreBaseISA.numRegs - 1))
-      val rs2 = R(rdgen.between(0, ManticoreBaseISA.numRegs - 1))
-      val rs3 = R(rdgen.between(0, ManticoreBaseISA.numRegs - 1))
+      // We choose random destination and source registers.
+      val rd  = R(rdgen.between(0, numUsedRegister - 1))
+      val rs1 = R(rdgen.between(0, numUsedRegister - 1))
+      val rs2 = R(rdgen.between(0, numUsedRegister - 1))
+      val rs3 = R(rdgen.between(0, numUsedRegister - 1))
 
-      val rs1_val = initialRegs(rs1.index)
-      val rs2_val = initialRegs(rs2.index)
-      val rs3_val = initialRegs(rs3.index)
+      val rs1_val = valueRegs(rs1.index) & UIntWide(65535, ManticoreBaseISA.DataBits + 1)
+      val rs2_val = valueRegs(rs2.index) & UIntWide(65535, ManticoreBaseISA.DataBits + 1)
+      val rs3_val = valueRegs(rs3.index)
 
       val shamnt = UIntWide.clipped(rs2_val.toBigInt, log2Ceil(ManticoreBaseISA.DataBits))
 
       val (res_val, instr) = functs(rdgen.nextInt(functs.length)) match {
         case ADD2 =>
           val instr = Instruction.Add2(rd, rs1, rs2)
-          val res   = rs1_val + rs2_val
+          val res   = (rs1_val + rs2_val) & UIntWide(65535, ManticoreBaseISA.DataBits + 1)
           (res, instr)
         case SUB2 =>
           val instr = Instruction.Sub2(rd, rs1, rs2)
-          val res   = rs1_val - rs2_val
+          val res   = (rs1_val - rs2_val) & UIntWide(65535, ManticoreBaseISA.DataBits + 1)
           (res, instr)
         case MUL2 =>
           val instr = Instruction.Mul2(rd, rs1, rs2)
-          val res   = rs1_val * rs2_val
+          val res   = (rs1_val * rs2_val) & UIntWide(65535, ManticoreBaseISA.DataBits + 1)
           (res, instr)
         case MUL2H =>
           val instr = Instruction.Mul2H(rd, rs1, rs2)
@@ -89,27 +89,28 @@ class UniProcessorExecuteTester extends AnyFlatSpec with Matchers with ChiselSca
           (res, instr)
         case AND2 =>
           val instr = Instruction.And2(rd, rs1, rs2)
-          val res   = rs1_val & rs2_val
+          val res   = (rs1_val & rs2_val) & UIntWide(65535, ManticoreBaseISA.DataBits + 1)
           (res, instr)
         case OR2 =>
           val instr = Instruction.Or2(rd, rs1, rs2)
-          val res   = rs1_val | rs2_val
+          val res   = (rs1_val | rs2_val) & UIntWide(65535, ManticoreBaseISA.DataBits + 1)
           (res, instr)
         case XOR2 =>
           val instr = Instruction.Xor2(rd, rs1, rs2)
-          val res   = rs1_val ^ rs2_val
+          val res   = (rs1_val ^ rs2_val) & UIntWide(65535, ManticoreBaseISA.DataBits + 1)
           (res, instr)
         case SLL =>
           val instr = Instruction.ShiftLeftLogic(rd, rs1, rs2)
-          val res   = rs1_val << shamnt.toInt
+          val res   = (rs1_val << shamnt.toInt) & UIntWide(65535, ManticoreBaseISA.DataBits + 1)
           (res, instr)
         case SRL =>
           val instr = Instruction.ShiftRightLogic(rd, rs1, rs2)
-          val res   = rs1_val >> shamnt.toInt
+          val res   = (rs1_val >> shamnt.toInt) & UIntWide(65535, ManticoreBaseISA.DataBits + 1)
           (res, instr)
         case SRA =>
-          val instr = Instruction.ShiftRightArithmetic(rd, rs1, rs2)
-          val res   = rs1_val >>> shamnt.toInt
+          val instr          = Instruction.ShiftRightArithmetic(rd, rs1, rs2)
+          val rs1_val_signed = UIntWide(rs1_val.toInt, ManticoreBaseISA.DataBits)
+          val res            = UIntWide((rs1_val_signed >>> shamnt.toInt).toInt, ManticoreBaseISA.DataBits + 1)
           (res, instr)
         case SEQ =>
           val instr = Instruction.SetEqual(rd, rs1, rs2)
@@ -136,11 +137,19 @@ class UniProcessorExecuteTester extends AnyFlatSpec with Matchers with ChiselSca
           val select = rs3_val & ONE
           val res    = if (select == ONE) rs2_val else rs1_val
           (res, instr)
+        case ADDC =>
+          val instr = Instruction.Addc(rd, rs1, rs2, rs3)
+          val carry = (rs3_val >> 16) & ONE
+          val res = UIntWide(
+            rs1_val.toBigInt + rs2_val.toBigInt + carry.toBigInt,
+            ManticoreBaseISA.DataBits + 1
+          )
+          (res, instr)
       }
 
       prog += instr
 
-      Range(0, 4).foreach { _ =>
+      Range(0, 10).foreach { _ =>
         prog += Instruction.Nop()
       }
 
@@ -149,7 +158,11 @@ class UniProcessorExecuteTester extends AnyFlatSpec with Matchers with ChiselSca
 
       val instrStr = s"${instr}, rs1 = ${rs1_val}, rs2 = ${rs2_val}, rs3 = ${rs3_val}"
       expectedSends += Tuple2(res_val, instrStr)
+      valueRegs(rd.index) = res_val
     }
+
+    // We need to add one Nop after the final Send. The reason is unclear so far.
+    prog += Instruction.Nop()
 
     (prog.toSeq, expectedSends.toSeq)
   }
@@ -218,8 +231,8 @@ class UniProcessorExecuteTester extends AnyFlatSpec with Matchers with ChiselSca
         val nextExpectedSends = if (checkOutput) {
           val received          = dut.io.packet_out.data.peekInt()
           val (expected, instr) = expectedSends.head
-          println(s"Expected = ${expected.toBigInt}, received = ${received}, instr = ${instr}")
-          dut.io.packet_out.data.expect(expected.toBigInt)
+          println(s"Expected = ${expected.toBigInt & 65535}, received = ${received}, instr = ${instr}")
+          dut.io.packet_out.data.expect(expected.toBigInt & 65535)
           // We've consumed one expected value, so next time we must check for the rest of the sends only.
           expectedSends.tail
         } else {
