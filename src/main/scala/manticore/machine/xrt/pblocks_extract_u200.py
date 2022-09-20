@@ -3,7 +3,6 @@ import enum
 import re
 from collections import defaultdict
 from pathlib import Path
-from pprint import pprint
 
 from pblocks_extract_helpers import *
 
@@ -109,7 +108,7 @@ def get_pblocks(slr_crY_crX_tileCol_sites: slr_composition_t) -> pblocks_t:
 
     return side_sites_dict
 
-  pblocks = defaultdict( # crY
+  pblocks = defaultdict( # pblock name
     list[str] # sites
   )
 
