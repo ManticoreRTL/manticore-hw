@@ -246,7 +246,7 @@ trait Floorplan {
   def toTcl(dimX: Int, dimY: Int): String = {
     Seq(
       getPblockConstrains(dimX, dimY),
-      getHierarchyConstraints(dimX, dimY),
+      // getHierarchyConstraints(dimX, dimY),
       getClockConstraints(dimX, dimY),
       getSrlConstraints()
     ).mkString("\n")
