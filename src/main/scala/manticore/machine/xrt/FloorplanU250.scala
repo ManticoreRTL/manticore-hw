@@ -27,6 +27,8 @@ object U250FloorplanImpl {
 
     def getRootClock(): ClockRegion = ClockRegion(4, 9)
 
+    def getPrivilegedArea(): Set[ClockRegion] = Set(ClockRegion(4, 8), ClockRegion(4, 9))
+
     def getCoreToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, ArbitraryPblock] = {
       val gridToTorus = getGridLocToTorusLocMap(dimX, dimY, anchor)
 

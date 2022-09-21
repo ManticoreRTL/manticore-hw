@@ -27,6 +27,8 @@ object U280FloorplanImpl {
 
     def getRootClock(): ClockRegion = ClockRegion(4, 6)
 
+    def getPrivilegedArea(): Set[ClockRegion] = Set(ClockRegion(4, 5), ClockRegion(4, 6))
+
     def getCoreToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, ArbitraryPblock] = {
       val gridToTorus = getGridLocToTorusLocMap(dimX, dimY, anchor)
 

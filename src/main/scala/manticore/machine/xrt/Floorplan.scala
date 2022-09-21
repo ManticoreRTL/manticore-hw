@@ -25,8 +25,8 @@ trait Floorplan {
       Seq(
         s"${getManticoreKernelInstName()}/axi_cache",
         s"${getManticoreKernelInstName()}/clock_distribution",
-        // s"${getManticoreKernelInstName()}/m_axi_bank_0_clock_crossing",
-        // s"${getManticoreKernelInstName()}/s_axi_clock_crossing",
+        s"${getManticoreKernelInstName()}/m_axi_bank_0_clock_crossing",
+        s"${getManticoreKernelInstName()}/s_axi_clock_crossing",
         s"${getManticoreKernelInstName()}/manticore/bootloader",
         s"${getManticoreKernelInstName()}/manticore/controller",
         s"${getManticoreKernelInstName()}/manticore/memory_intercept"
@@ -206,16 +206,21 @@ trait Floorplan {
     "set_property srl_style register [get_cells -hierarchical -regexp .*regManticorePipeNoSrl.*]"
   }
 
-  def getClockConstraints(dimX: Int, dimY: Int): String = {
+  def getPrivilegedAreaConstraints(dimX: Int, dimY: Int): String = {
     val rootClockRegion = getRootClock()
 
-    case class ClockDistributionPblock(cr: ClockRegion) extends Pblock {
+    val privilegedClockRegions = getPrivilegedArea()
+
+    case class ClockDistributionPblock(crs: Set[ClockRegion]) extends Pblock {
       override val name: String = "ManticoreClkDistribution"
 
-      override val resources: String = s"{ CLOCKREGION_X${cr.x}Y${cr.y} }"
+      override val resources: String = {
+        val crsStr = crs.toSeq.sortBy(cr => (cr.y, cr.x)).map(cr => s"CLOCKREGION_X${cr.x}Y${cr.y}").mkString(" ")
+        s"{ ${crsStr} }"
+      }
     }
 
-    val clkDistributionConstraints = ClockDistributionPblock(rootClockRegion).toTcl(
+    val clkDistributionConstraints = ClockDistributionPblock(privilegedClockRegions).toTcl(
       getCoreAuxiliaryCellNames(0, 0) :+ getProcessorCellName(0, 0)
     )
 
@@ -247,13 +252,14 @@ trait Floorplan {
     Seq(
       getPblockConstrains(dimX, dimY),
       // getHierarchyConstraints(dimX, dimY),
-      getClockConstraints(dimX, dimY),
+      getPrivilegedAreaConstraints(dimX, dimY),
       getSrlConstraints()
     ).mkString("\n")
   }
 
   // Must be defined by subclasses which floorplan specific devices.
   def getRootClock(): ClockRegion
+  def getPrivilegedArea(): Set[ClockRegion]
   def getManticoreKernelInstName(): String
   def getCoreToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, Pblock]
   def getSwitchToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, Pblock]

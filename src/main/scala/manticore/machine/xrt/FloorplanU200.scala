@@ -106,6 +106,8 @@ object U200FloorplanImpl {
 
     def getRootClock(): ClockRegion = ClockRegion(2, 7)
 
+    def getPrivilegedArea(): Set[ClockRegion] = Set(ClockRegion(2, 6), ClockRegion(2, 7))
+
     def getCoreToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, GridPblock] = {
       assert(dimY == 25, "Highway placement requires dimY == 25")
 
@@ -174,6 +176,8 @@ object U200FloorplanImpl {
     val anchor = GridLoc(2, 10)
 
     def getRootClock(): ClockRegion = ClockRegion(2, 10)
+
+    def getPrivilegedArea(): Set[ClockRegion] = Set(ClockRegion(2, 10), ClockRegion(2, 11))
 
     def getCoreToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, GridPblock] = {
       assert(dimY == 20, "Island placement requires dimY == 20")
@@ -267,6 +271,10 @@ object U200FloorplanImpl {
   object LooseIslandSwitch extends U200Floorplan {
     def getRootClock(): ClockRegion = {
       RigidIslandSwitch.getRootClock()
+    }
+
+    def getPrivilegedArea(): Set[ClockRegion] = {
+      RigidIslandSwitch.getPrivilegedArea()
     }
 
     def getCoreToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, GridPblock] = {
