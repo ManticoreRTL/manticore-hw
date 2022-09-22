@@ -7,8 +7,8 @@ module ClockDistribution (
                            output wire control_clock,     // to the control units
                            input wire compute_clock_en, // from the control units
                            output wire locked);           // to the controller
-// assign O = I;
 `ifdef VERILATOR
+
 // simulation purpose only
 assign control_clock = root_clock;
 reg output_clk;
@@ -30,12 +30,14 @@ end
 // end
 assign compute_clock = output_clk;
 assign locked        = 1'b1;
-`else
+
+`else // VERILATOR
 
 wire naked_clock;
 clk_dist wiz
 (
-.clk_out1(control_clock),
+.clk_out1(naked_clock),
+// .clk_out1(control_clock),
 // .clk_out2(compute_clock),
 // .clk_out2_ce(compute_clock_en),
 .locked(locked),
@@ -46,20 +48,20 @@ BUFGCE #(
   .CE_TYPE("SYNC"),
   .IS_CE_INVERTED(1'b0),
   .IS_I_INVERTED(1'b0)
+) ctrl_buf (
+  .O(control_clock),
+  .I(naked_clock),
+  .CE(1'b1)
+);
+BUFGCE #(
+  .CE_TYPE("SYNC"),
+  .IS_CE_INVERTED(1'b0),
+  .IS_I_INVERTED(1'b0)
 ) comp_buf (
   .O(compute_clock),
   .I(control_clock),
   .CE(compute_clock_en)
 );
-// BUFGCE #(
-//   .CE_TYPE("SYNC"),
-//   .IS_CE_INVERTED(1'b0),
-//   .IS_I_INVERTED(1'b0)
-// ) ctrl_buf (
-//   .O(control_clock),
-//   .I(naked_clock),
-//   .CE(1'b1)
-// );
 
 `endif
 

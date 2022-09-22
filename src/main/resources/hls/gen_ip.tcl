@@ -33,13 +33,14 @@ create_ip -name clk_wiz \
           -module_name clk_dist \
           -dir $ip_location
 
-set_property -dict [list CONFIG.OPTIMIZE_CLOCKING_STRUCTURE_EN {true}    \
+set_property -dict [list CONFIG.OPTIMIZE_CLOCKING_STRUCTURE_EN {false}   \
                          CONFIG.USE_PHASE_ALIGNMENT {false}              \
                          CONFIG.PRIM_SOURCE {No_buffer}                  \
                          CONFIG.USE_RESET {false}                        \
                          CONFIG.PRIM_IN_FREQ {300.00}                    \
                          CONFIG.CLKOUT1_REQUESTED_OUT_FREQ $request_freq \
-                         CONFIG.CLKOUT1_DRIVES {Buffer}                 ]\
+                         CONFIG.CLKOUT1_DRIVES {No_buffer}               \
+                   ] \
                 [get_ips clk_dist]
 
 generate_target all [get_files  $ip_location/ip_generation/clk_dist/clk_dist.xci]

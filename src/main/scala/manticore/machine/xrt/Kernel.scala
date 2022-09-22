@@ -451,7 +451,6 @@ object BuildXclbin {
       cpus / thread_per_core
     }
 
-
     val xclbin_path =
       bin_dir.resolve(s"${top_name}.${target}.${platform}.xclbin")
     val max_threads = Runtime.getRuntime().availableProcessors()
@@ -473,11 +472,18 @@ object BuildXclbin {
       case Some(ext_file) => ext_file.toPath()
     }
     val cpus = getSystemInfo() min 12
-    val extraRuns = s"--vivado.impl.strategies \"${strategies.mkString(",")}\" " + (strategies
-      .map { s =>
-        s"--vivado.prop run.impl_${s}.STEPS.PLACE_DESIGN.TCL.PRE=${pblocks.toAbsolutePath()} "
-      }
-      .mkString(" "))
+
+    val extraRuns = strategies match {
+      case Nil =>
+        ""
+
+      case _ =>
+        s"--vivado.impl.strategies \"${strategies.mkString(",")}\" " + (strategies
+          .map { s =>
+            s"--vivado.prop run.impl_${s}.STEPS.PLACE_DESIGN.TCL.PRE=${pblocks.toAbsolutePath()} "
+          }
+          .mkString(" "))
+    }
 
     val command =
       s"v++ --link -g -t ${target} --platform ${platform} --save-temps " +
