@@ -27,10 +27,11 @@ object Main {
       freq: Double = 200.0,
       n_hop: Int = 1,
       do_placement: Boolean = false,
-      placement_alg: String = "island",
+      placement_alg: String = "",
       pblock: Option[File] = None,
       max_cores_per_pblock: Int = 5,
-      strategies: Seq[String] = Seq("Performance_Explore", "Performance_NetDelay_high")
+      strategies: Seq[String] = Seq.empty
+      // strategies: Seq[String] = Seq("Performance_Explore", "Performance_NetDelay_high")
   )
 
   private val validStrategies = Seq(
