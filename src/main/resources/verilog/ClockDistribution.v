@@ -44,6 +44,7 @@ clk_dist wiz
 .clk_in1(root_clock)
 );
 
+(* DONT_TOUCH = "yes" *)
 BUFGCE #(
   .CE_TYPE("SYNC"),
   .IS_CE_INVERTED(1'b0),
@@ -53,6 +54,8 @@ BUFGCE #(
   .I(naked_clock),
   .CE(1'b1)
 );
+
+(* DONT_TOUCH = "yes" *)
 BUFGCE #(
   .CE_TYPE("SYNC"),
   .IS_CE_INVERTED(1'b0),
