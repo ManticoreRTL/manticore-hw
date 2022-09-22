@@ -33,7 +33,6 @@ import_files -fileset [get_filesets sources_1] [glob $path_to_hdl/*.v $path_to_h
 
 import_files -fileset [get_filesets sources_1] $path_to_hdl/false_path.xdc
 
-
 import_files -fileset [get_filesets sources_1]  $path_to_ips/clk_dist/clk_dist.xci
 
 if { $package_target == "hw" } {

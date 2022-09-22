@@ -30,7 +30,18 @@ object Main {
       placement_alg: String = "island",
       pblock: Option[File] = None,
       max_cores_per_pblock: Int = 5,
-      strategy: Seq[String] = Nil
+      strategies: Seq[String] = Seq("Performance_Explore", "Performance_NetDelay_high")
+  )
+
+  private val validStrategies = Seq(
+    "Performance_Explore",
+    "Congestion_SpreadLogic_Explore",
+    "Performance_NetDelay_high",
+    "Performance_NetDelay_low",
+    "Performance_ExtraTimingOpt",
+    "Congestion_SpreadLogic_high",
+    "Congestion_SpreadLogic_medium",
+    "Congestion_SpreadLogic_low"
   )
 
   def parseArgs(args: Seq[String]): CliConfig = {
@@ -68,24 +79,13 @@ object Main {
           .text(
             "desired operating frequency, default = 200"
           ),
-        opt[Seq[String]]('s', "strategy")
-          .action { case (s, c) => c.copy(strategy = s) }
-          .text("Implementation strategy (see ug904)")
+        opt[Seq[String]]('s', "strategies")
+          .action { case (s, c) => c.copy(strategies = s) }
           .validate { s =>
-            val validChoices = Set(
-              "Performance_Explore",
-              "Congestion_SpreadLogic_Explore",
-              "Performance_NetDelay_high",
-              "Performance_NetDelay_low",
-              "Performance_ExtraTimingOpt",
-              "Congestion_SpreadLogic_high",
-              "Congestion_SpreadLogic_medium",
-              "Congestion_SpreadLogic_low"
-            )
-            if (s.forall(validChoices.contains)) {
+            if (s.forall(validStrategies.contains)) {
               success
             } else {
-              failure(s"Invalid strategy! Possible strategies are ${validChoices.mkString(", ")}")
+              failure(s"Invalid strategy. Possible strategies are ${validStrategies.mkString(",")}")
             }
           },
         opt[Int]("n_hop")
@@ -213,7 +213,7 @@ object Main {
             freqMhz = cfg.freq,
             n_hop = cfg.n_hop,
             pblock = cfg.pblock,
-            strategy = cfg.strategy
+            strategies = cfg.strategies
           )
 
         case "sim" =>
