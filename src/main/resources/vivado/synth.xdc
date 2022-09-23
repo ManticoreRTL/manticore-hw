@@ -1,0 +1,1 @@
+set_property srl_style register [get_cells -hierarchical -regexp .*regManticorePipeNoSrl.*]

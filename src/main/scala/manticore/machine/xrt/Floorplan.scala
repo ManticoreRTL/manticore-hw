@@ -202,10 +202,6 @@ trait Floorplan {
     constraints.mkString("\n")
   }
 
-  def getSrlConstraints(): String = {
-    "set_property srl_style register [get_cells -hierarchical -regexp .*regManticorePipeNoSrl.*]"
-  }
-
   def getPrivilegedAreaConstraints(dimX: Int, dimY: Int): String = {
     val rootClockRegion = getRootClock()
 
@@ -254,8 +250,7 @@ trait Floorplan {
     Seq(
       getPblockConstrains(dimX, dimY),
       // getHierarchyConstraints(dimX, dimY),
-      getPrivilegedAreaConstraints(dimX, dimY),
-      getSrlConstraints()
+      getPrivilegedAreaConstraints(dimX, dimY)
     ).mkString("\n")
   }
 

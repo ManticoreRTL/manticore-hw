@@ -310,7 +310,7 @@ object PackageKernel {
 
     Files.createDirectories(scripts_path)
 
-    def createTclScript(resource: String, fixer: String => String) = {
+    def createHlsTclScript(resource: String, fixer: String => String): Path = {
       val fp = scripts_path.resolve(resource + ".tcl")
       val tcl_commands = scala.io.Source
         .fromResource(s"hls/${resource}.tcl")
@@ -338,8 +338,8 @@ object PackageKernel {
            |""".stripMargin
     }
 
-    val packaging_tcl_fp = createTclScript("package_kernel", line => substitute(line, substitutions))
-    val gen_xo_tcl_fp = createTclScript(
+    val packaging_tcl_fp = createHlsTclScript("package_kernel", line => substitute(line, substitutions))
+    val gen_xo_tcl_fp = createHlsTclScript(
       "gen_xo",
       line =>
         substitute(
@@ -454,13 +454,17 @@ object BuildXclbin {
     val xclbin_path =
       bin_dir.resolve(s"${top_name}.${target}.${platform}.xclbin")
     val max_threads = Runtime.getRuntime().availableProcessors()
-    def createPblocksTcl(fname: String) = {
-      val fp     = bin_dir.resolve("pblocks.tcl")
+
+    def createVivadoTclScript(srcName: String, dstName: String): Path = {
+      val fp     = bin_dir.resolve(dstName)
       val writer = Files.newBufferedWriter(fp)
-      writer.write(scala.io.Source.fromResource(s"hls/${fname}").mkString)
+      writer.write(scala.io.Source.fromResource(s"vivado/${srcName}").mkString)
       writer.close()
       fp
     }
+
+    def createPblocksTcl(fname: String): Path = createVivadoTclScript(fname, "pblocks.tcl")
+    def createSynthTcl(fname: String): Path   = createVivadoTclScript(fname, "synth.tcl")
 
     val pblocks = ext_pblock match {
       case None =>
@@ -469,8 +473,13 @@ object BuildXclbin {
         } else {
           createPblocksTcl("pblocks_small.xdc")
         }
-      case Some(ext_file) => ext_file.toPath()
+
+      case Some(ext_file) =>
+        ext_file.toPath()
     }
+
+    val synth = createSynthTcl("synth.xdc")
+
     val cpus = getSystemInfo() min 12
 
     val extraRuns = strategies match {
@@ -490,6 +499,7 @@ object BuildXclbin {
         s"--optimize 3 " + extraRuns +
         s"--vivado.prop run.impl_1.STEPS.PLACE_DESIGN.TCL.PRE=${pblocks.toAbsolutePath()} " +
         s"--vivado.synth.jobs ${cpus} --vivado.impl.jobs ${cpus} " +
+        s"--vivado.prop run.ulp_ManticoreKernel_1_0_synth_1.STEPS.SYNTH_DESIGN.TCL.PRE=${synth.toAbsolutePath()} " +
         s"-o ${xclbin_path.toAbsolutePath.toString} " +
         s"${xo_path.toAbsolutePath.toString}"
 
