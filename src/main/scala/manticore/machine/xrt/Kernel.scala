@@ -499,7 +499,7 @@ object BuildXclbin {
         s"--optimize 3 " + extraRuns +
         s"--vivado.prop run.impl_1.STEPS.PLACE_DESIGN.TCL.PRE=${pblocks.toAbsolutePath()} " +
         s"--vivado.synth.jobs ${cpus} --vivado.impl.jobs ${cpus} " +
-        s"--vivado.prop run.ulp_ManticoreKernel_1_0_synth_1.STEPS.SYNTH_DESIGN.TCL.PRE=${synth.toAbsolutePath()} " +
+        s"--vivado.prop run.ulp_ManticoreKernel_1_0_synth_1.STEPS.SYNTH_DESIGN.TCL.POST=${synth.toAbsolutePath()} " +
         s"-o ${xclbin_path.toAbsolutePath.toString} " +
         s"${xo_path.toAbsolutePath.toString}"
 
