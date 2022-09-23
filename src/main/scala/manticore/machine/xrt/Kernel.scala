@@ -465,7 +465,6 @@ object BuildXclbin {
     }
 
     def createPblocksTcl(fname: String): Path = createVivadoTclScript(fname, "pblocks.tcl")
-    def createSynthTcl(fname: String): Path   = createVivadoTclScript(fname, "synth.tcl")
 
     val pblocks = ext_pblock match {
       case None =>
@@ -478,8 +477,6 @@ object BuildXclbin {
       case Some(ext_file) =>
         ext_file.toPath()
     }
-
-    val synth = createSynthTcl("synth.xdc")
 
     val cpus = getSystemInfo() min 12
 
@@ -500,7 +497,6 @@ object BuildXclbin {
         s"--optimize 3 " + extraRuns +
         s"--vivado.prop run.impl_1.STEPS.PLACE_DESIGN.TCL.PRE=${pblocks.toAbsolutePath()} " +
         s"--vivado.synth.jobs ${cpus} --vivado.impl.jobs ${cpus} " +
-        s"--vivado.prop run.ulp_ManticoreKernel_1_0_synth_1.STEPS.SYNTH_DESIGN.TCL.PRE=${synth.toAbsolutePath()} " +
         s"-o ${xclbin_path.toAbsolutePath.toString} " +
         s"${xo_path.toAbsolutePath.toString}"
 
@@ -593,7 +589,7 @@ object ManticoreKernelGenerator {
 
     // Keep both the original and modified verilog files.
     Seq(
-      (manticoreVlogOrig, hdl_dir.resolve("ManticoreFlatKernel_orig.v")),
+      // (manticoreVlogOrig, hdl_dir.resolve("ManticoreFlatKernel_orig.v")),
       (manticoreVlogNoSrl, hdl_dir.resolve("ManticoreFlatKernel.v"))
     ).foreach { case (vlog, path) =>
       val writer = Files.newBufferedWriter(path)
