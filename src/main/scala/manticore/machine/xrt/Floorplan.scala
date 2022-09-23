@@ -224,12 +224,14 @@ trait Floorplan {
       getCoreAuxiliaryCellNames(0, 0) :+ getProcessorCellName(0, 0)
     )
 
-    val computeClockNetName = s"${getManticoreKernelInstName()}/clock_distribution/clock_distribution_compute_clock"
     val clockWizardClockOutNetName = s"${getManticoreKernelInstName()}/clock_distribution/wiz/inst/clk_out1"
+    val controlClockNetName = s"${getManticoreKernelInstName()}/clock_distribution/clock_distribution_control_clock"
+    val computeClockNetName = s"${getManticoreKernelInstName()}/clock_distribution/clock_distribution_compute_clock"
 
     val netsStr = Seq(
-      computeClockNetName,
-      clockWizardClockOutNetName
+      clockWizardClockOutNetName,
+      controlClockNetName,
+      computeClockNetName
     ).map(net => s"\t\t${net} \\").mkString("\n")
 
     val clkRootConstraints =
