@@ -22,6 +22,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import scala.collection.immutable.ListMap
+import scala.util.matching.Regex
 
 class MemoryPointers extends Bundle {
   val pointer_0: UInt = UInt(64.W)
@@ -499,7 +500,7 @@ object BuildXclbin {
         s"--optimize 3 " + extraRuns +
         s"--vivado.prop run.impl_1.STEPS.PLACE_DESIGN.TCL.PRE=${pblocks.toAbsolutePath()} " +
         s"--vivado.synth.jobs ${cpus} --vivado.impl.jobs ${cpus} " +
-        s"--vivado.prop run.ulp_ManticoreKernel_1_0_synth_1.STEPS.SYNTH_DESIGN.TCL.POST=${synth.toAbsolutePath()} " +
+        s"--vivado.prop run.ulp_ManticoreKernel_1_0_synth_1.STEPS.SYNTH_DESIGN.TCL.PRE=${synth.toAbsolutePath()} " +
         s"-o ${xclbin_path.toAbsolutePath.toString} " +
         s"${xo_path.toAbsolutePath.toString}"
 
@@ -564,7 +565,7 @@ object ManticoreKernelGenerator {
     val hdl_dir = Files.createDirectories(out_dir.resolve("hdl"))
 
     println("generating top module")
-    new ChiselStage().emitVerilog(
+    val manticoreVlogOrig = new ChiselStage().emitVerilog(
       new ManticoreFlatKernel(
         DimX = dimx,
         DimY = dimy,
@@ -575,6 +576,30 @@ object ManticoreKernelGenerator {
       ),
       Array("--target-dir", hdl_dir.toAbsolutePath().toString())
     )
+
+    // Insert SRL disabling directives for select signals.
+    val manticoreVlogNoSrl = manticoreVlogOrig
+      .split("\n")
+      .map { line =>
+        val srlLinePattern = new Regex("""(\s*)reg\s+(\[\d+:\d+\]\s+)?\w+regManticorePipeNoSrl""", "indent")
+        srlLinePattern.findFirstMatchIn(line) match {
+          case None => line
+          case Some(value) =>
+            val indent = value.group("indent")
+            s"${indent}(* srl_style = \"register\" *)${line}"
+        }
+      }
+      .mkString("\n")
+
+    // Keep both the original and modified verilog files.
+    Seq(
+      (manticoreVlogOrig, hdl_dir.resolve("ManticoreFlatKernel_orig.v")),
+      (manticoreVlogNoSrl, hdl_dir.resolve("ManticoreFlatKernel.v"))
+    ).foreach { case (vlog, path) =>
+      val writer = Files.newBufferedWriter(path)
+      writer.write(vlog)
+      writer.close()
+    }
 
     val xml_path   = hdl_dir.resolve("kernel.xml")
     val xml_writer = Files.newBufferedWriter(hdl_dir.resolve("kernel.xml"))

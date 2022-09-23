@@ -11,13 +11,6 @@ object Helpers {
       notDelayed := data
       notDelayed
 
-    } else if (latency == 1) {
-      // (skashani): The name "regManticorePipeNoSrl" is matched in a placement
-      // script to disable the generation of SRLs. If you modify this name here,
-      // do not forget to modify it in the placement script!
-      val regManticorePipeNoSrl = RegNext(data)
-      regManticorePipeNoSrl
-
     } else {
       // (skashani): The name "regManticorePipeNoSrl" is matched in a placement
       // script to disable the generation of SRLs. If you modify this name here,
