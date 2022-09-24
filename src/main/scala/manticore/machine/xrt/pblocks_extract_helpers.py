@@ -79,7 +79,7 @@ def get_slr_composition(device_info) -> slr_composition_t:
 
           for (tileName, siteNames) in tileColProperties.items():
             # Only select resources of interest.
-            sitePattern = r"(?P<resource>SLICE|DSP48E2|RAMB18|RAMB36|URAM288|BUF\w*|MMCM\w*|PLL\w*)_X(?P<x>\d+)Y(?P<y>\d+)"
+            sitePattern = r"(?P<resource>SLICE|DSP48E2|RAMB18|RAMB36|URAM288|LAGUNA|BUF\w*|MMCM\w*|PLL\w*)_X(?P<x>\d+)Y(?P<y>\d+)"
 
             for siteName in siteNames:
               if re.match(sitePattern, siteName):
