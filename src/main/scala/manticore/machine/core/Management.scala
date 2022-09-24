@@ -16,7 +16,7 @@ object ManagementConstants {
 
 }
 
-class Management extends Module {
+class Management(dimX: Int, dimY: Int) extends Module {
 
   import ManagementConstants._
   val io = IO(new Bundle {
@@ -54,7 +54,8 @@ class Management extends Module {
 
   val clock_active = RegInit(true.B)
   io.clock_active := clock_active
-
+  require(dimX < 64 && dimY < 64)
+  io.device_registers.device_info := Cat(dimX.U(6.W), dimY.U(6.W), 0.U(20))
   // these two registers help minimize the fan out of clock_active
   val timed_out = Reg(Bool())
   timed_out := false.B

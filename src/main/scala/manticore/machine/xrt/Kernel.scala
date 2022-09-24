@@ -25,9 +25,8 @@ import scala.collection.immutable.ListMap
 
 class MemoryPointers extends Bundle {
   val pointer_0: UInt = UInt(64.W)
-  val pointer_1: UInt = UInt(64.W)
-  val pointer_2: UInt = UInt(64.W)
-  val pointer_3: UInt = UInt(64.W)
+  // val pointer_1: UInt = UInt(64.W)
+
 }
 
 object KernelInfo {
