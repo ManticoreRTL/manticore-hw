@@ -80,8 +80,19 @@ class ProcessorWithSendPipe(
   // These stages have been added outside the core such that they allow vivado to have
   // flexibility in placing switches on the chip.
 
-  io.packet_out          := Helpers.PipeNoSRL(processor.io.packet_out, 7)
-  processor.io.packet_in := Helpers.PipeNoSRL(io.packet_in, 7)
+  // These go from the cores to the switch island.
+  // 1-3 are in the core SLR.
+  // 4   is in the core SLR LAGUNA cell.
+  // 5   is in the switch SLR LAGUNA cell.
+  // 6-7 are in the switch SLR.
+  io.packet_out := Helpers.SlrCrossing(processor.io.packet_out, 7, Set(4, 5))
+
+  // These come from the switch island to the cores.
+  // 1-2 are in the switch SLR.
+  // 3   is in the switch SLR LAGUNA cell.
+  // 4   is in the core SLR LAGUNA cell.
+  // 5-7 are in the core SLR.
+  processor.io.packet_in := Helpers.SlrCrossing(io.packet_in, 7, Set(3, 4))
 
 }
 

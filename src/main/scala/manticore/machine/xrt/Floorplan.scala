@@ -202,7 +202,7 @@ trait Floorplan {
     constraints.mkString("\n")
   }
 
-  def getPrivilegedAreaConstraints(dimX: Int, dimY: Int): String = {
+  def getPrivilegedAreaConstraints(): String = {
     val rootClockRegion = getRootClock()
 
     val privilegedClockRegions = getPrivilegedArea()
@@ -246,11 +246,16 @@ trait Floorplan {
     ).mkString("\n")
   }
 
+  def getSlrCrossingConstraints(): String = {
+    s"set_property USER_SLL_REG TRUE [get_cells -hierarchical -regexp .*manticoreSlrCrossing.*]"
+  }
+
   def toTcl(dimX: Int, dimY: Int): String = {
     Seq(
       getPblockConstrains(dimX, dimY),
       // getHierarchyConstraints(dimX, dimY),
-      getPrivilegedAreaConstraints(dimX, dimY)
+      getPrivilegedAreaConstraints(),
+      getSlrCrossingConstraints()
     ).mkString("\n")
   }
 

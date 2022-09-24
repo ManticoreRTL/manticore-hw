@@ -23,6 +23,7 @@ import java.nio.file.Path
 import java.nio.file.Paths
 import scala.collection.immutable.ListMap
 import scala.util.matching.Regex
+import manticore.machine.Helpers
 
 class MemoryPointers extends Bundle {
   val pointer_0: UInt = UInt(64.W)
@@ -577,7 +578,7 @@ object ManticoreKernelGenerator {
     val manticoreVlogNoSrl = manticoreVlogOrig
       .split("\n")
       .map { line =>
-        val srlLinePattern = new Regex("""(\s*)reg\s+(\[\d+:\d+\]\s+)?\w+regManticorePipeNoSrl""", "indent")
+        val srlLinePattern = new Regex(s"""(\\s*)reg\\s+(\\[\\d+:\\d+\\]\\s+)?\\w+${Helpers.pipeNoSlrPrefix}""", "indent")
         srlLinePattern.findFirstMatchIn(line) match {
           case None => line
           case Some(value) =>

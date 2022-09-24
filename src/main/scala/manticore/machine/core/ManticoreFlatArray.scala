@@ -321,8 +321,13 @@ class ManticoreFlatArray(
     clock = io.control_clock,
     reset = controller.io.soft_reset
   ) {
-    compute_array.io.config_enable := Helpers.PipeNoSRL(controller.io.config_enable, 7)
-    compute_array.io.config_packet := Helpers.PipeNoSRL(bootloader.io.packet_out, 7)
+    // These go from the cores to the switch island.
+    // 1-3 are in the core SLR.
+    // 4   is in the core SLR LAGUNA cell.
+    // 5   is in the switch SLR LAGUNA cell.
+    // 6-7 are in the switch SLR.
+    compute_array.io.config_enable := Helpers.SlrCrossing(controller.io.config_enable, 7, Set(4, 5))
+    compute_array.io.config_packet := Helpers.SlrCrossing(bootloader.io.packet_out, 7, Set(4, 5))
   }
 
   compute_array.io.mem_access <> memory_intercept.io.core
