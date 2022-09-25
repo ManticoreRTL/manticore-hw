@@ -12,10 +12,6 @@ import manticore.machine.memory.CacheConfig
 
 import scala.annotation.tailrec
 
-import chisel3.experimental.annotate
-import chisel3.experimental.ChiselAnnotation
-import firrtl.annotations.Annotation
-import firrtl.AttributeAnnotation
 import manticore.machine.Helpers
 
 /// registers written by the host

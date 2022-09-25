@@ -12,10 +12,6 @@ import manticore.machine.memory.MemStyle
 import manticore.machine.memory.SimpleDualPortMemory
 
 import scala.util.Random
-import chisel3.experimental.annotate
-import chisel3.experimental.ChiselAnnotation
-import firrtl.annotations.Annotation
-import firrtl.AttributeAnnotation
 import manticore.machine.Helpers
 
 class NamedError(nameBits: Int) extends Bundle {

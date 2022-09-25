@@ -2,19 +2,12 @@ package manticore.machine
 
 import chisel3._
 
+import chisel3.experimental.annotate
+import chisel3.experimental.ChiselAnnotation
+import firrtl.annotations.Annotation
+import firrtl.AttributeAnnotation
+
 object Helpers {
-
-  // (skashani): The name "regManticoreNoSrl" is matched in code that
-  // edits the generated verilog to disable SRL generation.
-  // If you modify this name here, do not forget to modify it in the other
-  // parts of the code!
-  val pipeNoSlrPrefix = "regManticoreNoSrl"
-
-  // (skashani): The name "manticoreSlrCrossing" is matched code that
-  // generates USER_SLL_REG constraints.
-  // If you modify the name here, do not forget to modify it in the other
-  // parts of the code!
-  val slrCrossingSuffix = "manticoreSlrCrossing"
 
   def PipeNoSRL[T <: Data](
       data: T,
@@ -23,25 +16,39 @@ object Helpers {
   ): T = {
     require(latency >= 0, "Pipe latency must be >= 0!")
 
-    val prefix = pipeNoSlrPrefix
+    val prefix = "NoSrlReg"
 
     // I use a foldLeft here as I want to name individual wires. If I use a Vec,
     // then calling `suggestName` on individual elements of the Vec does not
     // assign the name I want to the individual registers.
     val pipe = Range.inclusive(1, latency).foldLeft(WireInit(data)) { case (prevWire, idx) =>
-      val nextWireName = regIdxSuffix.get(idx) match {
+      val nextRegName = regIdxSuffix.get(idx) match {
         case None         => s"${prefix}_${idx}"
         case Some(suffix) => s"${prefix}_${idx}_${suffix}"
       }
 
-      val nextWire = Wire(chiselTypeOf(data))
-      nextWire.suggestName(nextWireName)
-      nextWire := RegNext(prevWire)
-      nextWire
+      val nextReg = Reg(chiselTypeOf(data))
+      nextReg.suggestName(nextRegName)
+      nextReg := prevWire
+
+      // annotate(new ChiselAnnotation {
+      //   def toFirrtl: Annotation = AttributeAnnotation(nextReg.toNamed, "DONT_TOUCH = \"yes\"")
+      // })
+      annotate(new ChiselAnnotation {
+        def toFirrtl: Annotation = AttributeAnnotation(nextReg.toNamed, "srl_style = \"register\"")
+      })
+
+      nextReg
     }
 
     pipe
   }
+
+  // (skashani): The name "manticoreSlrCrossing" is matched code that
+  // generates USER_SLL_REG constraints.
+  // If you modify the name here, do not forget to modify it in the other
+  // parts of the code!
+  def slrCrossingSuffix = "manticoreSlrCrossing"
 
   // This function creates a pipeline register with the given latency and a
   // specific suffix for certain of the registers in the chain.

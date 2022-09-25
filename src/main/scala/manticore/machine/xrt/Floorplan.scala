@@ -2,6 +2,7 @@ package manticore.machine.xrt
 
 import collection.mutable.{Map => MMap}
 import collection.mutable.ArrayBuffer
+import manticore.machine.Helpers
 
 object Coordinates {
   case class GridLoc(c: Int, r: Int)
@@ -247,13 +248,13 @@ trait Floorplan {
   }
 
   def getSlrCrossingConstraints(): String = {
-    s"set_property USER_SLL_REG TRUE [get_cells -hierarchical -regexp .*manticoreSlrCrossing.*]"
+    s"set_property USER_SLL_REG TRUE [get_cells -hierarchical -regexp .*${Helpers.slrCrossingSuffix}.*]"
   }
 
   def toTcl(dimX: Int, dimY: Int): String = {
     Seq(
       getPblockConstrains(dimX, dimY),
-      // getHierarchyConstraints(dimX, dimY),
+      getHierarchyConstraints(dimX, dimY),
       getPrivilegedAreaConstraints(),
       getSlrCrossingConstraints()
     ).mkString("\n")

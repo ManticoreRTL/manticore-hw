@@ -35,7 +35,6 @@ class BareNoCBundle(val config: ISA) extends Bundle {
   val data: UInt    = UInt(config.DataBits.W)
   val address: UInt = UInt(config.IdBits.W)
   val valid: Bool   = Bool()
-
 }
 
 /** A data and control bundle that traverses NoC hops
@@ -187,9 +186,20 @@ class Switch(DimX: Int, DimY: Int, config: ISA, n_hop: Int) extends Module {
     )
     pkt
   }
+
   val x_reg: NoCBundle   = mkPacketRegInit()
   val y_reg: NoCBundle   = mkPacketRegInit()
   val terminal_reg: Bool = RegInit(Bool(), false.B)
+
+  annotate(new ChiselAnnotation {
+    def toFirrtl: Annotation = AttributeAnnotation(x_reg.toNamed, "DONT_TOUCH = \"yes\"")
+  })
+  annotate(new ChiselAnnotation {
+    def toFirrtl: Annotation = AttributeAnnotation(y_reg.toNamed, "DONT_TOUCH = \"yes\"")
+  })
+  annotate(new ChiselAnnotation {
+    def toFirrtl: Annotation = AttributeAnnotation(terminal_reg.toNamed, "DONT_TOUCH = \"yes\"")
+  })
 
   // default values of the outputs
   x_reg        := empty

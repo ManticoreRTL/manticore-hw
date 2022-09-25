@@ -562,7 +562,7 @@ object ManticoreKernelGenerator {
     val hdl_dir = Files.createDirectories(out_dir.resolve("hdl"))
 
     println("generating top module")
-    val manticoreVlogOrig = new ChiselStage().emitVerilog(
+    new ChiselStage().emitVerilog(
       new ManticoreFlatKernel(
         DimX = dimx,
         DimY = dimy,
@@ -573,30 +573,6 @@ object ManticoreKernelGenerator {
       ),
       Array("--target-dir", hdl_dir.toAbsolutePath().toString())
     )
-
-    // Insert SRL disabling directives for select signals.
-    val manticoreVlogNoSrl = manticoreVlogOrig
-      .split("\n")
-      .map { line =>
-        val srlLinePattern = new Regex(s"""(\\s*)reg\\s+(\\[\\d+:\\d+\\]\\s+)?\\w+${Helpers.pipeNoSlrPrefix}""", "indent")
-        srlLinePattern.findFirstMatchIn(line) match {
-          case None => line
-          case Some(value) =>
-            val indent = value.group("indent")
-            s"${indent}(* srl_style = \"register\" *)${line}"
-        }
-      }
-      .mkString("\n")
-
-    // Keep both the original and modified verilog files.
-    Seq(
-      // (manticoreVlogOrig, hdl_dir.resolve("ManticoreFlatKernel_orig.v")),
-      (manticoreVlogNoSrl, hdl_dir.resolve("ManticoreFlatKernel.v"))
-    ).foreach { case (vlog, path) =>
-      val writer = Files.newBufferedWriter(path)
-      writer.write(vlog)
-      writer.close()
-    }
 
     val xml_path   = hdl_dir.resolve("kernel.xml")
     val xml_writer = Files.newBufferedWriter(hdl_dir.resolve("kernel.xml"))
