@@ -31,9 +31,9 @@ object Helpers {
       nextReg.suggestName(nextRegName)
       nextReg := prevWire
 
-      // annotate(new ChiselAnnotation {
-      //   def toFirrtl: Annotation = AttributeAnnotation(nextReg.toNamed, "DONT_TOUCH = \"yes\"")
-      // })
+      annotate(new ChiselAnnotation {
+        def toFirrtl: Annotation = AttributeAnnotation(nextReg.toNamed, "DONT_TOUCH = \"yes\"")
+      })
       annotate(new ChiselAnnotation {
         def toFirrtl: Annotation = AttributeAnnotation(nextReg.toNamed, "srl_style = \"register\"")
       })
