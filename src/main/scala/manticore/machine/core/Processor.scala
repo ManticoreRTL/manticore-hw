@@ -31,13 +31,11 @@ class PeripheryProcessorInterface(config: ISA) extends Bundle {
   val dynamic_cycle: Bool             = Output(Bool())
 }
 class ProcessorInterface(config: ISA, DimX: Int, DimY: Int) extends Bundle {
-
   val packet_in  = Input(new BareNoCBundle(config))
   val packet_out = Output(NoCBundle(DimX, DimY, config))
   val periphery: PeripheryProcessorInterface = new PeripheryProcessorInterface(
     config
   )
-
 }
 
 class ProcessorWithSendPipe(
@@ -72,24 +70,55 @@ class ProcessorWithSendPipe(
 
   io.periphery <> processor.io.periphery
 
+  val sendPipe = Module(
+    new ProcessorSendPipe(
+      config,
+      DimX,
+      DimY
+    )
+  )
+  sendPipe.suggestName("processor_sendPipe")
+
+  io.packet_out                := sendPipe.io.switch.packet_out
+  sendPipe.io.switch.packet_in := io.packet_in
+
+  sendPipe.io.proc.packet_out := processor.io.packet_out
+  processor.io.packet_in      := sendPipe.io.proc.packet_in
+}
+
+class SendPipeInterface(config: ISA, DimX: Int, DimY: Int) extends Bundle {
+  val packet_in  = Input(new BareNoCBundle(config))
+  val packet_out = Output(NoCBundle(DimX, DimY, config))
+}
+
+class ProcessorSendPipe(
+    config: ISA,
+    DimX: Int,
+    DimY: Int
+) extends Module {
+  val io = new Bundle {
+    val proc   = Flipped(new SendPipeInterface(config, DimX, DimY))
+    val switch = new SendPipeInterface(config, DimX, DimY)
+  }
+
   // We removed 7 pipeline stages related to sending packets out from inside the core.
   // These stages have been added outside the core such that they allow vivado to have
   // flexibility in placing switches on the chip.
+  val latency = 7
 
   // These go from the cores to the switch island.
   // 1-3 are in the core SLR.
   // 4   is in the core SLR LAGUNA cell.
   // 5   is in the switch SLR LAGUNA cell.
   // 6-7 are in the switch SLR.
-  io.packet_out := Helpers.SlrCrossing(processor.io.packet_out, 7, Set(4, 5))
+  io.switch.packet_out := Helpers.SlrCrossing(io.proc.packet_out, latency, Set(4, 5))
 
   // These come from the switch island to the cores.
   // 1-2 are in the switch SLR.
   // 3   is in the switch SLR LAGUNA cell.
   // 4   is in the core SLR LAGUNA cell.
   // 5-7 are in the core SLR.
-  processor.io.packet_in := Helpers.SlrCrossing(io.packet_in, 7, Set(3, 4))
-
+  io.proc.packet_in := Helpers.SlrCrossing(io.switch.packet_in, latency, Set(3, 4))
 }
 
 class Processor(

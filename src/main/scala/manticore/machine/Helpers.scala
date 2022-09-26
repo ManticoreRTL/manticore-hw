@@ -21,7 +21,7 @@ object Helpers {
     // I use a foldLeft here as I want to name individual wires. If I use a Vec,
     // then calling `suggestName` on individual elements of the Vec does not
     // assign the name I want to the individual registers.
-    val pipe = Range.inclusive(1, latency).foldLeft(WireInit(data)) { case (prevWire, idx) =>
+    Range.inclusive(1, latency).foldLeft(WireInit(data)) { case (prevWire, idx) =>
       val nextRegName = regIdxSuffix.get(idx) match {
         case None         => s"${prefix}_${idx}"
         case Some(suffix) => s"${prefix}_${idx}_${suffix}"
@@ -40,8 +40,6 @@ object Helpers {
 
       nextReg
     }
-
-    pipe
   }
 
   // (skashani): The name "manticoreSlrCrossing" is matched code that
@@ -61,10 +59,8 @@ object Helpers {
   ): T = {
     require(latency >= 2, "SLR crossing needs >= 2 registers!")
 
-    val suffix    = slrCrossingSuffix
-    val suffixMap = slrCrossingIndices.map(idx => idx -> suffix).toMap
+    val suffixMap = slrCrossingIndices.map(idx => idx -> slrCrossingSuffix).toMap
 
-    val pipe = PipeNoSRL(data, latency, suffixMap)
-    pipe
+    PipeNoSRL(data, latency, suffixMap)
   }
 }
