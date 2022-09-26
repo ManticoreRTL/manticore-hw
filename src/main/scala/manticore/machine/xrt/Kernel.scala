@@ -497,6 +497,7 @@ object BuildXclbin {
       s"v++ --link -g -t ${target} --platform ${platform} --save-temps " +
         s"--optimize 3 " + extraRuns +
         s"--vivado.prop run.impl_1.STEPS.PLACE_DESIGN.TCL.PRE=${pblocks.toAbsolutePath()} " +
+        s"--vivado.prop run.ulp_ManticoreKernel_1_0_synth_1.STEPS.SYNTH_DESIGN.ARGS.FLATTEN_HIERARCHY=none " +
         s"--vivado.synth.jobs ${cpus} --vivado.impl.jobs ${cpus} " +
         s"-o ${xclbin_path.toAbsolutePath.toString} " +
         s"${xo_path.toAbsolutePath.toString}"
