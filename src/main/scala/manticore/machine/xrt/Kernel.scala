@@ -497,7 +497,6 @@ object BuildXclbin {
       s"v++ --link -g -t ${target} --platform ${platform} --save-temps " +
         s"--optimize 3 " + extraRuns +
         s"--vivado.prop run.impl_1.STEPS.PLACE_DESIGN.TCL.PRE=${pblocks.toAbsolutePath()} " +
-        s"--vivado.prop run.ulp_ManticoreKernel_1_0_synth_1.STEPS.SYNTH_DESIGN.ARGS.FLATTEN_HIERARCHY=none " +
         s"--vivado.synth.jobs ${cpus} --vivado.impl.jobs ${cpus} " +
         s"-o ${xclbin_path.toAbsolutePath.toString} " +
         s"${xo_path.toAbsolutePath.toString}"
@@ -563,7 +562,7 @@ object ManticoreKernelGenerator {
     val hdl_dir = Files.createDirectories(out_dir.resolve("hdl"))
 
     println("generating top module")
-    new ChiselStage().emitVerilog(
+    val manticoreVlogOrig = new ChiselStage().emitVerilog(
       new ManticoreFlatKernel(
         DimX = dimx,
         DimY = dimy,
@@ -578,6 +577,30 @@ object ManticoreKernelGenerator {
         "--emission-options=disableMemRandomization,disableRegisterRandomization"
       )
     )
+
+    // Insert KEEP_HIERARCHY annotation on `Processor`s and `ProcessorSendPipe`s.
+    val manticoreVlogWithKeepHierarchy = manticoreVlogOrig
+      .split("\n")
+      .map { line =>
+        val pattern = new Regex("""(\s*)Processor(SendPipe)?(_\d+)? processor(_sendPipe)?""", "indent")
+        pattern.findFirstMatchIn(line) match {
+          case None => line
+          case Some(value) =>
+            val indent = value.group("indent")
+            s"${indent}(* keep_hierarchy = \"yes\" *)${line}"
+        }
+      }
+      .mkString("\n")
+
+    // Overwrite the verilog file.
+    Seq(
+      // (manticoreVlogOrig, hdl_dir.resolve("ManticoreFlatKernel_orig.v")),
+      (manticoreVlogWithKeepHierarchy, hdl_dir.resolve("ManticoreFlatKernel.v"))
+    ).foreach { case (vlog, path) =>
+      val writer = Files.newBufferedWriter(path)
+      writer.write(vlog)
+      writer.close()
+    }
 
     val xml_path   = hdl_dir.resolve("kernel.xml")
     val xml_writer = Files.newBufferedWriter(hdl_dir.resolve("kernel.xml"))

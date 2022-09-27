@@ -187,22 +187,6 @@ trait Floorplan {
     constraints.mkString("\n")
   }
 
-  def getHierarchyConstraints(dimX: Int, dimY: Int): String = {
-    val constraints = ArrayBuffer.empty[String]
-
-    Range.inclusive(0, dimY - 1).foreach { y =>
-      Range.inclusive(0, dimX - 1).foreach { x =>
-        val torusLoc   = TorusLoc(x, y)
-        val coreCell   = getProcessorCellName(torusLoc.x, torusLoc.y)
-        val switchCell = getSwitchCellName(torusLoc.x, torusLoc.y)
-        constraints += s"set_property keep_hierarchy yes [get_cells ${coreCell}]"
-        constraints += s"set_property keep_hierarchy yes [get_cells ${switchCell}]"
-      }
-    }
-
-    constraints.mkString("\n")
-  }
-
   def getPrivilegedAreaConstraints(): String = {
     val rootClockRegion = getRootClock()
 
@@ -254,7 +238,6 @@ trait Floorplan {
   def toTcl(dimX: Int, dimY: Int): String = {
     Seq(
       getPblockConstrains(dimX, dimY),
-      getHierarchyConstraints(dimX, dimY),
       getPrivilegedAreaConstraints(),
       getSlrCrossingConstraints()
     ).mkString("\n")
