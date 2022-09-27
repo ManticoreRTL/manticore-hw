@@ -28,6 +28,7 @@ trait Floorplan {
         s"${getManticoreKernelInstName()}/clock_distribution",
         s"${getManticoreKernelInstName()}/m_axi_bank_0_clock_crossing",
         s"${getManticoreKernelInstName()}/s_axi_clock_crossing",
+        s"${getManticoreKernelInstName()}/slave",
         s"${getManticoreKernelInstName()}/manticore/bootloader",
         s"${getManticoreKernelInstName()}/manticore/controller",
         s"${getManticoreKernelInstName()}/manticore/memory_intercept"
