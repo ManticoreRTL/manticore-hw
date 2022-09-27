@@ -582,7 +582,10 @@ object ManticoreKernelGenerator {
     val manticoreVlogWithKeepHierarchy = manticoreVlogOrig
       .split("\n")
       .map { line =>
-        val pattern = new Regex("""(\s*)Processor(SendPipe)?(_\d+)? processor(_sendPipe)?""", "indent")
+        val pattern = new Regex(
+          """(\s*)(Processor(_\d+)?\s+processor|ProcessorSendPipe\s+processor_sendPipe|Switch\s+switch_\d+_\d+)""",
+          "indent"
+        )
         pattern.findFirstMatchIn(line) match {
           case None => line
           case Some(value) =>
