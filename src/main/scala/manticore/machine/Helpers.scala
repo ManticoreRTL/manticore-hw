@@ -11,7 +11,7 @@ object Helpers {
 
   def PipeNoSRL[T <: Data](
       data: T,
-      latency: Int,
+      latency: Int = 1,
       regIdxSuffix: Map[Int, String] = Map.empty
   ): T = {
     require(latency >= 0, "Pipe latency must be >= 0!")

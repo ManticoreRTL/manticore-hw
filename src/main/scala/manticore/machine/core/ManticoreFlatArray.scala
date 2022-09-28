@@ -76,8 +76,12 @@ class SoftResetTree(dimx: Int, dimy: Int) extends Module {
 
   val io = IO(new SoftResetTreeIO(dimx, dimy))
 
-  def fo4(source: Bool): IndexedSeq[Bool] = IndexedSeq.fill(4) { RegNext(source) }
-  def mkBranches(res: IndexedSeq[Bool] = IndexedSeq(RegNext(reset.asBool)), count: Int = 1): IndexedSeq[Bool] = {
+  def fo4(source: Bool): IndexedSeq[Bool] = IndexedSeq.fill(4) { Helpers.PipeNoSRL(source) }
+
+  def mkBranches(
+      res: IndexedSeq[Bool] = IndexedSeq(Helpers.PipeNoSRL(reset.asBool)),
+      count: Int = 1
+  ): IndexedSeq[Bool] = {
     if (count >= (dimx * dimy)) {
       res
     } else {
@@ -92,11 +96,11 @@ class SoftResetTree(dimx: Int, dimy: Int) extends Module {
     }
   }
 
-  io.last := RegNext(leaves.last)
+  io.last := Helpers.PipeNoSRL(leaves.last)
 
 }
 object SoftResetGen extends App {
-  new ChiselStage().emitVerilog(new SoftResetTree(3, 6), Array("-td", "gen-dir"))
+  new ChiselStage().emitVerilog(new SoftResetTree(6, 6), Array("-td", "gen-dir"))
 }
 class ComputeArray(
     dimx: Int,
