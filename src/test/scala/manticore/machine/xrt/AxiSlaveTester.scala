@@ -109,7 +109,7 @@ class AxiSlaveTester extends AnyFlatSpec with ChiselScalatestTester with Matcher
           } else {
             fail("can only test 32- or 64-bit registers")
           }
-          hr match {
+          (hr: @unchecked) match {
             case DramBank0Base               => dut.io.pointer_regs.pointer_0.expect(expected)
             // case DramBank1Base               => dut.io.pointer_regs.pointer_1.expect(expected)
             case GlobalMemoryInstructionBase => dut.io.host_regs.global_memory_instruction_base.expect(expected)
