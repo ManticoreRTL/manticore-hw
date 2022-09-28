@@ -215,14 +215,23 @@ trait Floorplan {
       getCoreAuxiliaryCellNames(0, 0) :+ getProcessorCellName(0, 0)
     )
 
-    val clockWizardClockOutNetName = s"${getManticoreKernelInstName()}/clock_distribution/wiz/inst/clk_out1"
-    val controlClockNetName = s"${getManticoreKernelInstName()}/clock_distribution/clock_distribution_control_clock"
-    val computeClockNetName = s"${getManticoreKernelInstName()}/clock_distribution/clock_distribution_compute_clock"
+    // No need to set wiz/inst/clk_out1 as a root clock as it is not driven by a global clock buffer (the output of the
+    // MMCM is marked as a local clock in vivado).
+    // If you add the constraint, you will get the following warning at implementation time.
+    //
+    //   WARNING: [Vivado 12-4417] Setting USER_CLOCK_ROOT on net 'level0_i/ulp/ManticoreKernel_1/inst/clock_distribution/wiz/inst/clk_out1' which is not driven by a global clock buffer. The resulting constraint will not have the desired effect.
+    //
+    // val clockWizardClockOutNetName = s"${getManticoreKernelInstName()}/clock_distribution/wiz/inst/clk_out1"
+
+    // Vivado renamed this wire from clock_distribution/clock_distribution_control_clock"!
+    val controlClockNetName = s"${getManticoreKernelInstName()}/clock_distribution/CLK"
+
+    // val computeClockNetName = s"${getManticoreKernelInstName()}/clock_distribution/clock_distribution_compute_clock"
 
     val netsStr = Seq(
-      clockWizardClockOutNetName,
+      // clockWizardClockOutNetName,
       controlClockNetName,
-      computeClockNetName
+      // computeClockNetName
     ).map(net => s"\t\t${net} \\").mkString("\n")
 
     val clkRootConstraints =
