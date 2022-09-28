@@ -21,6 +21,8 @@ object U250FloorplanImpl {
   // Switches are placed as follows:
   // - Place all switches in a single large pblock that spans SLR2 and SLR3.
   object LooseSlr2Slr3 extends U250Floorplan {
+    def getName(): String = "loose-slr2-slr3"
+
     // The anchor doesn't matter as we are leaving the cores in a single large pblock
     // that spans 2 SLRs.
     val anchor = GridLoc(0, 0)

@@ -146,15 +146,20 @@ trait Floorplan {
   }
 
   def getPblockConstrains(dimX: Int, dimY: Int): String = {
-    val pblockCells = MMap.empty[Pblock, Set[String]].withDefaultValue(Set.empty)
+    val pblockCells = MMap.empty[Pblock, Seq[String]].withDefaultValue(Seq.empty)
 
     val coreToPblock   = getCoreToPblockMap(dimX, dimY)
     val switchToPblock = getSwitchToPblockMap(dimX, dimY)
 
     coreToPblock
       .groupMap(_._2)(_._1)
+      .toSeq
+      .sortBy { case (pblock, cores) =>
+        pblock.name
+      }
       .foreach { case (pblock, cores) =>
-        val cells = cores
+        val cells = cores.toSeq
+          .sortBy(core => (core.y, core.x))
           .map { core =>
             val coreCell = getProcessorCellName(core.x, core.y)
             coreCell
@@ -165,8 +170,13 @@ trait Floorplan {
 
     switchToPblock
       .groupMap(_._2)(_._1)
+      .toSeq
+      .sortBy { case (pblock, cores) =>
+        pblock.name
+      }
       .foreach { case (pblock, switch) =>
-        val cells = switch
+        val cells = switch.toSeq
+          .sortBy(core => (core.y, core.x))
           .map { switch =>
             val switchCell = getSwitchCellName(switch.x, switch.y)
             switchCell
@@ -181,8 +191,7 @@ trait Floorplan {
     pblockCells.toSeq
       .sortBy { case (pblock, cells) => pblock.name }
       .foreach { case (pblock, cells) =>
-        val cellsSorted = cells.toSeq.sorted
-        constraints += pblock.toTcl(cellsSorted)
+        constraints += pblock.toTcl(cells)
       }
 
     constraints.mkString("\n")
@@ -245,6 +254,7 @@ trait Floorplan {
   }
 
   // Must be defined by subclasses which floorplan specific devices.
+  def getName(): String
   def getRootClock(): ClockRegion
   def getPrivilegedArea(): Set[ClockRegion]
   def getManticoreKernelInstName(): String

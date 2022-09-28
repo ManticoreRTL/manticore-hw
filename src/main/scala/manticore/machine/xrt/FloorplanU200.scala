@@ -82,7 +82,9 @@ object U200FloorplanImpl {
   // format: on
 
   // format: off
+  val slr2Pblock         = ArbitraryPblock("pblock_slr2",          "{ CLOCKREGION_X0Y10 CLOCKREGION_X1Y10 CLOCKREGION_X2Y10 CLOCKREGION_X3Y10 CLOCKREGION_X4Y10 CLOCKREGION_X5Y10 CLOCKREGION_X0Y11 CLOCKREGION_X1Y11 CLOCKREGION_X2Y11 CLOCKREGION_X3Y11 CLOCKREGION_X4Y11 CLOCKREGION_X5Y11 CLOCKREGION_X0Y12 CLOCKREGION_X1Y12 CLOCKREGION_X2Y12 CLOCKREGION_X3Y12 CLOCKREGION_X4Y12 CLOCKREGION_X5Y12 CLOCKREGION_X0Y13 CLOCKREGION_X1Y13 CLOCKREGION_X2Y13 CLOCKREGION_X3Y13 CLOCKREGION_X4Y13 CLOCKREGION_X5Y13 CLOCKREGION_X0Y14 CLOCKREGION_X1Y14 CLOCKREGION_X2Y14 CLOCKREGION_X3Y14 CLOCKREGION_X4Y14 CLOCKREGION_X5Y14 }")
   val slr1NonShellPblock = ArbitraryPblock("pblock_slr1_nonshell", "{ CLOCKREGION_X0Y5 CLOCKREGION_X1Y5 CLOCKREGION_X2Y5 CLOCKREGION_X0Y6 CLOCKREGION_X1Y6 CLOCKREGION_X2Y6 CLOCKREGION_X0Y7 CLOCKREGION_X1Y7 CLOCKREGION_X2Y7 CLOCKREGION_X0Y8 CLOCKREGION_X1Y8 CLOCKREGION_X2Y8 CLOCKREGION_X0Y9 CLOCKREGION_X1Y9 CLOCKREGION_X2Y9 }")
+  val slr0Pblock         = ArbitraryPblock("pblock_slr0",          "{ CLOCKREGION_X0Y0 CLOCKREGION_X1Y0 CLOCKREGION_X2Y0 CLOCKREGION_X3Y0 CLOCKREGION_X4Y0 CLOCKREGION_X5Y0 CLOCKREGION_X0Y1 CLOCKREGION_X1Y1 CLOCKREGION_X2Y1 CLOCKREGION_X3Y1 CLOCKREGION_X4Y1 CLOCKREGION_X5Y1 CLOCKREGION_X0Y2 CLOCKREGION_X1Y2 CLOCKREGION_X2Y2 CLOCKREGION_X3Y2 CLOCKREGION_X4Y2 CLOCKREGION_X5Y2 CLOCKREGION_X0Y3 CLOCKREGION_X1Y3 CLOCKREGION_X2Y3 CLOCKREGION_X3Y3 CLOCKREGION_X4Y3 CLOCKREGION_X5Y3 CLOCKREGION_X0Y4 CLOCKREGION_X1Y4 CLOCKREGION_X2Y4 CLOCKREGION_X3Y4 CLOCKREGION_X4Y4 CLOCKREGION_X5Y4 }")
   // format: on
 
   def inShellSlr(clockRegionRow: Int): Boolean = (5 <= clockRegionRow) && (clockRegionRow <= 9)
@@ -100,6 +102,8 @@ object U200FloorplanImpl {
   // - switch_x_y is placed in the leftmost clock region of the clock
   //   region row in which core_x_y is placed.
   object HighwaySwitch extends U200Floorplan {
+    def getName(): String = "highway"
+
     // We want to anchor in clock region X2Y7. Setting the anchor to c2y12 in the grid results in x0y0 being assigned
     // to pblock_cores_Y7_Left (experimentally verified, no algorithm to derive automatically).
     val anchor = GridLoc(2, 12)
@@ -169,7 +173,9 @@ object U200FloorplanImpl {
   //
   // Switches are placed as follows:
   // - Place 4 rows of switches per clock region row in SLR1.
-  object RigidIslandSwitch extends U200Floorplan {
+  object RigidIslandSwitchRigidCores extends U200Floorplan {
+    def getName(): String = "rigid-island-rigid-cores"
+
     // We want to anchor core x0y0 in clock region X2Y10. We are lucky and it so happens to be that setting the
     // anchor to c2y10 in the grid results in x0y0 being assigned to pblock_cores_Y10_Left (experimentally derived,
     // no algorithm to derive automatically).
@@ -268,21 +274,81 @@ object U200FloorplanImpl {
   // Switches are placed as follows:
   // - Place all switches in a single Pblock that covers the non-shell area of SLR1.
   // - We let vivado handle switch placement.
-  object LooseIslandSwitch extends U200Floorplan {
+  object LooseIslandSwitchRigidCores extends U200Floorplan {
+    def getName(): String = "loose-island-rigid-cores"
+
     def getRootClock(): ClockRegion = {
-      RigidIslandSwitch.getRootClock()
+      RigidIslandSwitchRigidCores.getRootClock()
     }
 
     def getPrivilegedArea(): Set[ClockRegion] = {
-      RigidIslandSwitch.getPrivilegedArea()
+      RigidIslandSwitchRigidCores.getPrivilegedArea()
     }
 
     def getCoreToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, GridPblock] = {
-      RigidIslandSwitch.getCoreToPblockMap(dimX, dimY)
+      RigidIslandSwitchRigidCores.getCoreToPblockMap(dimX, dimY)
     }
 
     def getSwitchToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, ArbitraryPblock] = {
       assert(dimY <= 20)
+
+      // Single pblock.
+      Range
+        .inclusive(0, dimX - 1)
+        .flatMap { x =>
+          Range.inclusive(0, dimY - 1).map { y =>
+            TorusLoc(x, y) -> slr1NonShellPblock
+          }
+        }
+        .toMap
+    }
+  }
+
+  // Cores are placed as follows:
+  // - Place 8 rows of the grid in SLR2
+  // - Place 0 rows of the grid in SLR1.
+  // - Place 8 rows of the grid in SLR0.
+  // This allows for a maximum dimY value of 16:
+  //
+  // Switches are placed as follows:
+  // - Place 4 rows of switches per clock region row in SLR1.
+  object LooseIslandSwitchLooseCores extends U200Floorplan {
+    def getName(): String = "loose-island-loose-cores"
+
+    // We want to anchor core x0y0 in clock region X2Y10. We are lucky and it so happens to be that setting the
+    // anchor to c2y10 in the grid results in x0y0 being assigned to SLR2 (experimentally derived,
+    // no algorithm to derive automatically).
+
+    // The anchor doesn't matter as we are leaving the cores in a single large pblock
+    // that spans 2 SLRs.
+    val anchor = GridLoc(0, 0)
+    // val anchor = GridLoc(2, 10)
+
+    def getRootClock(): ClockRegion = ClockRegion(2, 10)
+
+    def getPrivilegedArea(): Set[ClockRegion] = Set(ClockRegion(2, 10), ClockRegion(2, 11))
+
+    def getCoreToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, ArbitraryPblock] = {
+      assert(dimY == 16, "Island placement with loose cores requires dimY == 16")
+
+      val gridToTorus = getGridLocToTorusLocMap(dimX, dimY, anchor)
+
+      // Single pblock.
+      Range
+        .inclusive(0, dimX - 1)
+        .flatMap { gridLocX =>
+          Range.inclusive(0, dimY - 1).map { gridLocY =>
+            // Cores X<x>Y[0-7] are placed in SLR2. The other cores are placed in SLR0.
+            val pblock   = if ((0 <= gridLocY) && (gridLocY <= 7)) slr2Pblock else slr0Pblock
+            val torusLoc = gridToTorus(GridLoc(gridLocX, gridLocY))
+            torusLoc -> pblock
+          }
+        }
+        .toMap
+    }
+
+    def getSwitchToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, ArbitraryPblock] = {
+      assert(dimY == 16, "Island placement with loose cores requires dimY == 16")
 
       // Single pblock.
       Range

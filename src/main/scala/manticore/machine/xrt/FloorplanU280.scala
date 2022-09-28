@@ -21,6 +21,8 @@ object U280FloorplanImpl {
   // Switches are placed as follows:
   // - Place all switches in a single large pblock that spans everything except the shell.
   object LooseNonShell extends U280Floorplan {
+    def getName(): String = "loose-non-shell"
+
     // The anchor doesn't matter as we are leaving the cores in a single large pblock
     // that spans all SLRs.
     val anchor = GridLoc(0, 0)

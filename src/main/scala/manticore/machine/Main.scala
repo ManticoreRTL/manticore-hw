@@ -153,32 +153,39 @@ object Main {
       val constraints = platform.device match {
         case U200 =>
           val validChoices = Set(
-            "highway",
-            "rigid-island",
-            "loose-island"
+            U200FloorplanImpl.HighwaySwitch.getName(),
+            U200FloorplanImpl.RigidIslandSwitchRigidCores.getName(),
+            U200FloorplanImpl.LooseIslandSwitchRigidCores.getName(),
+            U200FloorplanImpl.LooseIslandSwitchLooseCores.getName()
           )
 
-          if (cfg.placement_alg == "highway") {
+          if (cfg.placement_alg == U200FloorplanImpl.HighwaySwitch.getName()) {
             U200FloorplanImpl.HighwaySwitch.toTcl(cfg.dimx, cfg.dimy)
-          } else if (cfg.placement_alg == "rigid-island") {
-            U200FloorplanImpl.RigidIslandSwitch.toTcl(cfg.dimx, cfg.dimy)
-          } else if (cfg.placement_alg == "loose-island") {
-            U200FloorplanImpl.LooseIslandSwitch.toTcl(cfg.dimx, cfg.dimy)
+          } else if (cfg.placement_alg == U200FloorplanImpl.RigidIslandSwitchRigidCores.getName()) {
+            U200FloorplanImpl.RigidIslandSwitchRigidCores.toTcl(cfg.dimx, cfg.dimy)
+          } else if (cfg.placement_alg == U200FloorplanImpl.LooseIslandSwitchRigidCores.getName()) {
+            U200FloorplanImpl.LooseIslandSwitchRigidCores.toTcl(cfg.dimx, cfg.dimy)
+          } else if (cfg.placement_alg == U200FloorplanImpl.LooseIslandSwitchLooseCores.getName()) {
+            U200FloorplanImpl.LooseIslandSwitchLooseCores.toTcl(cfg.dimx, cfg.dimy)
           } else {
             sys.error(s"Invalid placement algorithm! Valid choices are ${validChoices.mkString(", ")}")
           }
 
         case U250 =>
-          val validChoices = Set("loose-slr2-slr3")
-          if (cfg.placement_alg == "loose-slr2-slr3") {
+          val validChoices = Set(
+            U250FloorplanImpl.LooseSlr2Slr3.getName()
+          )
+          if (cfg.placement_alg == U250FloorplanImpl.LooseSlr2Slr3.getName()) {
             U250FloorplanImpl.LooseSlr2Slr3.toTcl(cfg.dimx, cfg.dimy)
           } else {
             sys.error(s"Invalid placement algorithm! Valid choices are ${validChoices.mkString(", ")}")
           }
 
         case U280 =>
-          val validChoices = Set("loose-non-shell")
-          if (cfg.placement_alg == "loose-non-shell") {
+          val validChoices = Set(
+            U280FloorplanImpl.LooseNonShell.getName()
+          )
+          if (cfg.placement_alg == U280FloorplanImpl.LooseNonShell.getName()) {
             U280FloorplanImpl.LooseNonShell.toTcl(cfg.dimx, cfg.dimy)
           } else {
             sys.error(s"Invalid placement algorithm! Valid choices are ${validChoices.mkString(", ")}")
