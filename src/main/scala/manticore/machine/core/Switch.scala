@@ -25,10 +25,6 @@ import chisel3.DontCare
 import firrtl.ir.Width
 import manticore.machine.ISA
 
-import chisel3.experimental.annotate
-import chisel3.experimental.ChiselAnnotation
-import firrtl.annotations.Annotation
-import firrtl.AttributeAnnotation
 import manticore.machine.Helpers
 
 class BareNoCBundle(val config: ISA) extends Bundle {
@@ -191,16 +187,6 @@ class Switch(DimX: Int, DimY: Int, config: ISA, n_hop: Int) extends Module {
   val y_reg: NoCBundle   = mkPacketRegInit()
   val terminal_reg: Bool = RegInit(Bool(), false.B)
 
-  annotate(new ChiselAnnotation {
-    def toFirrtl: Annotation = AttributeAnnotation(x_reg.toNamed, "DONT_TOUCH = \"yes\"")
-  })
-  annotate(new ChiselAnnotation {
-    def toFirrtl: Annotation = AttributeAnnotation(y_reg.toNamed, "DONT_TOUCH = \"yes\"")
-  })
-  annotate(new ChiselAnnotation {
-    def toFirrtl: Annotation = AttributeAnnotation(terminal_reg.toNamed, "DONT_TOUCH = \"yes\"")
-  })
-
   // default values of the outputs
   x_reg        := empty
   y_reg        := empty
@@ -260,8 +246,8 @@ class Switch(DimX: Int, DimY: Int, config: ISA, n_hop: Int) extends Module {
   }
 
   // We subtract 1 as x_reg and y_reg count as 1 hop.
-  io.xOutput := Helpers.PipeNoSRL(x_reg, n_hop - 1)
-  io.yOutput := Helpers.PipeNoSRL(y_reg, n_hop - 1)
+  io.xOutput := Helpers.PipeWithStyle(x_reg, n_hop - 1)
+  io.yOutput := Helpers.PipeWithStyle(y_reg, n_hop - 1)
 
   io.terminal := terminal_reg
 

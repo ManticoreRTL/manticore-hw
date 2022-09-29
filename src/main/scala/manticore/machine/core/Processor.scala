@@ -42,6 +42,8 @@ class ProcessorWithSendPipe(
     config: ISA,
     DimX: Int,
     DimY: Int,
+    x: Int,
+    y: Int,
     equations: Seq[Seq[BigInt]],
     initial_registers: String = "",
     initial_array: String = "",
@@ -74,7 +76,9 @@ class ProcessorWithSendPipe(
     new ProcessorSendPipe(
       config,
       DimX,
-      DimY
+      DimY,
+      x,
+      y
     )
   )
   sendPipe.suggestName("processor_sendPipe")
@@ -94,7 +98,9 @@ class SendPipeInterface(config: ISA, DimX: Int, DimY: Int) extends Bundle {
 class ProcessorSendPipe(
     config: ISA,
     DimX: Int,
-    DimY: Int
+    DimY: Int,
+    x: Int,
+    y: Int
 ) extends Module {
   val io = new Bundle {
     val proc   = Flipped(new SendPipeInterface(config, DimX, DimY))
@@ -106,19 +112,23 @@ class ProcessorSendPipe(
   // flexibility in placing switches on the chip.
   val latency = 7
 
-  // These go from the cores to the switch island.
-  // 1-3 are in the core SLR.
-  // 4   is in the core SLR LAGUNA cell.
-  // 5   is in the switch SLR LAGUNA cell.
-  // 6-7 are in the switch SLR.
-  io.switch.packet_out := Helpers.SlrCrossing(io.proc.packet_out, latency, Set(4, 5))
+  // // These go from the cores to the switch island.
+  // // 1-3 are in the core SLR.
+  // // 4   is in the core SLR LAGUNA cell.
+  // // 5   is in the switch SLR LAGUNA cell.
+  // // 6-7 are in the switch SLR.
+  // io.switch.packet_out := Helpers.SlrCrossing(io.proc.packet_out, latency, Set(4, 5))
 
-  // These come from the switch island to the cores.
-  // 1-2 are in the switch SLR.
-  // 3   is in the switch SLR LAGUNA cell.
-  // 4   is in the core SLR LAGUNA cell.
-  // 5-7 are in the core SLR.
-  io.proc.packet_in := Helpers.SlrCrossing(io.switch.packet_in, latency, Set(3, 4))
+  // // These come from the switch island to the cores.
+  // // 1-2 are in the switch SLR.
+  // // 3   is in the switch SLR LAGUNA cell.
+  // // 4   is in the core SLR LAGUNA cell.
+  // // 5-7 are in the core SLR.
+  // io.proc.packet_in := Helpers.SlrCrossing(io.switch.packet_in, latency, Set(3, 4))
+
+  val regStyle = if (x == 0 && y == 0) Helpers.SrlStyle.SrlReg else Helpers.SrlStyle.Reg
+  io.switch.packet_out := Helpers.PipeWithStyle(io.proc.packet_out, latency, regStyle)
+  io.proc.packet_in    := Helpers.PipeWithStyle(io.switch.packet_in, latency, regStyle)
 }
 
 class Processor(

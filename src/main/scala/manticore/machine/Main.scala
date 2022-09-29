@@ -156,7 +156,8 @@ object Main {
             U200FloorplanImpl.HighwaySwitch.getName(),
             U200FloorplanImpl.RigidIslandSwitchRigidCores.getName(),
             U200FloorplanImpl.LooseIslandSwitchRigidCores.getName(),
-            U200FloorplanImpl.LooseIslandSwitchLooseCores.getName()
+            U200FloorplanImpl.LooseIslandSwitchLooseCores.getName(),
+            U200FloorplanImpl.LooseIslandSwitchRigidCoresCenterOutward.getName()
           )
 
           if (cfg.placement_alg == U200FloorplanImpl.HighwaySwitch.getName()) {
@@ -167,6 +168,8 @@ object Main {
             U200FloorplanImpl.LooseIslandSwitchRigidCores.toTcl(cfg.dimx, cfg.dimy)
           } else if (cfg.placement_alg == U200FloorplanImpl.LooseIslandSwitchLooseCores.getName()) {
             U200FloorplanImpl.LooseIslandSwitchLooseCores.toTcl(cfg.dimx, cfg.dimy)
+          } else if (cfg.placement_alg == U200FloorplanImpl.LooseIslandSwitchRigidCoresCenterOutward.getName()) {
+            U200FloorplanImpl.LooseIslandSwitchRigidCoresCenterOutward.toTcl(cfg.dimx, cfg.dimy)
           } else {
             sys.error(s"Invalid placement algorithm! Valid choices are ${validChoices.mkString(", ")}")
           }

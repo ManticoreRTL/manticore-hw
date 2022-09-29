@@ -46,6 +46,8 @@ trait Floorplan {
   // This generates the torus network coordinates at the appropriate place in
   // a grid so the folded nature of the torus network is visible, yet retains the
   // "plain" 2D grid coordinates so we know where we are on the plane.
+  //
+  // Note that GridLoc(r = 0, c = 0) is the bottom-left corner of a rectangle for us.
   def getGridLocToTorusLocMap(
       dimX: Int,
       dimY: Int,
@@ -212,7 +214,7 @@ trait Floorplan {
     }
 
     val clkDistributionConstraints = ClockDistributionPblock(privilegedClockRegions).toTcl(
-      getCoreAuxiliaryCellNames(0, 0) :+ getProcessorCellName(0, 0)
+      Seq(getProcessorCellName(0, 0)) ++ Seq(getSwitchCellName(0, 0)) ++ getCoreAuxiliaryCellNames(0, 0)
     )
 
     // No need to set wiz/inst/clk_out1 as a root clock as it is not driven by a global clock buffer (the output of the
@@ -230,7 +232,7 @@ trait Floorplan {
 
     val netsStr = Seq(
       // clockWizardClockOutNetName,
-      controlClockNetName,
+      controlClockNetName
       // computeClockNetName
     ).map(net => s"\t\t${net} \\").mkString("\n")
 
@@ -250,15 +252,15 @@ trait Floorplan {
     ).mkString("\n")
   }
 
-  def getSlrCrossingConstraints(): String = {
-    s"set_property USER_SLL_REG TRUE [get_cells -hierarchical -regexp .*${Helpers.slrCrossingSuffix}.*]"
-  }
+  // def getSlrCrossingConstraints(): String = {
+  //   s"set_property USER_SLL_REG TRUE [get_cells -hierarchical -regexp .*${Helpers.slrCrossingSuffix}.*]"
+  // }
 
   def toTcl(dimX: Int, dimY: Int): String = {
     Seq(
       getPblockConstrains(dimX, dimY),
       getPrivilegedAreaConstraints(),
-      getSlrCrossingConstraints()
+      // getSlrCrossingConstraints()
     ).mkString("\n")
   }
 

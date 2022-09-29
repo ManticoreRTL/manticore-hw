@@ -76,10 +76,10 @@ class SoftResetTree(dimx: Int, dimy: Int) extends Module {
 
   val io = IO(new SoftResetTreeIO(dimx, dimy))
 
-  def fo4(source: Bool): IndexedSeq[Bool] = IndexedSeq.fill(4) { Helpers.PipeNoSRL(source) }
+  def fo4(source: Bool): IndexedSeq[Bool] = IndexedSeq.fill(4) { Helpers.PipeWithStyle(source) }
 
   def mkBranches(
-      res: IndexedSeq[Bool] = IndexedSeq(Helpers.PipeNoSRL(reset.asBool)),
+      res: IndexedSeq[Bool] = IndexedSeq(Helpers.PipeWithStyle(reset.asBool)),
       count: Int = 1
   ): IndexedSeq[Bool] = {
     if (count >= (dimx * dimy)) {
@@ -96,7 +96,7 @@ class SoftResetTree(dimx: Int, dimy: Int) extends Module {
     }
   }
 
-  io.last := Helpers.PipeNoSRL(leaves.last)
+  io.last := Helpers.PipeWithStyle(leaves.last)
 
 }
 object SoftResetGen extends App {
@@ -150,6 +150,8 @@ class ComputeArray(
             config = core_conf,
             DimX = dimx,
             DimY = dimy,
+            x = x,
+            y = y,
             equations = equations,
             initial_registers = s"${prefix_path}/rf_${x}_${y}.dat",
             initial_array = s"${prefix_path}/ra_${x}_${y}.dat",
@@ -321,13 +323,15 @@ class ManticoreFlatArray(
     clock = io.control_clock,
     reset = controller.io.soft_reset
   ) {
-    // These go from the cores to the switch island.
-    // 1-3 are in the core SLR.
-    // 4   is in the core SLR LAGUNA cell.
-    // 5   is in the switch SLR LAGUNA cell.
-    // 6-7 are in the switch SLR.
-    compute_array.io.config_enable := Helpers.SlrCrossing(controller.io.config_enable, 7, Set(4, 5))
-    compute_array.io.config_packet := Helpers.SlrCrossing(bootloader.io.packet_out, 7, Set(4, 5))
+    // // These go from the cores to the switch island.
+    // // 1-3 are in the core SLR.
+    // // 4   is in the core SLR LAGUNA cell.
+    // // 5   is in the switch SLR LAGUNA cell.
+    // // 6-7 are in the switch SLR.
+    // compute_array.io.config_enable := Helpers.SlrCrossing(controller.io.config_enable, 7, Set(4, 5))
+    // compute_array.io.config_packet := Helpers.SlrCrossing(bootloader.io.packet_out, 7, Set(4, 5))
+    compute_array.io.config_enable := controller.io.config_enable
+    compute_array.io.config_packet := bootloader.io.packet_out
   }
 
   compute_array.io.mem_access <> memory_intercept.io.core

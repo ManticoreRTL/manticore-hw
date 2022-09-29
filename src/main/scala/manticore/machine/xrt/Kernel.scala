@@ -31,7 +31,6 @@ class MemoryPointers extends Bundle {
 
 }
 
-
 class ManticoreFlatKernel(
     DimX: Int,
     DimY: Int,
@@ -545,6 +544,9 @@ object ManticoreKernelGenerator {
       Array(
         "--target-dir",
         hdl_dir.toAbsolutePath().toString(),
+        // MUST leave no-dedup for annotations to appear.
+        // https://github.com/chipsalliance/firrtl/issues/2168
+        "--no-dedup",
         "--emission-options=disableMemRandomization,disableRegisterRandomization"
       )
     )
@@ -576,8 +578,8 @@ object ManticoreKernelGenerator {
       writer.close()
     }
 
-    val xml_path   = {
-      val p = hdl_dir.resolve("kernel.xml")
+    val xml_path = {
+      val p       = hdl_dir.resolve("kernel.xml")
       val printer = new PrintWriter(p.toFile)
       printer.print(new scala.xml.PrettyPrinter(32, 2).format(AxiSlave.kernelXml))
       printer.close()
@@ -585,7 +587,7 @@ object ManticoreKernelGenerator {
     }
 
     val cppHeaderPath = {
-      val p = hdl_dir.resolve("register.hpp")
+      val p       = hdl_dir.resolve("register.hpp")
       val printer = new PrintWriter(p.toFile)
       printer.print(AxiSlave.header)
       printer.close()
