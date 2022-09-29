@@ -16,10 +16,9 @@ import manticore.machine.Helpers
 
 /// registers written by the host
 class HostRegisters extends Bundle {
-  val global_memory_instruction_base: UInt = UInt(64.W)
-  val value_change_symbol_table_base: UInt = UInt(64.W)
-  val value_change_log_base: UInt          = UInt(64.W)
   val schedule_config: UInt                = UInt(64.W)
+  val global_memory_instruction_base: UInt = UInt(64.W)
+  val trace_dump_base: UInt                = UInt(64.W)
   // |               schedule_config                  |
   // +------------------------------------------------+
   // |63            56|55                            0|
@@ -33,9 +32,10 @@ class HostRegisters extends Bundle {
 class DeviceRegisters extends Bundle {
   val virtual_cycles: UInt    = UInt(64.W)
   val bootloader_cycles: UInt = UInt(32.W) // for profiling
-  // val exception_id: Vec[UInt] = Vec(4, UInt(config.DataBits.W))
-  val exception_id: UInt     = UInt(32.W)
-  val execution_cycles: UInt = UInt(64.W)
+  val exception_id: UInt      = UInt(32.W)
+  val execution_cycles: UInt  = UInt(64.W)
+  val trace_dump_head: UInt   = UInt(64.W)
+  var device_info: UInt       = UInt(32.W)
 }
 
 class ManticoreFlatArrayInterface extends Bundle {
@@ -252,7 +252,7 @@ class ManticoreFlatArray(
 
   val controller =
     withClockAndReset(reset = io.reset, clock = io.control_clock) {
-      Module(new Management)
+      Module(new Management(dimx, dimy))
     }
 
   val memory_intercept = withClockAndReset(clock = io.control_clock, reset = io.reset) {

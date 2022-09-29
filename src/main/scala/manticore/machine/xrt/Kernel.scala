@@ -27,39 +27,10 @@ import manticore.machine.Helpers
 
 class MemoryPointers extends Bundle {
   val pointer_0: UInt = UInt(64.W)
-  val pointer_1: UInt = UInt(64.W)
-  val pointer_2: UInt = UInt(64.W)
-  val pointer_3: UInt = UInt(64.W)
+  // val pointer_1: UInt = UInt(64.W)
+
 }
 
-object KernelInfo {
-  case class KernelMemoryInterface(
-      name: String,
-      bundle: String,
-      width: Int = 256
-  ) {
-    def portName = name + "_" + bundle
-  }
-
-  case class KernelSlaveRegister(
-      id: Int,
-      name: String,
-      offset: Int,
-      cpp_type: String,
-      is_pointer: Boolean,
-      port_interface: String
-  ) {
-    def withId(new_id: Int) = KernelSlaveRegister(
-      new_id,
-      this.name,
-      this.offset,
-      this.cpp_type,
-      this.is_pointer,
-      this.port_interface
-    )
-
-  }
-}
 
 class ManticoreFlatKernel(
     DimX: Int,
@@ -102,7 +73,7 @@ class ManticoreFlatKernel(
   m_axi_bank_0_clock_crossing.s_axi_aresetn := clock_distribution.io.sync_rst_n
   m_axi_bank_0_clock_crossing.m_axi_aclk    := clock // connect to shell clock
   m_axi_bank_0_clock_crossing.m_axi_aresetn := reset_n
-  s_axi_clock_crossing.m_axi_aclk           := clock_distribution.io.compute_clock
+  s_axi_clock_crossing.m_axi_aclk           := clock_distribution.io.control_clock
   s_axi_clock_crossing.m_axi_resetn         := clock_distribution.io.sync_rst_n
   s_axi_clock_crossing.s_axi_aclk           := clock
   s_axi_clock_crossing.s_axi_resetn         := reset_n
@@ -605,10 +576,21 @@ object ManticoreKernelGenerator {
       writer.close()
     }
 
-    val xml_path   = hdl_dir.resolve("kernel.xml")
-    val xml_writer = Files.newBufferedWriter(hdl_dir.resolve("kernel.xml"))
-    xml_writer.write(scala.io.Source.fromResource("hls/kernel.xml").mkString)
-    xml_writer.close()
+    val xml_path   = {
+      val p = hdl_dir.resolve("kernel.xml")
+      val printer = new PrintWriter(p.toFile)
+      printer.print(new scala.xml.PrettyPrinter(32, 2).format(AxiSlave.kernelXml))
+      printer.close()
+      p
+    }
+
+    val cppHeaderPath = {
+      val p = hdl_dir.resolve("register.hpp")
+      val printer = new PrintWriter(p.toFile)
+      printer.print(AxiSlave.header)
+      printer.close()
+      p
+    }
 
     val ip_path = out_dir.resolve("ip_location")
     GenerateIPs(

@@ -9,6 +9,7 @@ lazy val root = (project in file("."))
     name := "manticore-machine",
     libraryDependencies ++= Seq(
       "edu.berkeley.cs" %% "chisel3" % chiselVersion,
+      "org.scala-lang.modules" %% "scala-xml" % "1.3.0",
       "com.github.scopt" %% "scopt" % "4.0.1", // cli arg parsing
       "com.google.ortools" % "ortools-java" % "9.3.10497", // for constraint solving
       "org.scalatest" %% "scalatest" % "3.2.9" % Test, // scala test
