@@ -71,7 +71,7 @@ class ManticoreFlatKernel(
   m_axi_bank_0_clock_crossing.s_axi_aresetn := clock_distribution.io.sync_rst_n
   m_axi_bank_0_clock_crossing.m_axi_aclk    := clock // connect to shell clock
   m_axi_bank_0_clock_crossing.m_axi_aresetn := reset_n
-  s_axi_clock_crossing.m_axi_aclk           := clock_distribution.io.compute_clock
+  s_axi_clock_crossing.m_axi_aclk           := clock_distribution.io.control_clock
   s_axi_clock_crossing.m_axi_resetn         := clock_distribution.io.sync_rst_n
   s_axi_clock_crossing.s_axi_aclk           := clock
   s_axi_clock_crossing.s_axi_resetn         := reset_n
@@ -517,7 +517,7 @@ object ManticoreKernelGenerator {
       printer.close()
       p
     }
-    
+
     val cppHeaderPath = {
       val p = hdl_dir.resolve("register.hpp")
       val printer = new PrintWriter(p.toFile)
