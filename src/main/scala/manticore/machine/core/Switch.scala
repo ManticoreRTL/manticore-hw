@@ -25,11 +25,12 @@ import chisel3.DontCare
 import firrtl.ir.Width
 import manticore.machine.ISA
 
+import manticore.machine.Helpers
+
 class BareNoCBundle(val config: ISA) extends Bundle {
   val data: UInt    = UInt(config.DataBits.W)
   val address: UInt = UInt(config.IdBits.W)
   val valid: Bool   = Bool()
-
 }
 
 /** A data and control bundle that traverses NoC hops
@@ -170,7 +171,7 @@ class SwitchInterface(DimX: Int, DimY: Int, config: ISA) extends Bundle {
   * @param DimY
   * @param config
   */
-class Switch(DimX: Int, DimY: Int, config: ISA, n_hop: Int = 2) extends Module {
+class Switch(DimX: Int, DimY: Int, config: ISA, n_hop: Int) extends Module {
   val io = IO(new SwitchInterface(DimX, DimY, config))
 
   val empty = Wire(NoCBundle(DimX, DimY, config))
@@ -181,6 +182,7 @@ class Switch(DimX: Int, DimY: Int, config: ISA, n_hop: Int = 2) extends Module {
     )
     pkt
   }
+
   val x_reg: NoCBundle   = mkPacketRegInit()
   val y_reg: NoCBundle   = mkPacketRegInit()
   val terminal_reg: Bool = RegInit(Bool(), false.B)
@@ -243,14 +245,10 @@ class Switch(DimX: Int, DimY: Int, config: ISA, n_hop: Int = 2) extends Module {
     }
   }
 
-  if (n_hop == 2) {
-    io.xOutput := RegNext(x_reg)
-    io.yOutput := RegNext(y_reg)
-  } else {
-    io.xOutput := x_reg
-    io.yOutput := y_reg
-  }
-  io.terminal := terminal_reg
+  // We subtract 1 as x_reg/y_reg/terminal_reg count as 1 hop.
+  io.xOutput  := Helpers.PipeWithStyle(x_reg, n_hop - 1)
+  io.yOutput  := Helpers.PipeWithStyle(y_reg, n_hop - 1)
+  io.terminal := Helpers.PipeWithStyle(terminal_reg, n_hop - 1)
 
 }
 
