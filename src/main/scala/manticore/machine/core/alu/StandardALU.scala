@@ -1,6 +1,7 @@
 package manticore.machine.core.alu
 
-import Chisel._
+import chisel3._
+import chisel3.util._
 import chisel3.stage.ChiselStage
 import chisel3.util.HasBlackBoxResource
 import manticore.machine.ISA
@@ -27,6 +28,7 @@ class ALUInterface(DATA_BITS: Int) extends Bundle {
 }
 
 class StandardALUComb(DATA_BITS: Int) extends Module {
+  require(DATA_BITS == 16)
   val io = IO(new ALUInterface(DATA_BITS = DATA_BITS))
 
   class AluDsp48(DATA_BITS: Int) extends BlackBox with HasBlackBoxResource {
@@ -36,7 +38,6 @@ class StandardALUComb(DATA_BITS: Int) extends Module {
       val clock     = Input(Clock())
       val in0       = Input(UInt(DATA_BITS.W))
       val in1       = Input(UInt(DATA_BITS.W))
-      val in2       = Input(UInt(DATA_BITS.W))
       val carryin   = Input(UInt(1.W))
       val opmode    = Input(UInt(9.W))
       val alumode   = Input(UInt(4.W))
@@ -44,34 +45,58 @@ class StandardALUComb(DATA_BITS: Int) extends Module {
       val out       = Output(UInt(DATA_BITS.W))
       val mul_out   = Output(UInt((2 * DATA_BITS).W))
       val carryout  = Output(UInt(1.W))
-      val valid_in  = Input(Bool())
-      val valid_out = Output(Bool())
     })
 
     addResource("/verilog/AluDsp48/AluDsp48.v")
   }
 
+  def Delayed[T <: Data](src: T, n: Int = 1): T = {
+    Seq.fill(n) { Reg(src.cloneType) }.foldLeft(src) { case (p, r) =>
+      r := p
+      r
+    }
+  }
   def RegNext2[T <: Data](src: T): T = {
     RegNext(RegNext(src))
   }
 
   val shamnt = Wire(UInt(log2Ceil(DATA_BITS).W))
 
-  val dsp         = Module(new AluDsp48(DATA_BITS))
-  val opmode      = Wire(UInt(9.W))
-  val alumode     = Wire(UInt(4.W))
-  val setinst     = Wire(UInt(2.W))
-  val without_dsp = Wire(Bool())
+  val dsp     = Module(new AluDsp48(DATA_BITS))
 
-  val alu_res   = Wire(UInt(DATA_BITS.W))
-  val shift_out = Wire(UInt(DATA_BITS.W))
+  val opmode  = WireDefault("b000110011".asUInt(9.W))
+  val alumode = WireDefault("b0000".asUInt(4.W))
+  val setinst = WireDefault(0.asUInt(2.W))
+  // val without_dsp = Wire(Bool())
 
-  without_dsp := (io.funct === ISA.Functs.SLL.id.U ||
-    io.funct === ISA.Functs.SRL.id.U ||
-    io.funct === ISA.Functs.SRA.id.U ||
-    io.funct === ISA.Functs.MUX.id.U).asBool
+
+  val without_dsp = Delayed(
+    (io.funct === ISA.Functs.SLL.id.U ||
+      io.funct === ISA.Functs.SRL.id.U ||
+      io.funct === ISA.Functs.SRA.id.U ||
+      io.funct === ISA.Functs.MUX.id.U).asBool,
+    3
+  ).suggestName("without_dsp")
 
   shamnt := io.in.y(log2Ceil(DATA_BITS) - 1, 0)
+  val srl_res = RegNext(io.in.x >> shamnt)
+  val sra_res = RegNext(io.in.x.asSInt >> shamnt).asUInt
+  val sll_res = RegNext(io.in.x << shamnt)
+  val mux_res = RegNext(Mux(io.in.select, io.in.y, io.in.x))
+  val no_dsp_res =
+    Delayed(
+      MuxLookup(
+        RegNext(io.funct),
+        0.U,
+        List(
+          ISA.Functs.SLL.id.U -> sll_res,
+          ISA.Functs.SRA.id.U -> sra_res,
+          ISA.Functs.SRL.id.U -> (srl_res & RegNext(io.in.mask)),
+          ISA.Functs.MUX.id.U -> mux_res
+        )
+      ),
+      2
+    ).suggestName("no_dsp_res")
 
   //                 | OPMODE[8:0] | ALUMODE[3:0] | Notes
   //   --------------|-------------|--------------|------------------------------
@@ -154,50 +179,41 @@ class StandardALUComb(DATA_BITS: Int) extends Module {
 
     // The shift and mux operations are calculated without DSP
     is(ISA.Functs.SLL.id.U) {
-      shift_out := io.in.x << shamnt
+      // shift_out := Delayed(io.in.x << shamnt, 3).suggestName("sll_out")
     }
     is(ISA.Functs.SRL.id.U) {
-      shift_out := io.in.x >> shamnt
+      // shift_out := Delayed(io.in.x >> shamnt, 3).suggestName("srl_out")
     }
     is(ISA.Functs.SRA.id.U) {
-      shift_out := (io.in.x.asSInt >> shamnt).asUInt
+      // shift_out := Delayed((io.in.x.asSInt >> shamnt).asUInt, 3).suggestName("sra_out")
     }
     is(ISA.Functs.MUX.id.U) {
-      when(io.in.select) {
-        shift_out := io.in.y
-      } otherwise {
-        shift_out := io.in.x
-      }
+      // shift_out := Delayed(Mux(io.in.select, io.in.y, io.in.x), 3).suggestName("mux_out")
+
     }
   }
 
-  dsp.io.clock    := clock
-  dsp.io.in0      := io.in.x
-  dsp.io.in1      := io.in.y
-  dsp.io.in2      := io.in.x // Only used for MUL
+  dsp.io.clock := clock
+  dsp.io.in0   := io.in.x
+  dsp.io.in1   := io.in.y
+
   dsp.io.carryin  := io.in.carry
   dsp.io.opmode   := opmode
   dsp.io.alumode  := alumode
   dsp.io.setinst  := setinst
-  dsp.io.valid_in := io.valid_in
 
-  when(!RegNext2(without_dsp)) {
-    alu_res := dsp.io.out
-  } otherwise {
-    alu_res := RegNext2(shift_out)
-  }
+  io.out := Mux(without_dsp, no_dsp_res, dsp.io.out)
 
-  // The mask is used for instructions like slices.
-  io.out       := RegNext(alu_res & RegNext2(io.in.mask))
   io.mul_out   := dsp.io.mul_out
-  io.carry_out := RegNext(dsp.io.carryout)
-  io.valid_out := dsp.io.valid_out
+  io.carry_out := dsp.io.carryout
+
+  io.valid_out := Delayed(io.valid_in, 3) // used outside to select the mul result, should be removed
 
 }
 
 object StandardALUGenerator extends App {
 
   new ChiselStage()
-    .emitVerilog(new StandardALUComb(4), Array("--target-dir", "gen-dir"))
+    .emitVerilog(new StandardALUComb(16), Array("--target-dir", "gen-dir/alu_test"))
 
 }

@@ -16,10 +16,10 @@
 //         ```
 //         When not using the first stage multiplier, the 48-bit, dual input, bit-wise logic function
 //         implements AND, OR, NOT, NAND, NOR, XOR, and XNOR. The inputs to these functions are:
-//         • All 0s on the W multiplexer
-//         • A:B or P on the X multiplexer
-//         • Either all 1s or all 0s on the Y multiplexer depending on logic operation
-//         • Either C, P, or PCIN on the Z multiplexer.
+//         ? All 0s on the W multiplexer
+//         ? A:B or P on the X multiplexer
+//         ? Either all 1s or all 0s on the Y multiplexer depending on logic operation
+//         ? Either C, P, or PCIN on the Z multiplexer.
 //         ```
 //     From the above I see that:
 //     - W should always output 0, so OPMODE[8:7] = 00
@@ -29,7 +29,18 @@
 //       - We can set C[47:16] = 0, C[15:0] = arg2
 //
 // - Final table of control signals:
-//   INMODE[4:0]     = 10001 (selects A1 and B1 when configuring AREG(1) and BREG(1))
+//   INMODE[4:0]     = 11100
+//   INMODE[4]       = 1 select B1 for BMULT // use B2 for BMUX, i.e. BREG = 2
+//   INMODE[3]       = 1 select A1 to be routed to PREADDINSEL mux
+//   INMODE[2]       = 1 not to zero out D which is fed to BMULT
+//   INMODE[1]       = 0 not to zero out B1 (requires tying A to zero)
+//   INMODE[0]       = 0 to add D and A1, but since A1 is tied to zero the result is D
+//   These configurations enable us to perform B1*D which takes a total of 3 cycles with MREG=1
+//   For ALU opertaions we set BREG=2 and AREG=2 to for A:B as one of the ALU operands. The extra delay is due
+//   to the lack of MREG before the multiplexer stage. The second operand comes from the C input, which can only
+//   have a single internal register (CREG=1). Therefore, we manually insert and extra one outside.
+//   Likewise the ALUMODE and OPMODE inputs need extra registers outside.
+//
 //   CARRYINSEL[2:0] = 000   (always selects carry-in signal)
 //   ```
 //                 | OPMODE[8:0] | ALUMODE[3:0] | Notes
@@ -42,7 +53,7 @@
 //   add(b,c)      |  000110011  |     0000     | ug579 pg 30, 32 // W = 0, X = A:B, Y = 0, Z = C // P = Z + W + X + Y + CIN
 //   addc(b,c,cin) |  000110011  |     0000     | ug579 pg 30, 32 // W = 0, X = A:B, Y = 0, Z = C // P = Z + W + X + Y + CIN
 //   sub(b,c)      |  000110011  |     0011     | ug579 pg 30, 32 // W = 0, X = A:B, Y = 0, Z = C // P = Z - (W + X + Y + CIN)
-//   mul(a,b)      |  000000101  |     0000     | ug579 pg 29     // W = 0, X = M  , Y = M, Z = 0 // P = X * Y                 
+//   mul(a,b)      |  000000101  |     0000     | ug579 pg 29     // W = 0, X = M  , Y = M, Z = 0 // P = X * Y
 //                 |             |              | (ALUMODE does not matter and we set it to ADD)
 //   seq(b,c)      |  000110011  |     0011     | // Use subtraction. External circuit detects comparison result.
 //   sltu(b,c)     |  000110011  |     0011     | // Use subtraction. External circuit detects comparison result.
@@ -54,47 +65,40 @@ module AluDsp48 (
   input               clock,
   input  [16 - 1 : 0] in0, // C
   input  [16 - 1 : 0] in1, // B
-  input  [16 - 1 : 0] in2, // A (only for MUL)
   input               carryin,
   input   [9 - 1 : 0] opmode,
   input   [4 - 1 : 0] alumode,
-  input   [2 - 1 : 0] setinst, 
+  input   [2 - 1 : 0] setinst,
   // 0: non-set instruction
   // 1: SEQ instruction
   // 2: SLTU instruction
   // 3: SLTS instruction
   output [16 - 1 : 0] out,
   output [32 - 1 : 0] mul_out, // multiplication has wider bit width than others
-  output              carryout,
-  // These ports are here to indicate the validity of MUL operation
-  input               valid_in,
-  output              valid_out
+  output              carryout
 );
 
-  // Pipeline signal for validity of MUL
-  reg valid_reg1, valid_reg2, valid_reg3;
-  assign valid_out = valid_reg3;
-  always @(posedge clock) begin
-    valid_reg1 <= valid_in;
-    valid_reg2 <= valid_reg1;
-    valid_reg3 <= valid_reg2;
-  end
 
 `ifdef VERILATOR
 
-  reg [16 - 1 : 0] res_reg1, res_reg2;
+
+
+
+
+  reg [16 - 1 : 0] res_reg1, res_reg2, res_reg3;
   reg [32 - 1 : 0] prod_reg1, prod_reg2, prod_reg3;
-  reg carry_reg1, carry_reg2;
+  reg carry_reg1, carry_reg2, carry_reg3;
   wire [16 - 1 : 0] result;
   wire [32 - 1 : 0] result_mul;
   wire signed [16 - 1 : 0] in0s, in1s;
   wire [16 : 0] sum;
 
-  assign out = res_reg2;
+  assign out = res_reg3;
   assign mul_out = prod_reg3;
+  assign carryout = carry_reg3;
   assign in0s = in0;
   assign in1s = in1;
-  assign result = 
+  assign result =
     (opmode == 9'b000110011 && alumode == 4'b1100) ? in0 & in1 :
     (opmode == 9'b000111011 && alumode == 4'b1100) ? in0 | in1 :
     (opmode == 9'b000110011 && alumode == 4'b0100) ? in0 ^ in1 :
@@ -103,16 +107,18 @@ module AluDsp48 (
     (setinst == 2'b10) ? {15'b0, in0 < in1} :
     (setinst == 2'b11) ? {15'b0, in0s < in1s} :
     in0 - in1; // opmode == 9'b000110011 && alumode == 4'b0011
-  assign result_mul = in1 * in2;
+  assign result_mul = in1 * in0;
   assign sum = in0 + in1 + carryin;
-  assign carryout = carry_reg2;
   always @(posedge clock) begin
     // Extend to 32 bits to ensure full-precision multiplication result.
     res_reg1 <= result;
     res_reg2 <= res_reg1;
+    res_reg3 <= res_reg2;
 
     carry_reg1 <= sum[16];
     carry_reg2 <= carry_reg1;
+    carry_reg3 <= carry_reg2;
+
 
     prod_reg1 <= result_mul;
     prod_reg2 <= prod_reg1;
@@ -120,55 +126,73 @@ module AluDsp48 (
   end
 
 `else
-  wire [18 - 1 : 0] b_in;
-  wire [48 - 1 : 0] c_in;
-  wire [30 - 1 : 0] a_in;
+
+
+  reg [9 - 1 : 0] opmode_reg;
+  reg [4 - 1 : 0] alumode_reg;
+  reg [16 - 1 : 0] c_extra_reg;
+  reg [1 - 1 : 0] carryin_extra_reg;
+  reg [2 - 1 : 0] setinst_reg0, setinst_reg1, setinst_reg2;
+
+  reg             in0_neg_in1_pos, in0_neg_in1_pos_reg1, in0_neg_in1_pos_reg2;
+  reg             in0_in1_diff_sign, in0_in1_diff_sign_reg1, in0_in1_diff_sign_reg2;
+
   wire [48 - 1 : 0] p_out;
-  wire  [4 - 1 : 0] carryout4;
   wire              ismatch;
-  wire              res_slts; 
-  reg               carryin_reg; 
-  reg               in0msb_reg0, in0msb_reg1, in0msb_reg2;
-  reg               in1msb_reg0, in1msb_reg1, in1msb_reg2;
+  wire              res_slts;
 
-  assign a_in = {14'b0, in2};
-  assign b_in = { 2'b0, in1};
-  assign c_in = {32'b0, in0};
+  always @(posedge clock) begin
+    opmode_reg <= opmode;
+    alumode_reg <= alumode;
+    c_extra_reg <= in0; // c_in needs an extra reg to balance the ALU and MUL operations
+    carryin_extra_reg <= carryin;
 
-  assign out = 
-    setinst == 2'b00 ? p_out[16 - 1 : 0]  : // non-set inst
-    setinst == 2'b01 ? {15'b0, ismatch}   : // SEQ
-    setinst == 2'b10 ? {15'b0, p_out[47]} : // SLTU
-    {15'b0, res_slts};                      // SLTS
+
+    setinst_reg0 <=  setinst;
+    setinst_reg1 <= setinst_reg0;
+    setinst_reg2 <= setinst_reg1;
+
+
+    in0_neg_in1_pos <= in0[15] & !in1[15];
+    in0_in1_diff_sign <= !in0[15] ^ in1[15];
+
+    in0_neg_in1_pos_reg1 <= in0_neg_in1_pos;
+    in0_neg_in1_pos_reg2 <= in0_neg_in1_pos_reg1;
+
+    in0_in1_diff_sign_reg1 <= in0_in1_diff_sign;
+    in0_in1_diff_sign_reg2 <= in0_in1_diff_sign_reg1;
+
+
+  end
+
+  assign res_slts = in0_neg_in1_pos_reg2 | (p_out[15] & in0_in1_diff_sign_reg2);
+
+  // random values will change the result of non-mul so the
+  // alu module should make sure in2 is zero if not MULH or MUL
+  wire [18 - 1 : 0] b_in = {2'b0, in1};
+  wire [48 - 1 : 0] c_in = {32'b0, c_extra_reg};
+  wire [30 - 1 : 0] a_in = 0;
+  wire [27 - 1 : 0] d_in = {11'b0, in0};
+
+
+  assign out =
+    setinst_reg2 == 2'b00 ? p_out[16 - 1 : 0]  : // non-set inst
+    setinst_reg2 == 2'b01 ? {15'b0, ismatch}   : // SEQ
+    setinst_reg2 == 2'b10 ? {15'b0, p_out[47]} : // SLTU
+    {15'b0, res_slts};;
+
+
+
   assign mul_out = p_out[32 - 1 : 0];
   assign carryout = p_out[16];
-  assign res_slts = 
-    (in0msb_reg2 & !in1msb_reg2) | 
-    (p_out[15] & (!in0msb_reg2 ^ in1msb_reg2));
-  // condition to be in0 < in1 (signed)
 
-  always @(posedge clock) begin 
-    carryin_reg <= carryin;
-    // The CARRYIN of DSP48E2 should have two cycle latency when the 
-    // CARRYINREG and PREG are enabled. However, our observation with 
-    // Vivado simulation suggests that CARRYINREG is not used even if 
-    // the associated attribute and input (CECARRYIN) are set to 1, 
-    // making the CARRYIN signal inconsistent with operands of addition
-    // (B and C in our case) in terms of timing.
-    // As a way around, we add a register outside the DSP.
 
-    in0msb_reg0 <= in0[15];
-    in0msb_reg1 <= in0msb_reg0;
-    in0msb_reg2 <= in0msb_reg1;
 
-    in1msb_reg0 <= in1[15];
-    in1msb_reg1 <= in1msb_reg0;
-    in1msb_reg2 <= in1msb_reg1;
-  end
+
 
   DSP48E2 #(
     // Feature Control Attributes: Data Path Selection
-    .AMULTSEL("A"),                    // Selects A input to multiplier (A, AD)
+    .AMULTSEL("AD"),                   // Selects A input to multiplier (A, AD)
     .A_INPUT("DIRECT"),                // Selects A input source, "DIRECT" (A port) or "CASCADE" (ACIN port)
     .BMULTSEL("B"),                    // Selects B input to multiplier (AD, B)
     .B_INPUT("DIRECT"),                // Selects B input source, "DIRECT" (B port) or "CASCADE" (BCIN port)
@@ -206,13 +230,13 @@ module AluDsp48 (
     .ACASCREG(1),                      // Number of pipeline stages between A/ACIN and ACOUT (0-2)
     .ADREG(0),                         // Pipeline stages for pre-adder (0-1)
     .ALUMODEREG(1),                    // Pipeline stages for ALUMODE (0-1)
-    .AREG(1),                          // Pipeline stages for A (0-2)
+    .AREG(2),                          // Pipeline stages for A (0-2)
     .BCASCREG(1),                      // Number of pipeline stages between B/BCIN and BCOUT (0-2)
-    .BREG(1),                          // Pipeline stages for B (0-2)
+    .BREG(2),                          // Pipeline stages for B (0-2)
     .CARRYINREG(1),                    // Pipeline stages for CARRYIN (0-1)
     .CARRYINSELREG(1),                 // Pipeline stages for CARRYINSEL (0-1)
     .CREG(1),                          // Pipeline stages for C (0-1)
-    .DREG(0),                          // Pipeline stages for D (0-1)
+    .DREG(1),                          // Pipeline stages for D (0-1)
     .INMODEREG(0),                     // Pipeline stages for INMODE (0-1)
     .MREG(1),                          // Multiplier pipeline stages (0-1)
     .OPMODEREG(1),                     // Pipeline stages for OPMODE (0-1)
@@ -231,7 +255,7 @@ module AluDsp48 (
     .PATTERNDETECT(ismatch),           // 1-bit output: Pattern detect
     .UNDERFLOW(),                      // 1-bit output: Underflow in add/acc
     // Data outputs: Data Ports
-    .CARRYOUT(carryout4),              // 4-bit output: Carry
+    .CARRYOUT(),                       // 4-bit output: Carry
     .P(p_out),                         // 48-bit output: Primary data
     .XOROUT(),                         // 8-bit output: XOR data
     // Cascade inputs: Cascade Ports
@@ -241,17 +265,17 @@ module AluDsp48 (
     .MULTSIGNIN(1'b0),                 // 1-bit input: Multiplier sign cascade
     .PCIN(48'b0),                      // 48-bit input: P cascade
     // Control inputs: Control Inputs/Status Bits
-    .ALUMODE(alumode),                 // 4-bit input: ALU control
+    .ALUMODE(alumode_reg),             // 4-bit input: ALU control
     .CARRYINSEL(3'b000),               // 3-bit input: Carry select
     .CLK(clock),                       // 1-bit input: Clock
-    .INMODE(5'b10001),                 // 5-bit input: INMODE control
-    .OPMODE(opmode),                   // 9-bit input: Operation mode
+    .INMODE(5'b11100),                 // 5-bit input: INMODE control
+    .OPMODE(opmode_reg),               // 9-bit input: Operation mode
     // Data inputs: Data Ports
     .A(a_in),                          // 30-bit input: A data
     .B(b_in),                          // 18-bit input: B data
     .C(c_in),                          // 48-bit input: C data
-    .CARRYIN(carryin_reg),             // 1-bit input: Carry-in
-    .D(27'b0),                         // 27-bit input: D data
+    .CARRYIN(carryin_extra_reg),       // 1-bit input: Carry-in
+    .D(d_in),                          // 27-bit input: D data
     // Reset/Clock Enable inputs: Reset/Clock Enable Inputs
     .CEA1(1'b1),                       // 1-bit input: Clock enable for 1st stage AREG
     .CEA2(1'b1),                       // 1-bit input: Clock enable for 2nd stage AREG
