@@ -507,7 +507,10 @@ object ManticoreKernelGenerator {
         freqMhz = freqMhz,
         n_hop = n_hop
       ),
-      Array("--target-dir", hdl_dir.toAbsolutePath().toString())
+      Array(
+        "--target-dir", hdl_dir.toAbsolutePath().toString(),
+        "--emission-options=disableMemRandomization,disableRegisterRandomization"
+      )
     )
 
     val xml_path   = {
