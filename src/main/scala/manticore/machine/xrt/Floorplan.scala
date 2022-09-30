@@ -277,7 +277,8 @@ trait Floorplan {
     Seq(
       getPblockConstrains(dimX, dimY),
       getPrivilegedAreaConstraints(),
-      getClockConstraints()
+      getClockConstraints(),
+      getCustomConstraints().getOrElse("")
       // getSlrCrossingConstraints()
     ).mkString("\n")
   }
@@ -289,6 +290,7 @@ trait Floorplan {
   def getManticoreKernelInstName(): String
   def getCoreToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, Pblock]
   def getSwitchToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, Pblock]
+  def getCustomConstraints(): Option[String] = None
 }
 
 trait Pblock {

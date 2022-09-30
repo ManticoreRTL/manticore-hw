@@ -523,5 +523,11 @@ object U200FloorplanImpl {
 
       torusToPblock.toMap
     }
+
+    // override def getCustomConstraints(): Option[String] = {
+    //   s"""
+    //   set_property loc ctrl_buf BUFGCE_X0Y168
+    //   """
+    // }
   }
 }
