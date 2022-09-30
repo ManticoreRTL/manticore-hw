@@ -13,7 +13,11 @@ object Coordinates {
 trait Floorplan {
   import Coordinates._
 
-  def getProcessorCellName(x: Int, y: Int): String = {
+  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  /////////////////////////////////////////////////////// NAMES ////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  def procCellName(x: Int, y: Int): String = {
     // We explicitly do not consider the registers in the ProcessorWithSendPipe as part of the "core" since we
     // want vivado to have freedom to place them where it wants. Hence why we see "/processor" and don't just stop
     // at "/core_x_y".
@@ -21,7 +25,7 @@ trait Floorplan {
   }
 
   // The auxiliary circuitry that should be placed near the core at position x<x>y<y>.
-  def getCoreAuxiliaryCellNames(x: Int, y: Int): Seq[String] = {
+  def procAuxiliaryCellNames(x: Int, y: Int): Seq[String] = {
     if (x == 0 && y == 0) {
       Seq(
         s"${getManticoreKernelInstName()}/axi_cache",
@@ -37,13 +41,37 @@ trait Floorplan {
     }
   }
 
-  def getClockDistributionName(): String = {
+  def clockDistributionCellName(): String = {
     s"${getManticoreKernelInstName()}/clock_distribution"
   }
 
-  def getSwitchCellName(x: Int, y: Int): String = {
+  def switchCellName(x: Int, y: Int): String = {
     s"${getManticoreKernelInstName()}/manticore/compute_array/switch_${x}_${y}"
   }
+
+  def sendRecvPipeCellName(x: Int, y: Int): String = {
+    s"${getManticoreKernelInstName()}/manticore/compute_array/core_${x}_${y}/sendRecvPipe"
+  }
+
+  object ProcessorToSwitch {
+    def cellName(x: Int, y: Int): String                      = s"${sendRecvPipeCellName(x, y)}/procToSwitchPipe"
+    def procSideCellName(x: Int, y: Int): String              = s"${cellName(x, y)}/procSide_pipe"
+    def slrCrossingProcSideCellName(x: Int, y: Int): String   = s"${cellName(x, y)}/slrCrossingProcSide_pipe"
+    def slrCrossingSwitchSideCellName(x: Int, y: Int): String = s"${cellName(x, y)}/slrCrossingSwitchSide_pipe"
+    def switchSideCellName(x: Int, y: Int): String            = s"${cellName(x, y)}/switchSide_pipe"
+  }
+
+  object SwitchToProcessor {
+    def cellName(x: Int, y: Int): String                      = s"${sendRecvPipeCellName(x, y)}/switchToProcPipe"
+    def switchSideCellName(x: Int, y: Int): String            = s"${cellName(x, y)}/switchSide_pipe"
+    def slrCrossingSwitchSideCellName(x: Int, y: Int): String = s"${cellName(x, y)}/slrCrossingSwitchSide_pipe"
+    def slrCrossingProcSideCellName(x: Int, y: Int): String   = s"${cellName(x, y)}/slrCrossingProcSide_pipe"
+    def procSideCellName(x: Int, y: Int): String              = s"${cellName(x, y)}/procSide_pipe"
+  }
+
+  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  ////////////////////////////////////////////////////// Geometry //////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   // Mapping from an abstract position on a 2D grid to a Core in a torus network.
   // This generates the torus network coordinates at the appropriate place in
@@ -150,6 +178,10 @@ trait Floorplan {
     anchoredMapping
   }
 
+  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////// Constraints /////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
   def getPblockConstrains(dimX: Int, dimY: Int): String = {
     val pblockCells = MMap.empty[Pblock, Seq[String]].withDefaultValue(Seq.empty)
 
@@ -166,7 +198,7 @@ trait Floorplan {
         val cells = cores.toSeq
           .sortBy(core => (core.y, core.x))
           .map { core =>
-            val coreCell = getProcessorCellName(core.x, core.y)
+            val coreCell = procCellName(core.x, core.y)
             coreCell
           }
 
@@ -183,7 +215,7 @@ trait Floorplan {
         val cells = switch.toSeq
           .sortBy(core => (core.y, core.x))
           .map { switch =>
-            val switchCell = getSwitchCellName(switch.x, switch.y)
+            val switchCell = switchCellName(switch.x, switch.y)
             switchCell
           }
 
@@ -213,7 +245,7 @@ trait Floorplan {
     val rootClockRegion = getRootClock()
 
     val pblock = ClockDistributionPblock(rootClockRegion).toTcl(
-      Seq(getClockDistributionName())
+      Seq(clockDistributionCellName())
     )
 
     // No need to set wiz/inst/clk_out1 as a root clock as it is not driven by a global clock buffer (the output of the
@@ -225,7 +257,7 @@ trait Floorplan {
     // val clockWizardClockOutNetName = s"${getClockDistributionName()}/wiz/inst/clk_out1"
 
     // Vivado renamed this wire from clock_distribution/clock_distribution_control_clock"!
-    val controlClockNetName = s"${getClockDistributionName()}/CLK"
+    val controlClockNetName = s"${clockDistributionCellName()}/CLK"
     // val computeClockNetName = s"${getClockDistributionName()}/clock_distribution_compute_clock"
 
     val netsStr = Seq(
@@ -263,7 +295,7 @@ trait Floorplan {
     }
 
     val constraints = PrivilegedAreaPblock(privilegedClockRegions).toTcl(
-      Seq(getProcessorCellName(0, 0)) ++ Seq(getSwitchCellName(0, 0)) ++ getCoreAuxiliaryCellNames(0, 0)
+      Seq(procCellName(0, 0)) ++ Seq(switchCellName(0, 0)) ++ procAuxiliaryCellNames(0, 0)
     )
 
     constraints
@@ -278,7 +310,7 @@ trait Floorplan {
       getPblockConstrains(dimX, dimY),
       getPrivilegedAreaConstraints(),
       getClockConstraints(),
-      getCustomConstraints().getOrElse("")
+      getCustomConstraints(dimX, dimY).getOrElse("")
       // getSlrCrossingConstraints()
     ).mkString("\n")
   }
@@ -290,7 +322,7 @@ trait Floorplan {
   def getManticoreKernelInstName(): String
   def getCoreToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, Pblock]
   def getSwitchToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, Pblock]
-  def getCustomConstraints(): Option[String] = None
+  def getCustomConstraints(dimX: Int, dimY: Int): Option[String] = None
 }
 
 trait Pblock {

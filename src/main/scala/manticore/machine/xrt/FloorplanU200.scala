@@ -1,6 +1,7 @@
 package manticore.machine.xrt
 
 import collection.mutable.{Map => MMap}
+import scala.collection.mutable.ArrayBuffer
 
 trait U200Floorplan extends Floorplan {
   def getManticoreKernelInstName(): String = "level0_i/ulp/ManticoreKernel_1/inst"
@@ -524,10 +525,59 @@ object U200FloorplanImpl {
       torusToPblock.toMap
     }
 
-    // override def getCustomConstraints(): Option[String] = {
-    //   s"""
-    //   set_property loc ctrl_buf BUFGCE_X0Y168
-    //   """
-    // }
+    override def getCustomConstraints(dimX: Int, dimY: Int): Option[String] = {
+      val constraints = ArrayBuffer.empty[String]
+
+      val corePblock   = getCoreToPblockMap(dimY, dimY)
+      val switchPblock = getSwitchToPblockMap(dimX, dimY)
+
+      // We want to place the send/recv pipe registers such that:
+      // (1) The processor-side pipe is in the same SLR as the processor.
+      // (2) The SLR-crossing pipe has one register in the processor SLR and the other in the switch SLR.
+      // (3) The switch-side pipe is in the same SLR as the switch.
+
+      val privilegedCore   = TorusLoc(0, 0)
+      val privilegedSwitch = TorusLoc(0, 0)
+
+      corePblock.toSeq
+        .sortBy { case (core, cPblock) =>
+          (core.y, core.x)
+        }
+        .foreach { case (core, cPblock) =>
+          val sPblock = switchPblock(core)
+
+          // The privileged core is placed in SLR1, so we must not place its SendRecv pipe registers across the SLR. They
+          // must stay in SLR1.
+          if (core != privilegedCore) {
+
+            // (1) The processor-side pipe is in the same SLR as the processor.
+            // (2) The SLR-crossing pipe has one register in the processor SLR and the other in the switch SLR.
+            val procSideCells = Seq(
+              ProcessorToSwitch.procSideCellName(core.x, core.y),
+              ProcessorToSwitch.slrCrossingProcSideCellName(core.x, core.y),
+              SwitchToProcessor.procSideCellName(core.x, core.y),
+              SwitchToProcessor.slrCrossingProcSideCellName(core.x, core.y)
+            )
+            procSideCells.foreach { cell =>
+              constraints += s"add_cells_to_pblock ${cPblock.name} [get_cells ${cell}]"
+            }
+
+            // (3) The switch-side pipe is in the same SLR as the switch.
+            // (2) The SLR-crossing pipe has one register in the processor SLR and the other in the switch SLR.
+            val switchSideCells = Seq(
+              ProcessorToSwitch.switchSideCellName(core.x, core.y),
+              ProcessorToSwitch.slrCrossingSwitchSideCellName(core.x, core.y),
+              SwitchToProcessor.switchSideCellName(core.x, core.y),
+              SwitchToProcessor.slrCrossingSwitchSideCellName(core.x, core.y)
+            )
+            switchSideCells.foreach { cell =>
+              constraints += s"add_cells_to_pblock ${sPblock.name} [get_cells ${cell}]"
+            }
+
+          }
+        }
+
+      Some(constraints.mkString("\n"))
+    }
   }
 }

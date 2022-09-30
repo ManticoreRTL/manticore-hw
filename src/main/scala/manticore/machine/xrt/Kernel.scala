@@ -556,7 +556,7 @@ object ManticoreKernelGenerator {
       .split("\n")
       .map { line =>
         val pattern = new Regex(
-          """(\s*)(Processor(_\d+)?\s+processor|Switch(_\d+)?\s+switch_\d+_\d+)""",
+          """(\s*)(Processor(_\d+)?\s+processor|Switch(_\d+)?\s+switch_\d+_\d+|WrappedPipeWithStyle(_\d+)?\s+\w+pipe)""",
           "indent"
         )
         pattern.findFirstMatchIn(line) match {

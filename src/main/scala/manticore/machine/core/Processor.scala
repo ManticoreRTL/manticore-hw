@@ -133,10 +133,11 @@ class SendRecvPipe(
       val srlStyle = Helpers.SrlStyle.RegSrl
       io.to_switch := Helpers.InlinePipeWithStyle(io.from_proc, latency, srlStyle)
     } else {
-      val srlStyle    = Helpers.SrlStyle.Reg
-      val procSide    = Helpers.WrappedPipeWithStyle(io.from_proc, procSideLatency, srlStyle)
-      val slrCrossing = Helpers.WrappedPipeWithStyle(procSide, slrCrossingLatency, srlStyle)
-      val switchSide  = Helpers.WrappedPipeWithStyle(slrCrossing, switchSideLatency, srlStyle)
+      val srlStyle              = Helpers.SrlStyle.Reg
+      val procSide              = Helpers.WrappedPipeWithStyle(io.from_proc, procSideLatency, srlStyle)
+      val slrCrossingProcSide   = Helpers.WrappedPipeWithStyle(procSide, 1, srlStyle)
+      val slrCrossingSwitchSide = Helpers.WrappedPipeWithStyle(slrCrossingProcSide, 1, srlStyle)
+      val switchSide            = Helpers.WrappedPipeWithStyle(slrCrossingSwitchSide, switchSideLatency, srlStyle)
       io.to_switch := switchSide
     }
   }
@@ -153,10 +154,11 @@ class SendRecvPipe(
       val srlStyle = Helpers.SrlStyle.RegSrl
       io.to_proc := Helpers.InlinePipeWithStyle(io.from_switch, latency, srlStyle)
     } else {
-      val srlStyle    = Helpers.SrlStyle.Reg
-      val switchSide  = Helpers.WrappedPipeWithStyle(io.from_switch, switchSideLatency, srlStyle)
-      val slrCrossing = Helpers.WrappedPipeWithStyle(switchSide, slrCrossingLatency, srlStyle)
-      val procSide    = Helpers.WrappedPipeWithStyle(slrCrossing, procSideLatency, srlStyle)
+      val srlStyle              = Helpers.SrlStyle.Reg
+      val switchSide            = Helpers.WrappedPipeWithStyle(io.from_switch, switchSideLatency, srlStyle)
+      val slrCrossingSwitchSide = Helpers.WrappedPipeWithStyle(switchSide, 1, srlStyle)
+      val slrCrossingProcSide   = Helpers.WrappedPipeWithStyle(slrCrossingSwitchSide, 1, srlStyle)
+      val procSide              = Helpers.WrappedPipeWithStyle(slrCrossingProcSide, procSideLatency, srlStyle)
       io.to_proc := procSide
     }
   }
