@@ -1,19 +1,17 @@
-package manticore.machine.pipeline
+package manticore.machine.memory
 
 import chisel3._
 import chiseltest._
-import manticore.machine.core.alu.CustomAlu
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import sys.process._
 import java.nio.file.Path
 import chisel3.stage.ChiselStage
-import manticore.machine.core.alu.StandardALUComb
 import java.io.PrintWriter
 import java.nio.file.Paths
 import java.nio.file.Files
 
-class StandardALUTester extends AnyFlatSpec with ChiselScalatestTester {
+class URAMRealTester extends AnyFlatSpec with ChiselScalatestTester {
 
   behavior of "ALU"
 
@@ -23,8 +21,15 @@ class StandardALUTester extends AnyFlatSpec with ChiselScalatestTester {
 
     Files.createDirectories(runDir)
 
-    // generate the ALU code
-    new ChiselStage().emitSystemVerilog(new StandardALUComb(16), Array("-td", runDir.toAbsolutePath.toString))
+    // generate the Verilog code
+    new ChiselStage().emitSystemVerilog(
+      new SimpleDualPortMemory(
+        ADDRESS_WIDTH = 14,
+        DATA_WIDTH = 16,
+        STYLE = MemStyle.URAMReal
+      ),
+      Array("-td", runDir.toAbsolutePath.toString)
+    )
     def dumpFile(name: String, content: String): Path = {
       val fp     = runDir.resolve(name)
       val writer = new PrintWriter(fp.toFile)
@@ -32,7 +37,7 @@ class StandardALUTester extends AnyFlatSpec with ChiselScalatestTester {
       writer.close()
       fp
     }
-    dumpFile("Testbench.sv", scala.io.Source.fromResource("Dsp48/Testbench.sv").getLines().mkString("\n"))
+    dumpFile("Testbench.sv", scala.io.Source.fromResource("URAMReal/Testbench.sv").getLines().mkString("\n"))
     dumpFile(
       "sim.tcl",
       s"""|run -all
@@ -41,7 +46,7 @@ class StandardALUTester extends AnyFlatSpec with ChiselScalatestTester {
     )
 
     val xVLogCmd =
-      List("xvlog", "--sv", "AluDsp48.v", "StandardALUComb.sv", "Testbench.sv", "-L", "unisim") ++ extraDefs.flatMap {
+      List("xvlog", "--sv", "URAMReal.v", "SimpleDualPortMemory.sv", "Testbench.sv", "-L", "unisim") ++ extraDefs.flatMap {
         List("-d", _)
       }
     val xElabCmd = List("xelab", "-debug", "typical", "Testbench", "-s", "Testbench_snapshot", "-L", "unisim")
@@ -74,15 +79,19 @@ class StandardALUTester extends AnyFlatSpec with ChiselScalatestTester {
     }
 
   }
-  "ALU functional model" should "behave as expected" in {
+//   "ALU functional model" should "behave as expected" in {
 
-    // "DUMP_ON"
-    // runTestbench(getTestName, Seq("VERILATOR", "TEST_SIZE=5000", "DUMP_ON"))
-    runTestbench(getTestName, Seq("VERILATOR", "TEST_SIZE=40000"))
+//     // "DUMP_ON"
+//     // runTestbench(getTestName, Seq("VERILATOR", "TEST_SIZE=5000", "DUMP_ON"))
+//     runTestbench(getTestName, Seq("VERILATOR", "TEST_SIZE=40000"))
 
+//   }
+  "URAM implementation" should "behave as expected" in {
+    runTestbench(getTestName, Seq("TEST_SIZE=8192"))
   }
-  "ALU DSP model" should "behave as expected" in {
-    runTestbench(getTestName, Seq("TEST_SIZE=40000"))
+
+  "URAM functional model" should "behave as expected" in {
+    runTestbench(getTestName, Seq("VERILATOR", "TEST_SIZE=8192"))
   }
 
 }
