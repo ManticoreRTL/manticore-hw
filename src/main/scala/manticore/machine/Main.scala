@@ -153,14 +153,18 @@ object Main {
       val constraints = platform.device match {
         case U200 =>
           val validChoices = Set(
+            U200FloorplanImpl.Auto.getName(),
             U200FloorplanImpl.HighwaySwitch.getName(),
             U200FloorplanImpl.RigidIslandSwitchRigidCores.getName(),
             U200FloorplanImpl.LooseIslandSwitchRigidCores.getName(),
             U200FloorplanImpl.LooseIslandSwitchLooseCores.getName(),
-            U200FloorplanImpl.LooseIslandSwitchRigidCoresCenterOutward.getName()
+            U200FloorplanImpl.LooseIslandSwitchRigidCoresCenterOutward.getName(),
+            U200FloorplanImpl.LooseIslandSwitchLooseCoresCenterOutward.getName()
           )
 
-          if (cfg.placement_alg == U200FloorplanImpl.HighwaySwitch.getName()) {
+          if (cfg.placement_alg == U200FloorplanImpl.Auto.getName()) {
+            U200FloorplanImpl.Auto.toTcl(cfg.dimx, cfg.dimy)
+          } else if (cfg.placement_alg == U200FloorplanImpl.HighwaySwitch.getName()) {
             U200FloorplanImpl.HighwaySwitch.toTcl(cfg.dimx, cfg.dimy)
           } else if (cfg.placement_alg == U200FloorplanImpl.RigidIslandSwitchRigidCores.getName()) {
             U200FloorplanImpl.RigidIslandSwitchRigidCores.toTcl(cfg.dimx, cfg.dimy)
@@ -170,6 +174,8 @@ object Main {
             U200FloorplanImpl.LooseIslandSwitchLooseCores.toTcl(cfg.dimx, cfg.dimy)
           } else if (cfg.placement_alg == U200FloorplanImpl.LooseIslandSwitchRigidCoresCenterOutward.getName()) {
             U200FloorplanImpl.LooseIslandSwitchRigidCoresCenterOutward.toTcl(cfg.dimx, cfg.dimy)
+          } else if (cfg.placement_alg == U200FloorplanImpl.LooseIslandSwitchLooseCoresCenterOutward.getName()) {
+            U200FloorplanImpl.LooseIslandSwitchLooseCoresCenterOutward.toTcl(cfg.dimx, cfg.dimy)
           } else {
             sys.error(s"Invalid placement algorithm! Valid choices are ${validChoices.mkString(", ")}")
           }

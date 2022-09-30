@@ -90,6 +90,24 @@ object U200FloorplanImpl {
   def inShellSlr(clockRegionRow: Int): Boolean = (5 <= clockRegionRow) && (clockRegionRow <= 9)
 
   // Cores are placed as follows:
+  // - Place top half of cores in SLR2 (populate X*Y[10-13] only, not X*Y14). Let vivado place them.
+  // - Place bottom half of the cores in SLR0 (populate X*Y[1-4] only, not X*Y0). Let vivado place them.
+  //
+  // Switches are placed as follows:
+  // - Place all switches in SLR1 (let vivado place them).
+  object Auto extends U200Floorplan {
+    def getName(): String = "auto"
+
+    def getRootClock(): ClockRegion = ClockRegion(2, 7)
+
+    def getPrivilegedArea(): Set[ClockRegion] = Set(ClockRegion(2, 6), ClockRegion(2, 7), ClockRegion(2, 8))
+
+    def getCoreToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, ArbitraryPblock] = Map.empty // No floorplanning.
+
+    def getSwitchToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, ArbitraryPblock] = Map.empty // No floorplanning.
+  }
+
+  // Cores are placed as follows:
   // - Place 2 rows of the grid per clock region row in SLR2.
   // - Place 1 row  of the grid per clock region row in SLR1.
   // - Place 2 rows of the grid per clock region row in SLR0.
@@ -417,6 +435,70 @@ object U200FloorplanImpl {
         val pblock         = pblockGrid((clockRegionRow, side))
         val core           = gridToTorus(gridLoc)
         torusToPblock += core -> pblock
+      }
+
+      // Remove the privileged core as we place that one by ourselves at the root clock.
+      val privilegedCore = TorusLoc(0, 0)
+      torusToPblock -= privilegedCore
+
+      torusToPblock.toMap
+    }
+
+    def getSwitchToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, ArbitraryPblock] = {
+      val torusToPblock = MMap.empty[TorusLoc, ArbitraryPblock]
+
+      Range.inclusive(0, dimY - 1).foreach { y =>
+        Range.inclusive(0, dimX - 1).foreach { x =>
+          torusToPblock += TorusLoc(x, y) -> slr1NonShellPblock
+        }
+      }
+
+      // Remove the privileged switch as we place that one by ourselves at the root clock.
+      val privilegedSwitch = TorusLoc(0, 0)
+      torusToPblock -= privilegedSwitch
+
+      torusToPblock.toMap
+    }
+  }
+
+  // Cores are placed as follows:
+  // - Place top half of cores in SLR2 (populate X*Y[10-13] only, not X*Y14). Let vivado place them.
+  // - Place bottom half of the cores in SLR0 (populate X*Y[1-4] only, not X*Y0). Let vivado place them.
+  //
+  // Switches are placed as follows:
+  // - Place all switches in SLR1 (let vivado place them).
+  object LooseIslandSwitchLooseCoresCenterOutward extends U200Floorplan {
+    def getName(): String = "loose-island-loose-cores-center-outward"
+
+    // We want to anchor SWITCH x0y0 in clock region X2Y7 (which is the center of the device).
+    // Setting the anchor to (dimX/2 - 1, dimY/2 - 1) does the trick.
+    def anchor(dimX: Int, dimY: Int) = GridLoc(dimX / 2 - 1, dimY / 2 - 1)
+
+    def getRootClock(): ClockRegion = ClockRegion(2, 7)
+
+    def getPrivilegedArea(): Set[ClockRegion] = Set(ClockRegion(2, 6), ClockRegion(2, 7), ClockRegion(2, 8))
+
+    def getCoreToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, ArbitraryPblock] = {
+      // There is an infinite loop if the coordinates are <= 8. It is due to getGridLocToTorusLocMap().
+      assert(8 < dimX && dimX <= 16, "Island center-outward placement requires 8 < dimX <= 16")
+      assert(8 < dimY && dimY <= 20, "Island center-outward placement requires 8 < dimX <= 20")
+
+      val gridToTorus = getGridLocToTorusLocMap(dimX, dimY, anchor(dimX, dimY))
+
+      val (topGrid, bottomGrid) = gridToTorus.partition { case (gridLoc, torusLoc) =>
+        gridLoc.r >= dimY / 2
+      }
+
+      val torusToPblock = MMap.empty[TorusLoc, ArbitraryPblock]
+
+      topGrid.foreach { case (gridLoc, torusLoc) =>
+        val core = gridToTorus(gridLoc)
+        torusToPblock += core -> slr2Pblock
+      }
+
+      bottomGrid.foreach { case (gridLoc, torusLoc) =>
+        val core = gridToTorus(gridLoc)
+        torusToPblock += core -> slr0Pblock
       }
 
       // Remove the privileged core as we place that one by ourselves at the root clock.
