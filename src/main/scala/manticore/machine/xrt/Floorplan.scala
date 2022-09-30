@@ -25,7 +25,6 @@ trait Floorplan {
     if (x == 0 && y == 0) {
       Seq(
         s"${getManticoreKernelInstName()}/axi_cache",
-        s"${getManticoreKernelInstName()}/clock_distribution",
         s"${getManticoreKernelInstName()}/m_axi_bank_0_clock_crossing",
         s"${getManticoreKernelInstName()}/s_axi_clock_crossing",
         s"${getManticoreKernelInstName()}/slave",
@@ -36,6 +35,10 @@ trait Floorplan {
     } else {
       Seq()
     }
+  }
+
+  def getClockDistributionName(): String = {
+    s"${getManticoreKernelInstName()}/clock_distribution"
   }
 
   def getSwitchCellName(x: Int, y: Int): String = {
@@ -199,22 +202,18 @@ trait Floorplan {
     constraints.mkString("\n")
   }
 
-  def getPrivilegedAreaConstraints(): String = {
-    val rootClockRegion = getRootClock()
+  def getClockConstraints(): String = {
 
-    val privilegedClockRegions = getPrivilegedArea()
+    case class ClockDistributionPblock(cr: ClockRegion) extends Pblock {
+      override val name: String = "pblock_manticore_clock_distribution"
 
-    case class ClockDistributionPblock(crs: Set[ClockRegion]) extends Pblock {
-      override val name: String = "ManticoreClkDistribution"
-
-      override val resources: String = {
-        val crsStr = crs.toSeq.sortBy(cr => (cr.y, cr.x)).map(cr => s"CLOCKREGION_X${cr.x}Y${cr.y}").mkString(" ")
-        s"{ ${crsStr} }"
-      }
+      override val resources: String = s"{ CLOCKREGION_X${cr.x}Y${cr.y} }"
     }
 
-    val clkDistributionConstraints = ClockDistributionPblock(privilegedClockRegions).toTcl(
-      Seq(getProcessorCellName(0, 0)) ++ Seq(getSwitchCellName(0, 0)) ++ getCoreAuxiliaryCellNames(0, 0)
+    val rootClockRegion = getRootClock()
+
+    val pblock = ClockDistributionPblock(rootClockRegion).toTcl(
+      Seq(getClockDistributionName())
     )
 
     // No need to set wiz/inst/clk_out1 as a root clock as it is not driven by a global clock buffer (the output of the
@@ -223,12 +222,11 @@ trait Floorplan {
     //
     //   WARNING: [Vivado 12-4417] Setting USER_CLOCK_ROOT on net 'level0_i/ulp/ManticoreKernel_1/inst/clock_distribution/wiz/inst/clk_out1' which is not driven by a global clock buffer. The resulting constraint will not have the desired effect.
     //
-    // val clockWizardClockOutNetName = s"${getManticoreKernelInstName()}/clock_distribution/wiz/inst/clk_out1"
+    // val clockWizardClockOutNetName = s"${getClockDistributionName()}/wiz/inst/clk_out1"
 
     // Vivado renamed this wire from clock_distribution/clock_distribution_control_clock"!
-    val controlClockNetName = s"${getManticoreKernelInstName()}/clock_distribution/CLK"
-
-    // val computeClockNetName = s"${getManticoreKernelInstName()}/clock_distribution/clock_distribution_compute_clock"
+    val controlClockNetName = s"${getClockDistributionName()}/CLK"
+    // val computeClockNetName = s"${getClockDistributionName()}/clock_distribution_compute_clock"
 
     val netsStr = Seq(
       // clockWizardClockOutNetName,
@@ -247,9 +245,28 @@ trait Floorplan {
           |""".stripMargin
 
     Seq(
-      clkDistributionConstraints,
+      pblock,
       clkRootConstraints
     ).mkString("\n")
+  }
+
+  def getPrivilegedAreaConstraints(): String = {
+    val privilegedClockRegions = getPrivilegedArea()
+
+    case class PrivilegedAreaPblock(crs: Set[ClockRegion]) extends Pblock {
+      override val name: String = "pblock_privileged_area"
+
+      override val resources: String = {
+        val str = crs.toSeq.sortBy(cr => (cr.y, cr.x)).map(cr => s"CLOCKREGION_X${cr.x}Y${cr.y}").mkString(" ")
+        s"{ ${str} }"
+      }
+    }
+
+    val constraints = PrivilegedAreaPblock(privilegedClockRegions).toTcl(
+      Seq(getProcessorCellName(0, 0)) ++ Seq(getSwitchCellName(0, 0)) ++ getCoreAuxiliaryCellNames(0, 0)
+    )
+
+    constraints
   }
 
   // def getSlrCrossingConstraints(): String = {
@@ -260,6 +277,7 @@ trait Floorplan {
     Seq(
       getPblockConstrains(dimX, dimY),
       getPrivilegedAreaConstraints(),
+      getClockConstraints()
       // getSlrCrossingConstraints()
     ).mkString("\n")
   }
