@@ -246,9 +246,9 @@ class Switch(DimX: Int, DimY: Int, config: ISA, n_hop: Int) extends Module {
   }
 
   // We subtract 1 as x_reg/y_reg/terminal_reg count as 1 hop.
-  io.xOutput  := Helpers.PipeWithStyle(x_reg, n_hop - 1)
-  io.yOutput  := Helpers.PipeWithStyle(y_reg, n_hop - 1)
-  io.terminal := Helpers.PipeWithStyle(terminal_reg, n_hop - 1)
+  io.xOutput  := Helpers.InlinePipeWithStyle(x_reg, n_hop - 1)
+  io.yOutput  := Helpers.InlinePipeWithStyle(y_reg, n_hop - 1)
+  io.terminal := Helpers.InlinePipeWithStyle(terminal_reg, n_hop - 1)
 
 }
 

@@ -6,6 +6,7 @@ import chisel3.experimental.annotate
 import chisel3.experimental.ChiselAnnotation
 import firrtl.annotations.Annotation
 import firrtl.AttributeAnnotation
+import chisel3.util.Pipe
 
 object Helpers {
 
@@ -20,7 +21,7 @@ object Helpers {
     object Block     extends SrlStyleAnnotation { def name: String = "block"       }
   }
 
-  def PipeWithStyle[T <: Data](
+  def InlinePipeWithStyle[T <: Data](
       data: T,
       latency: Int = 1,
       style: SrlStyle.SrlStyleAnnotation = SrlStyle.Reg
@@ -38,10 +39,6 @@ object Helpers {
       nextReg.suggestName(nextRegName)
       nextReg := prevWire
 
-      // annotate(new ChiselAnnotation {
-      //   def toFirrtl: Annotation = AttributeAnnotation(nextReg.toNamed, "DONT_TOUCH = \"yes\"")
-      // })
-
       // Only the last register in an SRL chain needs to be labeled.
       if (idx == latency) {
         annotate(new ChiselAnnotation {
@@ -53,25 +50,43 @@ object Helpers {
     }
   }
 
-  // // (skashani): The name "manticoreSlrCrossing" is matched code that
-  // // generates USER_SLL_REG constraints.
-  // // If you modify the name here, do not forget to modify it in the other
-  // // parts of the code!
-  // def slrCrossingSuffix = "manticoreSlrCrossing"
+  // This just wraps the InlinePipeWithStyle above in a module so we can introduce a hierarchy.
+  // It is useful for identifying cells in vivado by name.
+  object WrappedPipeWithStyle {
+    class WrappedPipeWithStyle[T <: Data](
+        data: T,
+        latency: Int,
+        style: SrlStyle.SrlStyleAnnotation
+    ) extends Module {
+      val io = IO(new Bundle {
+        val in  = Input(chiselTypeOf(data))
+        val out = Output(chiselTypeOf(data))
+      })
 
-  // // This function creates a pipeline register with the given latency and a
-  // // specific suffix for certain of the registers in the chain.
-  // // This code exists as we want a unique name for SLR-crossing wires so that
-  // // we can emit USER_SLL_REG properties when we create pblock constraints.
-  // def SlrCrossing[T <: Data](
-  //     data: T,
-  //     latency: Int,
-  //     slrCrossingIndices: Set[Int]
-  // ): T = {
-  //   require(latency >= 2, "SLR crossing needs >= 2 registers!")
+      io.out := InlinePipeWithStyle(io.in, latency, style)
+    }
 
-  //   val suffixMap = slrCrossingIndices.map(idx => idx -> slrCrossingSuffix).toMap
+    def apply[T <: Data](
+        data: T,
+        latency: Int = 1,
+        style: SrlStyle.SrlStyleAnnotation = SrlStyle.Reg
+    ): T = {
+      val pipe = Module(new WrappedPipeWithStyle(data, latency, style))
+      pipe.io.in := data
+      pipe.io.out
+    }
+  }
 
-  //   PipeNoSRL(data, latency, suffixMap)
-  // }
+  def RegDontTouch[T <: Data](
+      data: T
+  ): T = {
+    val regDontTouch = RegNext(data)
+
+    annotate(new ChiselAnnotation {
+      def toFirrtl: Annotation = AttributeAnnotation(regDontTouch.toNamed, s"DONT_TOUCH = \"yes\"")
+    })
+
+    regDontTouch
+  }
+
 }

@@ -38,7 +38,7 @@ class ProcessorInterface(config: ISA, DimX: Int, DimY: Int) extends Bundle {
   )
 }
 
-class ProcessorWithSendPipe(
+class ProcessorWithSendRecvPipe(
     config: ISA,
     DimX: Int,
     DimY: Int,
@@ -70,10 +70,8 @@ class ProcessorWithSendPipe(
   )
   processor.suggestName("processor")
 
-  io.periphery <> processor.io.periphery
-
-  val sendPipe = Module(
-    new ProcessorSendPipe(
+  val sendRecvPipe = Module(
+    new SendRecvPipe(
       config,
       DimX,
       DimY,
@@ -81,54 +79,98 @@ class ProcessorWithSendPipe(
       y
     )
   )
-  sendPipe.suggestName("processor_sendPipe")
+  sendRecvPipe.suggestName("sendRecvPipe")
 
-  io.packet_out                := sendPipe.io.switch.packet_out
-  sendPipe.io.switch.packet_in := io.packet_in
+  // sendRecvPipe inputs.
+  sendRecvPipe.io.send.in := processor.io.packet_out
+  sendRecvPipe.io.recv.in := io.packet_in
 
-  sendPipe.io.proc.packet_out := processor.io.packet_out
-  processor.io.packet_in      := sendPipe.io.proc.packet_in
+  // sendRecvPipe outputs.
+  io.packet_out          := sendRecvPipe.io.send.out
+  processor.io.packet_in := sendRecvPipe.io.recv.out
+
+  io.periphery <> processor.io.periphery
+
 }
 
-class SendPipeInterface(config: ISA, DimX: Int, DimY: Int) extends Bundle {
-  val packet_in  = Input(new BareNoCBundle(config))
-  val packet_out = Output(NoCBundle(DimX, DimY, config))
-}
-
-class ProcessorSendPipe(
+class SendRecvPipe(
     config: ISA,
     DimX: Int,
     DimY: Int,
     x: Int,
     y: Int
 ) extends Module {
-  val io = new Bundle {
-    val proc   = Flipped(new SendPipeInterface(config, DimX, DimY))
-    val switch = new SendPipeInterface(config, DimX, DimY)
-  }
+
+  val io = IO(new Bundle {
+    val send = new Bundle {
+      val in  = Input(NoCBundle(DimX, DimY, config))
+      val out = Output(NoCBundle(DimX, DimY, config))
+    }
+    val recv = new Bundle {
+      val in  = Input(new BareNoCBundle(config))
+      val out = Output(new BareNoCBundle(config))
+    }
+  })
 
   // We removed 7 pipeline stages related to sending packets out from inside the core.
   // These stages have been added outside the core such that they allow vivado to have
   // flexibility in placing switches on the chip.
-  val latency = 7
+  val latency            = 7
+  val procSideLatency    = 3
+  val slrCrossingLatency = 2
+  val switchSideLatency  = 2
+  require(latency == procSideLatency + slrCrossingLatency + switchSideLatency)
 
-  // // These go from the cores to the switch island.
-  // // 1-3 are in the core SLR.
-  // // 4   is in the core SLR LAGUNA cell.
-  // // 5   is in the switch SLR LAGUNA cell.
-  // // 6-7 are in the switch SLR.
-  // io.switch.packet_out := Helpers.SlrCrossing(io.proc.packet_out, latency, Set(4, 5))
+  class ProcessorToSwitchPipe extends Module {
+    val io = IO(new Bundle {
+      val from_proc = Input(NoCBundle(DimX, DimY, config))
+      val to_switch = Output(NoCBundle(DimX, DimY, config))
+    })
 
-  // // These come from the switch island to the cores.
-  // // 1-2 are in the switch SLR.
-  // // 3   is in the switch SLR LAGUNA cell.
-  // // 4   is in the core SLR LAGUNA cell.
-  // // 5-7 are in the core SLR.
-  // io.proc.packet_in := Helpers.SlrCrossing(io.switch.packet_in, latency, Set(3, 4))
+    if (x == 0 && y == 0) {
+      // Privileged core is placed close to the privileged switch, so no need for pure registers as pipeline registers.
+      // We use an SRL alternative to save space.
+      val srlStyle = Helpers.SrlStyle.RegSrl
+      io.to_switch := Helpers.InlinePipeWithStyle(io.from_proc, latency, srlStyle)
+    } else {
+      val srlStyle    = Helpers.SrlStyle.Reg
+      val procSide    = Helpers.WrappedPipeWithStyle(io.from_proc, procSideLatency, srlStyle)
+      val slrCrossing = Helpers.WrappedPipeWithStyle(procSide, slrCrossingLatency, srlStyle)
+      val switchSide  = Helpers.WrappedPipeWithStyle(slrCrossing, switchSideLatency, srlStyle)
+      io.to_switch := switchSide
+    }
+  }
 
-  val regStyle = if (x == 0 && y == 0) Helpers.SrlStyle.SrlReg else Helpers.SrlStyle.Reg
-  io.switch.packet_out := Helpers.PipeWithStyle(io.proc.packet_out, latency, regStyle)
-  io.proc.packet_in    := Helpers.PipeWithStyle(io.switch.packet_in, latency, regStyle)
+  class SwitchToProcessorPipe extends Module {
+    val io = IO(new Bundle {
+      val from_switch = Input(new BareNoCBundle(config))
+      val to_proc     = Output(new BareNoCBundle(config))
+    })
+
+    if (x == 0 && y == 0) {
+      // Privileged switch is placed close to the privileged core, so no need fore pure registers as pipeline registers.
+      // We use an SRL alternative to save space.
+      val srlStyle = Helpers.SrlStyle.RegSrl
+      io.to_proc := Helpers.InlinePipeWithStyle(io.from_switch, latency, srlStyle)
+    } else {
+      val srlStyle    = Helpers.SrlStyle.Reg
+      val switchSide  = Helpers.WrappedPipeWithStyle(io.from_switch, switchSideLatency, srlStyle)
+      val slrCrossing = Helpers.WrappedPipeWithStyle(switchSide, slrCrossingLatency, srlStyle)
+      val procSide    = Helpers.WrappedPipeWithStyle(slrCrossing, procSideLatency, srlStyle)
+      io.to_proc := procSide
+    }
+  }
+
+  val procToSwitchPipe = Module(new ProcessorToSwitchPipe)
+  val switchToProcPipe = Module(new SwitchToProcessorPipe)
+
+  // inputs
+  procToSwitchPipe.io.from_proc   := io.send.in
+  switchToProcPipe.io.from_switch := io.recv.in
+
+  // outputs
+  io.send.out := procToSwitchPipe.io.to_switch
+  io.recv.out := switchToProcPipe.io.to_proc
 }
 
 class Processor(

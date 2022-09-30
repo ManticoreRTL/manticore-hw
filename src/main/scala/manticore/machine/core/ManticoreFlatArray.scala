@@ -76,10 +76,10 @@ class SoftResetTree(dimx: Int, dimy: Int) extends Module {
 
   val io = IO(new SoftResetTreeIO(dimx, dimy))
 
-  def fo4(source: Bool): IndexedSeq[Bool] = IndexedSeq.fill(4) { Helpers.PipeWithStyle(source) }
+  def fo4(source: Bool): IndexedSeq[Bool] = IndexedSeq.fill(4) { Helpers.RegDontTouch(source) }
 
   def mkBranches(
-      res: IndexedSeq[Bool] = IndexedSeq(Helpers.PipeWithStyle(reset.asBool)),
+      res: IndexedSeq[Bool] = IndexedSeq(Helpers.RegDontTouch(reset.asBool)),
       count: Int = 1
   ): IndexedSeq[Bool] = {
     if (count >= (dimx * dimy)) {
@@ -96,9 +96,9 @@ class SoftResetTree(dimx: Int, dimy: Int) extends Module {
     }
   }
 
-  io.last := Helpers.PipeWithStyle(leaves.last)
-
+  io.last := Helpers.RegDontTouch(leaves.last)
 }
+
 object SoftResetGen extends App {
   new ChiselStage().emitVerilog(new SoftResetTree(6, 6), Array("-td", "gen-dir"))
 }
@@ -134,7 +134,7 @@ class ComputeArray(
     }
 
   def hasMemory(x: Int, y: Int): Boolean = (x == 0) && (y == 0)
-  case class FatCore(core: ProcessorWithSendPipe, switch: Switch, x: Int, y: Int)
+  case class FatCore(core: ProcessorWithSendRecvPipe, switch: Switch, x: Int, y: Int)
 
   val reset_tree = Module(new SoftResetTree(dimx, dimy))
   io.core_reset_done := reset_tree.io.last
@@ -146,7 +146,7 @@ class ComputeArray(
 
       val core = withReset(reset_tree.io.taps(x)(y)) {
         Module(
-          new ProcessorWithSendPipe(
+          new ProcessorWithSendRecvPipe(
             config = core_conf,
             DimX = dimx,
             DimY = dimy,
@@ -317,19 +317,10 @@ class ManticoreFlatArray(
   memory_intercept.io.cache_flush := controller.io.cache_flush_start
   memory_intercept.io.cache_reset := controller.io.cache_reset_start
 
-  // TODO (skashani): Modify the controller and bootloader to take 7 cycle latency into account.
-  // We use 7 pipeline stages here as each core also has 7 pipeline registers before its packet_out interface.
   withClockAndReset(
     clock = io.control_clock,
     reset = controller.io.soft_reset
   ) {
-    // // These go from the cores to the switch island.
-    // // 1-3 are in the core SLR.
-    // // 4   is in the core SLR LAGUNA cell.
-    // // 5   is in the switch SLR LAGUNA cell.
-    // // 6-7 are in the switch SLR.
-    // compute_array.io.config_enable := Helpers.SlrCrossing(controller.io.config_enable, 7, Set(4, 5))
-    // compute_array.io.config_packet := Helpers.SlrCrossing(bootloader.io.packet_out, 7, Set(4, 5))
     compute_array.io.config_enable := controller.io.config_enable
     compute_array.io.config_packet := bootloader.io.packet_out
   }
