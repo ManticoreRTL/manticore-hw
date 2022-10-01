@@ -254,23 +254,23 @@ trait Floorplan {
     //
     //   WARNING: [Vivado 12-4417] Setting USER_CLOCK_ROOT on net 'level0_i/ulp/ManticoreKernel_1/inst/clock_distribution/wiz/inst/clk_out1' which is not driven by a global clock buffer. The resulting constraint will not have the desired effect.
     //
-    // val clockWizardClockOutNetName = s"${getClockDistributionName()}/wiz/inst/clk_out1"
+    // val clockWizardClockOutNetName = s"${clockDistributionCellName()}/wiz/inst/clk_out1"
 
     // Vivado renamed this wire from clock_distribution/clock_distribution_control_clock"!
     val controlClockNetName = s"${clockDistributionCellName()}/CLK"
-    // val computeClockNetName = s"${getClockDistributionName()}/clock_distribution_compute_clock"
+    val computeClockNetName = s"${clockDistributionCellName()}/clock_distribution_compute_clock"
 
     val netsStr = Seq(
       // clockWizardClockOutNetName,
-      controlClockNetName
-      // computeClockNetName
+      controlClockNetName,
+      computeClockNetName
     ).map(net => s"\t\t${net} \\").mkString("\n")
 
     val clkRootConstraints =
       s"""|
-          |# set_property CLOCK_DELAY_GROUP ManticoreClk [get_nets [list \\
-          |# ${netsStr}
-          |# ]]
+          |set_property CLOCK_DELAY_GROUP ManticoreClk [get_nets [list \\
+          |${netsStr}
+          |]]
           |set_property USER_CLOCK_ROOT X${rootClockRegion.x}Y${rootClockRegion.y} [get_nets [list \\
           |${netsStr}
           |]]
@@ -301,17 +301,12 @@ trait Floorplan {
     constraints
   }
 
-  // def getSlrCrossingConstraints(): String = {
-  //   s"set_property USER_SLL_REG TRUE [get_cells -hierarchical -regexp .*${Helpers.slrCrossingSuffix}.*]"
-  // }
-
   def toTcl(dimX: Int, dimY: Int): String = {
     Seq(
       getPblockConstrains(dimX, dimY),
       getPrivilegedAreaConstraints(),
       getClockConstraints(),
       getCustomConstraints(dimX, dimY).getOrElse("")
-      // getSlrCrossingConstraints()
     ).mkString("\n")
   }
 
