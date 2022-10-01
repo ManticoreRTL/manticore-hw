@@ -141,8 +141,7 @@ class ComputeArray(
 
   val cores: Seq[Seq[FatCore]] = Seq.tabulate(dimx) { x =>
     Seq.tabulate(dimy) { y =>
-      val core_conf =
-        if (hasMemory(x, y)) ManticoreFullISA else ManticoreBaseISA
+      val core_conf = if (hasMemory(x, y)) ManticoreFullISA else ManticoreBaseISA
 
       val core = withReset(reset_tree.io.taps(x)(y)) {
         Module(
@@ -252,26 +251,30 @@ class ManticoreFlatArray(
 
   val io = IO(new ManticoreFlatArrayInterface)
 
-  val controller =
-    withClockAndReset(reset = io.reset, clock = io.control_clock) {
-      Module(new Management(dimx, dimy))
-    }
+  val controller = withClockAndReset(
+    reset = io.reset,
+    clock = io.control_clock
+  ) {
+    Module(new Management(dimx, dimy))
+  }
 
-  val memory_intercept = withClockAndReset(clock = io.control_clock, reset = io.reset) {
+  val memory_intercept = withClockAndReset(
+    clock = io.control_clock,
+    reset = io.reset
+  ) {
     Module(new MemoryIntercept)
   }
 
   io.clock_active := controller.io.clock_active
 
-  val bootloader =
-    withClockAndReset(
-      clock = io.control_clock,
-      reset = controller.io.soft_reset
-    ) {
-      Module(
-        new Programmer(ManticoreFullISA, dimx, dimy)
-      )
-    }
+  val bootloader = withClockAndReset(
+    clock = io.control_clock,
+    reset = controller.io.soft_reset
+  ) {
+    Module(
+      new Programmer(ManticoreFullISA, dimx, dimy)
+    )
+  }
   controller.io.compute_clock := io.compute_clock
   controller.io.start         := io.start
   io.done                     := controller.io.done
@@ -286,33 +289,34 @@ class ManticoreFlatArray(
 
   controller.io.core_revive_clock := memory_intercept.io.core_revive_clock
 
-  val debug_time =
-    withClockAndReset(clock = io.control_clock, reset = io.reset) {
-      RegInit(UInt(64.W), 0.U)
-    }
+  val debug_time = withClockAndReset(
+    clock = io.control_clock,
+    reset = io.reset
+  ) {
+    RegInit(UInt(64.W), 0.U)
+  }
   debug_time := debug_time + 1.U
 
-  val compute_array =
-    withClockAndReset(
-      clock = io.compute_clock,
-      reset = controller.io.soft_reset
-    ) {
-      Module(
-        new ComputeArray(
-          dimx = dimx,
-          dimy = dimy,
-          debug_enable = debug_enable,
-          enable_custom_alu = enable_custom_alu,
-          prefix_path = prefix_path,
-          n_hop = n_hop
-        )
+  val compute_array = withClockAndReset(
+    clock = io.compute_clock,
+    reset = controller.io.soft_reset
+  ) {
+    Module(
+      new ComputeArray(
+        dimx = dimx,
+        dimy = dimy,
+        debug_enable = debug_enable,
+        enable_custom_alu = enable_custom_alu,
+        prefix_path = prefix_path,
+        n_hop = n_hop
       )
-    }
+    )
+  }
 
   controller.io.core_kill_clock := compute_array.io.dynamic_cycle
   controller.io.cache_done      := io.memory_backend.done
 
-  controller.io.soft_reset_done := compute_array.io.core_reset_done
+  // controller.io.soft_reset_done := compute_array.io.core_reset_done
 
   memory_intercept.io.cache_flush := controller.io.cache_flush_start
   memory_intercept.io.cache_reset := controller.io.cache_reset_start

@@ -49,7 +49,7 @@ class Management(dimX: Int, dimY: Int) extends Module {
     val execution_active  = Input(Bool())
 
     val soft_reset = Output(Bool())
-    val soft_reset_done = Input(Bool())
+    // val soft_reset_done = Input(Bool())
   })
 
   val clock_active = RegInit(true.B)
@@ -61,8 +61,6 @@ class Management(dimX: Int, dimY: Int) extends Module {
   timed_out := false.B
 
   val core_exception_id = Reg(io.exception_id.cloneType)
-
-
 
   val start_reg   = RegNext(io.start)
   val start_pulse = WireDefault((!start_reg) & io.start)
@@ -87,6 +85,9 @@ class Management(dimX: Int, dimY: Int) extends Module {
 
   val state = RegInit(sIdle)
 
+  val soft_reset_value           = 2 * dimX * dimY - 1
+  val soft_reset_countdown_timer = Reg(UInt(unsignedBitLength(soft_reset_value).W))
+
   val done_out = RegNext(state === sDone)
   io.done := done_out
 
@@ -101,7 +102,7 @@ class Management(dimX: Int, dimY: Int) extends Module {
 
   val enable_core_reset = WireDefault(false.B)
 
-  io.soft_reset := RegNext(state === sCoreReset)
+  io.soft_reset        := RegNext(state === sCoreReset)
   io.cache_reset_start := (state === sCacheReset)
   io.cache_flush_start := (state === sCacheFlush)
   io.boot_start        := false.B
@@ -121,12 +122,15 @@ class Management(dimX: Int, dimY: Int) extends Module {
       }
     }
     is(sCoreReset) {
-      clock_active := true.B
-      state        := sCoreResetWait
+      clock_active               := true.B
+      soft_reset_countdown_timer := soft_reset_value.U
+      state                      := sCoreResetWait
     }
     is(sCoreResetWait) {
-      clock_active := true.B // enable the clock so that cores can be reset
-      when(io.soft_reset_done) {
+      clock_active               := true.B // enable the clock so that cores can be reset
+      soft_reset_countdown_timer := soft_reset_countdown_timer - 1.U
+      // when(io.soft_reset_done) {
+      when(soft_reset_countdown_timer === 0.U) {
         state := sCacheReset
       }
     }
@@ -165,7 +169,7 @@ class Management(dimX: Int, dimY: Int) extends Module {
       when(clock_active) {
         // check exceptions for stopping execution
         when(io.core_exception_occurred) {
-          state                 := sDone
+          state := sDone
           // don't register here, causes large fan out on clock_active!
           // dev_regs.exception_id := io.exception_id
           timed_out := false.B
@@ -188,8 +192,8 @@ class Management(dimX: Int, dimY: Int) extends Module {
     }
     is(sDone) {
       dev_regs.exception_id := Mux(timed_out, EXCEPTION_TIMEOUT, core_exception_id)
-      clock_active := false.B
-      state        := sIdle
+      clock_active          := false.B
+      state                 := sIdle
     }
   }
 
@@ -209,8 +213,8 @@ class MemoryIntercept extends Module {
     val boot          = CacheConfig.frontInterface()
     val config_enable = Input(Bool())
 
-    val cache_flush   = Input(Bool())
-    val cache_reset   = Input(Bool())
+    val cache_flush = Input(Bool())
+    val cache_reset = Input(Bool())
 
     val cache             = Flipped(CacheConfig.frontInterface())
     val core_kill_clock   = Output(Bool())
@@ -282,10 +286,10 @@ class MemoryIntercept extends Module {
     io.cache <> io.boot
 
     when(io.cache_flush) {
-      io.cache.cmd := CacheCommand.Flush
+      io.cache.cmd   := CacheCommand.Flush
       io.cache.start := true.B
     }.elsewhen(io.cache_reset) {
-      io.cache.cmd := CacheCommand.Reset
+      io.cache.cmd   := CacheCommand.Reset
       io.cache.start := true.B
     }
 
