@@ -85,6 +85,7 @@ class Management(dimX: Int, dimY: Int) extends Module {
 
   val state = RegInit(sIdle)
 
+  // Very conservative countdown value. Can technically be matched to the exact latency of the SoftResetTree.
   val soft_reset_value           = 2 * dimX * dimY - 1
   val soft_reset_countdown_timer = Reg(UInt(unsignedBitLength(soft_reset_value).W))
 

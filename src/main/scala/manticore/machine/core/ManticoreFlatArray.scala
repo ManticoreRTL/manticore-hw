@@ -136,14 +136,18 @@ class ComputeArray(
   def hasMemory(x: Int, y: Int): Boolean = (x == 0) && (y == 0)
   case class FatCore(core: ProcessorWithSendRecvPipe, switch: Switch, x: Int, y: Int)
 
-  val reset_tree = Module(new SoftResetTree(dimx, dimy))
-  io.core_reset_done := reset_tree.io.last
+  // Allow placement flexibility between cores and switches by using a dedicated reset tree for each.
+  val core_reset_tree   = Module(new SoftResetTree(dimx, dimy))
+  val switch_reset_tree = Module(new SoftResetTree(dimx, dimy))
+  io.core_reset_done := core_reset_tree.io.last
+  // val reset_tree = Module(new SoftResetTree(dimx, dimy))
+  // io.core_reset_done := reset_tree.io.last
 
   val cores: Seq[Seq[FatCore]] = Seq.tabulate(dimx) { x =>
     Seq.tabulate(dimy) { y =>
       val core_conf = if (hasMemory(x, y)) ManticoreFullISA else ManticoreBaseISA
 
-      val core = withReset(reset_tree.io.taps(x)(y)) {
+      val core = withReset(core_reset_tree.io.taps(x)(y)) {
         Module(
           new ProcessorWithSendRecvPipe(
             config = core_conf,
@@ -161,12 +165,14 @@ class ComputeArray(
         )
       }
       core.suggestName(s"core_${x}_${y}")
-      val switch = withReset(reset_tree.io.taps(x)(y)) {
+
+      val switch = withReset(switch_reset_tree.io.taps(x)(y)) {
         Module(
           new Switch(dimx, dimy, core_conf, n_hop)
         )
       }
       switch.suggestName(s"switch_${x}_${y}")
+
       FatCore(core, switch, x, y)
     }
   }
