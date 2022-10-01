@@ -577,6 +577,11 @@ object U200FloorplanImpl {
           }
         }
 
+        // Separator for legibility.
+        constraints += ""
+
+        constraints += s"set_property USER_SLL_REG TRUE [get_cells -hierarchical -regexp .*slrCrossing.*_pipe.*]"
+
       Some(constraints.mkString("\n"))
     }
   }
