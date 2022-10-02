@@ -471,40 +471,31 @@ object U200FloorplanImpl {
   object LooseIslandSwitchLooseCoresCenterOutward extends U200Floorplan {
     def getName(): String = "loose-island-loose-cores-center-outward"
 
-    // We want to anchor SWITCH x0y0 in clock region X2Y7 (which is the center of the device).
-    // Setting the anchor to (dimX/2 - 1, dimY/2 - 1) does the trick.
-    def anchor(dimX: Int, dimY: Int) = GridLoc(dimX / 2 - 1, dimY / 2 - 1)
-
     def getRootClock(): ClockRegion = ClockRegion(2, 7)
 
     def getPrivilegedArea(): Set[ClockRegion] = Set(ClockRegion(2, 6), ClockRegion(2, 7), ClockRegion(2, 8))
 
     def getCoreToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, ArbitraryPblock] = {
-      // There is an infinite loop if the coordinates are <= 8. It is due to getGridLocToTorusLocMap().
-      assert(8 < dimX && dimX <= 16, "Island center-outward placement requires 8 < dimX <= 16")
-      assert(8 < dimY && dimY <= 20, "Island center-outward placement requires 8 < dimX <= 20")
-
-      val gridToTorus = getGridLocToTorusLocMap(dimX, dimY, anchor(dimX, dimY))
-
-      val (topGrid, bottomGrid) = gridToTorus.partition { case (gridLoc, torusLoc) =>
-        gridLoc.r >= dimY / 2
-      }
-
-      val torusToPblock = MMap.empty[TorusLoc, ArbitraryPblock]
-
-      topGrid.foreach { case (gridLoc, torusLoc) =>
-        val core = gridToTorus(gridLoc)
-        torusToPblock += core -> slr2Pblock
-      }
-
-      bottomGrid.foreach { case (gridLoc, torusLoc) =>
-        val core = gridToTorus(gridLoc)
-        torusToPblock += core -> slr0Pblock
-      }
-
-      // Remove the privileged core as we place that one by ourselves at the root clock.
+      val torusToPblock  = MMap.empty[TorusLoc, ArbitraryPblock]
       val privilegedCore = TorusLoc(0, 0)
-      torusToPblock -= privilegedCore
+
+      Range.inclusive(0, dimX - 1).foreach { x =>
+        Range.inclusive(0, dimY - 1).foreach { y =>
+          val torusLoc = TorusLoc(x, y)
+
+          // We do not place the privileged core as the parent Floorplan.scala places that one.
+          if (torusLoc != privilegedCore) {
+            // ATTENTION:
+            // y < dimY/2 -> TOP   and    y >= dimY/2 -> BOTTOM
+            // are ASSUMPTIONs that map to how the reset tree is partitioned into a TOP/BOTTOM part!
+            if (y < dimY / 2) {
+              torusToPblock += torusLoc -> slr2Pblock
+            } else {
+              torusToPblock += torusLoc -> slr0Pblock
+            }
+          }
+        }
+      }
 
       torusToPblock.toMap
     }
@@ -528,59 +519,101 @@ object U200FloorplanImpl {
     override def getCustomConstraints(dimX: Int, dimY: Int): Option[String] = {
       val constraints = ArrayBuffer.empty[String]
 
-      val corePblock   = getCoreToPblockMap(dimY, dimY)
-      val switchPblock = getSwitchToPblockMap(dimX, dimY)
+      val corePblocks = getCoreToPblockMap(dimY, dimY)
+
+      val sPblock = slr1NonShellPblock
 
       // We want to place the send/recv pipe registers such that:
       // (1) The processor-side pipe is in the same SLR as the processor.
       // (2) The SLR-crossing pipe has one register in the processor SLR and the other in the switch SLR.
       // (3) The switch-side pipe is in the same SLR as the switch.
 
-      val privilegedCore   = TorusLoc(0, 0)
-      val privilegedSwitch = TorusLoc(0, 0)
+      val privilegedCore = TorusLoc(0, 0)
 
-      corePblock.toSeq
+      corePblocks.toSeq
         .sortBy { case (core, cPblock) =>
           (core.y, core.x)
         }
         .foreach { case (core, cPblock) =>
-          val sPblock = switchPblock(core)
-
           // The privileged core is placed in SLR1, so we must not place its SendRecv pipe registers across the SLR. They
           // must stay in SLR1.
           if (core != privilegedCore) {
 
+            // SendRecvPipe
             // (1) The processor-side pipe is in the same SLR as the processor.
             // (2) The SLR-crossing pipe has one register in the processor SLR and the other in the switch SLR.
-            val procSideCells = Seq(
+            // (3) The switch-side pipe is in the same SLR as the switch.
+            Seq(
               ProcessorToSwitch.procSideCellName(core.x, core.y),
               ProcessorToSwitch.slrCrossingProcSideCellName(core.x, core.y),
               SwitchToProcessor.procSideCellName(core.x, core.y),
               SwitchToProcessor.slrCrossingProcSideCellName(core.x, core.y)
-            )
-            procSideCells.foreach { cell =>
+            ).foreach { cell =>
               constraints += s"add_cells_to_pblock ${cPblock.name} [get_cells ${cell}]"
             }
-
-            // (3) The switch-side pipe is in the same SLR as the switch.
-            // (2) The SLR-crossing pipe has one register in the processor SLR and the other in the switch SLR.
-            val switchSideCells = Seq(
+            Seq(
               ProcessorToSwitch.switchSideCellName(core.x, core.y),
               ProcessorToSwitch.slrCrossingSwitchSideCellName(core.x, core.y),
               SwitchToProcessor.switchSideCellName(core.x, core.y),
               SwitchToProcessor.slrCrossingSwitchSideCellName(core.x, core.y)
-            )
-            switchSideCells.foreach { cell =>
+            ).foreach { cell =>
               constraints += s"add_cells_to_pblock ${sPblock.name} [get_cells ${cell}]"
+            }
+            Seq(
+              ProcessorToSwitch.slrCrossingProcSideCellName(core.x, core.y),
+              ProcessorToSwitch.slrCrossingSwitchSideCellName(core.x, core.y),
+              SwitchToProcessor.slrCrossingSwitchSideCellName(core.x, core.y),
+              SwitchToProcessor.slrCrossingProcSideCellName(core.x, core.y)
+            ).foreach { cell =>
+              constraints += s"set_property USER_SLL_REG TRUE [get_cells ${cell}]"
             }
 
           }
+
         }
 
-        // Separator for legibility.
-        constraints += ""
+      // Separator for legibility.
+      constraints += ""
 
-        constraints += s"set_property USER_SLL_REG TRUE [get_cells -hierarchical -regexp .*slrCrossing.*_pipe.*]"
+      // Reset trees
+      // We want to place the reset tree such that:
+      // (4) The switch reset tree is in SLR1.
+      // (5) The core reset tree is split between SLR0/SLR2 and its SLR-crossing pipe is mapped to opposite pblocks.
+      {
+        constraints += s"add_cells_to_pblock ${sPblock.name} [get_cells ${SwitchResetTree.cellName}]"
+
+        Seq(
+          CoreResetTree.topControllerSideCellName,
+          CoreResetTree.topControllerSideSlrCrossingCellName,
+          CoreResetTree.bottomControllerSideCellName,
+          CoreResetTree.bottomControllerSideSlrCrossingCellName
+        ).foreach { cell =>
+          constraints += s"add_cells_to_pblock ${slr1NonShellPblock.name} [get_cells ${cell}]"
+        }
+        Seq(
+          CoreResetTree.topCoreSideSlrCrossingCellName,
+          CoreResetTree.topCoreSideTreeCellName
+        ).foreach { cell =>
+          constraints += s"add_cells_to_pblock ${slr2Pblock.name} [get_cells ${cell}]"
+        }
+        Seq(
+          CoreResetTree.bottomCoreSideSlrCrossingCellName,
+          CoreResetTree.bottomCoreSideTreeCellName
+        ).foreach { cell =>
+          constraints += s"add_cells_to_pblock ${slr0Pblock.name} [get_cells ${cell}]"
+        }
+        Seq(
+          CoreResetTree.topControllerSideSlrCrossingCellName,
+          CoreResetTree.topCoreSideSlrCrossingCellName,
+          CoreResetTree.bottomControllerSideSlrCrossingCellName,
+          CoreResetTree.bottomCoreSideSlrCrossingCellName
+        ).foreach { cell =>
+          constraints += s"set_property USER_SLL_REG TRUE [get_cells ${cell}]"
+        }
+      }
+
+      // Separator for legibility.
+      constraints += ""
 
       Some(constraints.mkString("\n"))
     }

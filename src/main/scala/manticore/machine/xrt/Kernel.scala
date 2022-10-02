@@ -551,12 +551,12 @@ object ManticoreKernelGenerator {
       )
     )
 
-    // Insert KEEP_HIERARCHY annotation on `Processor`s and `ProcessorSendPipe`s.
+    // Insert KEEP_HIERARCHY annotations.
     val manticoreVlogWithKeepHierarchy = manticoreVlogOrig
       .split("\n")
       .map { line =>
         val pattern = new Regex(
-          """(\s*)(Processor(_\d+)?\s+processor|Switch(_\d+)?\s+switch_\d+_\d+|WrappedPipeWithStyle(_\d+)?\s+\w+pipe)""",
+          """(\s*)(Processor|Switch|WrappedPipeWithStyle|BoolTree)(_\d+)?\s+\w+""",
           "indent"
         )
         pattern.findFirstMatchIn(line) match {

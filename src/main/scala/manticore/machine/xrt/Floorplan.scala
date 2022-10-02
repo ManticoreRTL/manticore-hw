@@ -17,11 +17,19 @@ trait Floorplan {
   /////////////////////////////////////////////////////// NAMES ////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+  def computeArrayCellName: String = {
+    s"${getManticoreKernelInstName()}/manticore/compute_array"
+  }
+
+  def wrappedCoreCellName(x: Int, y: Int): String = {
+    s"${computeArrayCellName}/core_${x}_${y}"
+  }
+
   def procCellName(x: Int, y: Int): String = {
     // We explicitly do not consider the registers in the ProcessorWithSendPipe as part of the "core" since we
     // want vivado to have freedom to place them where it wants. Hence why we see "/processor" and don't just stop
     // at "/core_x_y".
-    s"${getManticoreKernelInstName()}/manticore/compute_array/core_${x}_${y}/processor"
+    s"${wrappedCoreCellName(x, y)}/processor"
   }
 
   // The auxiliary circuitry that should be placed near the core at position x<x>y<y>.
@@ -46,15 +54,15 @@ trait Floorplan {
   }
 
   def switchCellName(x: Int, y: Int): String = {
-    s"${getManticoreKernelInstName()}/manticore/compute_array/switch_${x}_${y}"
+    s"${computeArrayCellName}/switch_${x}_${y}"
   }
 
-  def sendRecvPipeCellName(x: Int, y: Int): String = {
-    s"${getManticoreKernelInstName()}/manticore/compute_array/core_${x}_${y}/sendRecvPipe"
+  def procSendRecvPipeCellName(x: Int, y: Int): String = {
+    s"${wrappedCoreCellName(x, y)}/sendRecvPipe"
   }
 
   object ProcessorToSwitch {
-    def cellName(x: Int, y: Int): String                      = s"${sendRecvPipeCellName(x, y)}/procToSwitchPipe"
+    def cellName(x: Int, y: Int): String                      = s"${procSendRecvPipeCellName(x, y)}/procToSwitchPipe"
     def procSideCellName(x: Int, y: Int): String              = s"${cellName(x, y)}/procSide_pipe"
     def slrCrossingProcSideCellName(x: Int, y: Int): String   = s"${cellName(x, y)}/slrCrossingProcSide_pipe"
     def slrCrossingSwitchSideCellName(x: Int, y: Int): String = s"${cellName(x, y)}/slrCrossingSwitchSide_pipe"
@@ -62,11 +70,33 @@ trait Floorplan {
   }
 
   object SwitchToProcessor {
-    def cellName(x: Int, y: Int): String                      = s"${sendRecvPipeCellName(x, y)}/switchToProcPipe"
+    def cellName(x: Int, y: Int): String                      = s"${procSendRecvPipeCellName(x, y)}/switchToProcPipe"
     def switchSideCellName(x: Int, y: Int): String            = s"${cellName(x, y)}/switchSide_pipe"
     def slrCrossingSwitchSideCellName(x: Int, y: Int): String = s"${cellName(x, y)}/slrCrossingSwitchSide_pipe"
     def slrCrossingProcSideCellName(x: Int, y: Int): String   = s"${cellName(x, y)}/slrCrossingProcSide_pipe"
     def procSideCellName(x: Int, y: Int): String              = s"${cellName(x, y)}/procSide_pipe"
+  }
+
+  object CoreResetTree {
+    def cellName: String = s"${computeArrayCellName}/core_reset_tree"
+
+    def topCellName: String                          = s"${cellName}/top_reset_tree"
+    def topControllerSideCellName: String            = s"${topCellName}/controllerSide_pipe"
+    def topControllerSideSlrCrossingCellName: String = s"${topCellName}/controllerSideSlrCrossing_pipe"
+    def topCoreSideSlrCrossingCellName: String       = s"${topCellName}/coreSideSlrCrossing_pipe"
+    def topCoreSideTreeCellName: String              = s"${topCellName}/reset_tree"
+
+    def bottomCellName: String                          = s"${cellName}/bottom_reset_tree"
+    def bottomControllerSideCellName: String            = s"${bottomCellName}/controllerSide_pipe"
+    def bottomControllerSideSlrCrossingCellName: String = s"${bottomCellName}/controllerSideSlrCrossing_pipe"
+    def bottomCoreSideSlrCrossingCellName: String       = s"${bottomCellName}/coreSideSlrCrossing_pipe"
+    def bottomCoreSideTreeCellName: String              = s"${bottomCellName}/reset_tree"
+
+    def privilegedCellName: String = s"${cellName}/privileged_reset_pipe"
+  }
+
+  object SwitchResetTree {
+    def cellName: String = s"${computeArrayCellName}/switch_reset_tree"
   }
 
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

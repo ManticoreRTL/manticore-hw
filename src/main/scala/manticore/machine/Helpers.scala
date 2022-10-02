@@ -78,12 +78,16 @@ object Helpers {
   }
 
   def RegDontTouch[T <: Data](
-      data: T
+      data: T,
+      style: SrlStyle.SrlStyleAnnotation = SrlStyle.Reg
   ): T = {
     val regDontTouch = RegNext(data)
 
     annotate(new ChiselAnnotation {
       def toFirrtl: Annotation = AttributeAnnotation(regDontTouch.toNamed, s"DONT_TOUCH = \"yes\"")
+    })
+    annotate(new ChiselAnnotation {
+      def toFirrtl: Annotation = AttributeAnnotation(regDontTouch.toNamed, s"srl_style = \"${style.name}\"")
     })
 
     regDontTouch

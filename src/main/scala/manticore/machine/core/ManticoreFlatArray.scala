@@ -67,41 +67,6 @@ class ClockDistribution extends BlackBox with HasBlackBoxResource {
   addResource("/verilog/ClockDistribution.v")
 }
 
-class SoftResetTreeIO(dimx: Int, dimy: Int) extends Bundle {
-  val taps = Output(Vec(dimx, Vec(dimy, Bool())))
-  val last = Output(Bool())
-}
-
-class SoftResetTree(dimx: Int, dimy: Int) extends Module {
-
-  val io = IO(new SoftResetTreeIO(dimx, dimy))
-
-  def fo4(source: Bool): IndexedSeq[Bool] = IndexedSeq.fill(4) { Helpers.RegDontTouch(source) }
-
-  def mkBranches(
-      res: IndexedSeq[Bool] = IndexedSeq(Helpers.RegDontTouch(reset.asBool)),
-      count: Int = 1
-  ): IndexedSeq[Bool] = {
-    if (count >= (dimx * dimy)) {
-      res
-    } else {
-      mkBranches(res.flatMap(fo4), count * 4)
-    }
-  }
-  val leaves = mkBranches()
-
-  for (x <- 0 until dimx) {
-    for (y <- 0 until dimy) {
-      io.taps(x)(y) := leaves(x + y * dimx)
-    }
-  }
-
-  io.last := Helpers.RegDontTouch(leaves.last)
-}
-
-object SoftResetGen extends App {
-  new ChiselStage().emitVerilog(new SoftResetTree(6, 6), Array("-td", "gen-dir"))
-}
 class ComputeArray(
     dimx: Int,
     dimy: Int,
@@ -119,7 +84,7 @@ class ComputeArray(
     val exception_occurred = Output(Bool())
     val dynamic_cycle      = Output(Bool())
     val execution_active   = Output(Bool())
-    val core_reset_done    = Output(Bool())
+    // val core_reset_done    = Output(Bool())
   })
 
   val equations = Seq.fill(1 << ManticoreBaseISA.FunctBits) {
@@ -137,9 +102,10 @@ class ComputeArray(
   case class FatCore(core: ProcessorWithSendRecvPipe, switch: Switch, x: Int, y: Int)
 
   // Allow placement flexibility between cores and switches by using a dedicated reset tree for each.
-  val core_reset_tree   = Module(new SoftResetTree(dimx, dimy))
-  val switch_reset_tree = Module(new SoftResetTree(dimx, dimy))
-  io.core_reset_done := core_reset_tree.io.last
+  val core_reset_tree   = Module(new CoreResetTree(dimx, dimy))
+  val switch_reset_tree = Module(new SwitchResetTree(dimx, dimy))
+
+  // io.core_reset_done := core_reset_tree.io.last
   // val reset_tree = Module(new SoftResetTree(dimx, dimy))
   // io.core_reset_done := reset_tree.io.last
 
