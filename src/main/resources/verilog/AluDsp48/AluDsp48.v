@@ -99,6 +99,7 @@ module AluDsp48 (
   assign in0s = in0;
   assign in1s = in1;
   assign result =
+    (opmode == 9'b000000101 && alumode == 4'b0000) ? result_mul[15:0]:
     (opmode == 9'b000110011 && alumode == 4'b1100) ? in0 & in1 :
     (opmode == 9'b000111011 && alumode == 4'b1100) ? in0 | in1 :
     (opmode == 9'b000110011 && alumode == 4'b0100) ? in0 ^ in1 :

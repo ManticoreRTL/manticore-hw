@@ -104,7 +104,7 @@ module Testbench ();
             $display("@%d %s\t\t\t0x%x %s 0x%x = 0x%x OK!", clock_counter, t.fn.name(), t.op1, `"operator`", t.op2, r); \
         end \
     endtask
-    // `SIMPLE_OP_CHECK(MUL, *)
+    `SIMPLE_OP_CHECK(MUL, *)
     `SIMPLE_OP_CHECK(ADD, +)
     `SIMPLE_OP_CHECK(SUB, -)
     `SIMPLE_OP_CHECK(AND, &)
@@ -134,15 +134,15 @@ module Testbench ();
     endtask
 
 
-    task checkMUL(input Stimulus t);
-        automatic logic [31 : 0] r = t.op1 * t.op2;
-        if (t.m != r) begin
-            $error("@%d %s\t\t\t0x%x * 0x%x = 0x%x but got 0x%x", clock_counter, t.fn.name(), t.op1, t.op2, r, t.m);
-            failIt;
-        end else begin
-            $display("@%d %s\t\t\t0x%x * 0x%x = 0x%x OK!", clock_counter, t.fn.name(), t.op1, t.op2, r);
-        end
-    endtask
+    // task checkMUL(input Stimulus t);
+    //     automatic logic [31 : 0] r = t.op1 * t.op2;
+    //     if (t.m != r) begin
+    //         $error("@%d %s\t\t\t0x%x * 0x%x = 0x%x but got 0x%x", clock_counter, t.fn.name(), t.op1, t.op2, r, t.m);
+    //         failIt;
+    //     end else begin
+    //         $display("@%d %s\t\t\t0x%x * 0x%x = 0x%x OK!", clock_counter, t.fn.name(), t.op1, t.op2, r);
+    //     end
+    // endtask
 
     task checkMULH(input Stimulus t);
         automatic logic [31 : 0] r = t.op1 * t.op2;
@@ -221,7 +221,14 @@ module Testbench ();
     wire  [15 : 0] result;
     wire  [31 : 0] mul_result;
     wire  [0 : 0]  carry_out;
-    wire  [0 : 0] vld_out;
+    logic  [0 : 0] vld_out, vld0, vld1;
+
+    /** Used only to know when the first input is received */
+    always @(posedge clock) begin
+        vld0 <= vld_in;
+        vld1 <= vld0;
+        vld_out <= vld1;
+    end
 
     Stimulus t_in;
     Stimulus t_out;
@@ -237,9 +244,7 @@ module Testbench ();
         .io_out(result),
         .io_mul_out(mul_result),
         .io_funct(funct),
-        .io_carry_out(carry_out),
-        .io_valid_in(vld_in),
-        .io_valid_out(vld_out)
+        .io_carry_out(carry_out)
     );
 
     `ifdef DUMP_VCD

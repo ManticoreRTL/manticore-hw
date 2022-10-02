@@ -365,27 +365,19 @@ class Processor(
     forwarding_signals
   )
   execute_stage.io.carry_in := RegNext(register_file.io.rs3.dout(config.DataBits))
-  execute_stage.io.valid_in := decode_stage.io.pipe_out.opcode.mul || decode_stage.io.pipe_out.opcode.mulh
   register_file.io.rs1.addr := decode_stage.io.pipe_out.rs1
   register_file.io.rs2.addr := decode_stage.io.pipe_out.rs2
   register_file.io.rs3.addr := decode_stage.io.pipe_out.rs3
   register_file.io.rs4.addr := decode_stage.io.pipe_out.rs4
 
-  multiplier_res_high := memory_stage.io.pipe_out.result_mul(2 * config.DataBits - 1, config.DataBits)
-  multiplier_res_low  := memory_stage.io.pipe_out.result_mul(config.DataBits - 1, 0)
 
   register_file.io.w.addr := memory_stage.io.pipe_out.rd
-  when(memory_stage.io.valid_out) {
-    register_file.io.w.din := Cat(
-      0.U(1.W),
-      Mux(memory_stage.io.pipe_out.mulh, multiplier_res_high, multiplier_res_low)
-    )
-  } otherwise {
-    register_file.io.w.din := Cat(
-      RegNext3(execute_stage.io.carry_wen & execute_stage.io.carry_out),
-      memory_stage.io.pipe_out.result
-    )
-  }
+
+  register_file.io.w.din := Cat(
+    RegNext3(execute_stage.io.carry_wen & execute_stage.io.carry_out),
+    memory_stage.io.pipe_out.result
+  )
+
   register_file.io.w.en := memory_stage.io.pipe_out.write_back
 
   lut_load_regs.io.din         := decode_stage.io.pipe_out.immediate
@@ -396,7 +388,6 @@ class Processor(
   memory_stage.io.local_memory_interface <> array_memory.io
   memory_stage.io.local_memory_interface.dout := array_memory.io.dout
   memory_stage.io.pipe_in                     := execute_stage.io.pipe_out
-  memory_stage.io.valid_in                    := execute_stage.io.valid_out
 
   register_file.io.w.addr := memory_stage.io.pipe_out.rd
 

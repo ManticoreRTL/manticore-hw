@@ -18,8 +18,7 @@ object MemoryAccess {
     val rd: UInt          = UInt(config.IdBits.W)
     val send: Bool        = Bool()
     val nop: Bool         = Bool()
-    val mul: Bool         = Bool()
-    val mulh: Bool        = Bool()
+
   }
 
 }
@@ -35,8 +34,6 @@ class MemoryInterface(config: ISA, DimX: Int, DimY: Int) extends Bundle {
   )
   val global_memory_interface = Flipped(CacheConfig.frontInterface())
 
-  val valid_in  = Input(Bool()) // Asserted only for MUL and MULH
-  val valid_out = Output(Bool())
 }
 
 class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
@@ -124,18 +121,7 @@ class MemoryAccess(config: ISA, DimX: Int, DimY: Int) extends Module {
   pipeIt3(io.pipe_out.nop) {
     io.pipe_in.opcode.nop
   }
-  pipeIt3(io.pipe_out.mul) {
-    io.pipe_in.opcode.mul
-  }
-  pipeIt3(io.pipe_out.mulh) {
-    io.pipe_in.opcode.mulh
-  }
-  pipeIt3(io.valid_out) {
-    io.valid_in
-  }
-  pipeIt3(io.pipe_out.result_mul) {
-    io.pipe_in.result_mul
-  }
+
   pipeIt2(lload_w) {
     io.pipe_in.opcode.lload
   }
