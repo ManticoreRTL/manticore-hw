@@ -565,7 +565,7 @@ object U200FloorplanImpl {
               SwitchToProcessor.slrCrossingSwitchSideCellName(core.x, core.y),
               SwitchToProcessor.slrCrossingProcSideCellName(core.x, core.y)
             ).foreach { cell =>
-              constraints += s"set_property USER_SLL_REG TRUE [get_cells ${cell}]"
+              constraints += s"set_property USER_SLL_REG TRUE [get_cells -hierarchical -regexp ${cell}/.* -filter {IS_PRIMITIVE && (REF_NAME!=VCC) && (REF_NAME!=GND)}]"
             }
 
           }
@@ -608,7 +608,7 @@ object U200FloorplanImpl {
           CoreResetTree.bottomControllerSideSlrCrossingCellName,
           CoreResetTree.bottomCoreSideSlrCrossingCellName
         ).foreach { cell =>
-          constraints += s"set_property USER_SLL_REG TRUE [get_cells ${cell}]"
+          constraints += s"set_property USER_SLL_REG TRUE [get_cells -hierarchical -regexp ${cell}/.* -filter {IS_PRIMITIVE && (REF_NAME!=VCC) && (REF_NAME!=GND)}]"
         }
       }
 
