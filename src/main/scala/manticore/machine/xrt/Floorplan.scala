@@ -37,12 +37,12 @@ trait Floorplan {
     if (x == 0 && y == 0) {
       Seq(
         s"${getManticoreKernelInstName()}/axi_cache",
-        s"${getManticoreKernelInstName()}/m_axi_bank_0_clock_crossing",
-        s"${getManticoreKernelInstName()}/s_axi_clock_crossing",
-        s"${getManticoreKernelInstName()}/slave",
-        s"${getManticoreKernelInstName()}/manticore/bootloader",
+        // s"${getManticoreKernelInstName()}/m_axi_bank_0_clock_crossing",
+        // s"${getManticoreKernelInstName()}/s_axi_clock_crossing",
+        // s"${getManticoreKernelInstName()}/slave",
+        // s"${getManticoreKernelInstName()}/manticore/bootloader",
         s"${getManticoreKernelInstName()}/manticore/controller",
-        s"${getManticoreKernelInstName()}/manticore/memory_intercept"
+        // s"${getManticoreKernelInstName()}/manticore/memory_intercept"
       )
     } else {
       Seq()
