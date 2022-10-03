@@ -1,6 +1,7 @@
 package manticore.machine.core
 
-import Chisel._
+import chisel3._
+import chisel3.util._
 import chisel3.experimental.ChiselEnum
 import manticore.machine.ISA
 import manticore.machine.memory.CacheConfig
@@ -103,8 +104,8 @@ class Programmer(config: ISA, DimX: Int, DimY: Int) extends Module {
     y_counter.io.en := x_counter.io.wrap
   }
 
-  val dest_x: UInt = Reg(UInt(log2Ceil(DimX).W))
-  val dest_y: UInt = Reg(UInt(log2Ceil(DimY).W))
+  val dest_x: UInt = RegInit(0.U(log2Ceil(DimX).W))
+  val dest_y: UInt = RegInit(0.U(log2Ceil(DimY).W))
 
   // register memory response for better timing closure
   val mem_resp_done = Reg(Bool())
@@ -139,7 +140,7 @@ class Programmer(config: ISA, DimX: Int, DimY: Int) extends Module {
 
 //  io.global_synch := io.core_active.forall(_ === false.B)
 
-  val phase_next: Phase.Type = Reg(Phase.Type(), Phase.Idle)
+  val phase_next: Phase.Type = RegInit(Phase.Idle)
   val running: Bool          = Reg(Bool())
   switch(phase) {
     is(Phase.Idle) {

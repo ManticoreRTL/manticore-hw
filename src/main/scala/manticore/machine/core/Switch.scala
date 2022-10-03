@@ -177,7 +177,7 @@ class Switch(DimX: Int, DimY: Int, config: ISA, n_hop: Int = 2) extends Module {
 
   val x_reg: NoCBundle   = Reg(NoCBundle(DimX, DimY, config))
   val y_reg: NoCBundle   = Reg(NoCBundle(DimX, DimY, config))
-  val terminal_reg: Bool = RegInit(Bool(), false.B)
+  val terminal_reg: Bool = Reg(Bool())
 
   // default values of the outputs
   x_reg        := empty
