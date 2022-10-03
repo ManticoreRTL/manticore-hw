@@ -84,6 +84,7 @@ module Testbench();
             din = memory_model[i];
         end
         Tick;
+        din = rnd_data();
         wen = 0;
         for (int i = 0; i < (1 << 14); i++) begin
             Tick;
@@ -93,6 +94,16 @@ module Testbench();
             Tick;
             if (dout != memory_model[i]) begin
                 $error("Expected %d at address %d but got %d", memory_model[i], i, dout);
+                FailIt;
+            end
+            Tick;
+            raddr = i;
+            Tick;
+            raddr = rnd_address();
+            Tick;
+            if (dout != memory_model[i]) begin
+                $error("Expected %d at address %d but got %d, seems like reads are descrtuctive", memory_model[i], i, dout);
+                FailIt;
             end
         end
         Tick;
@@ -114,6 +125,7 @@ module Testbench();
             Tick;
             if (s_din != dout) begin
                 $error("Expected %d at address %d but got %d", s_din, s_waddr, dout);
+                FailIt;
             end
         end
         $finish;

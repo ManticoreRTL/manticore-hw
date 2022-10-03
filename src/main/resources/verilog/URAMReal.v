@@ -58,10 +58,10 @@ module URAMReal #(
     assign addr_b = {{25 - ADDRESS_WIDTH{1'b0}}, waddr[ADDRESS_WIDTH - 1:2]};
     assign din_b = {8'b0, din, din, din, din};
     assign bwe_b =
-        waddr[1:0] == 2'b11 ? 8'b1100_0000 :
-        waddr[1:0] == 2'b10 ? 8'b0011_0000 :
-        waddr[1:0] == 2'b01 ? 8'b0000_1100 :
-        8'b0000_0011;
+        ((waddr[1:0] == 2'b11) & wen) ? 8'b1100_0000 :
+        ((waddr[1:0] == 2'b10) & wen) ? 8'b0011_0000 :
+        ((waddr[1:0] == 2'b01) & wen) ? 8'b0000_1100 :
+        ((waddr[1:0] == 2'b00) & wen) ? 8'b0000_0011 : 8'b0;
 
     // URAM288_BASE: 288K-bit High-Density Base Memory Building Block
     //               UltraScale
