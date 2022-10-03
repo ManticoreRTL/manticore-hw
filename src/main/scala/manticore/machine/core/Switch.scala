@@ -174,15 +174,9 @@ class Switch(DimX: Int, DimY: Int, config: ISA, n_hop: Int = 2) extends Module {
   val io = IO(new SwitchInterface(DimX, DimY, config))
 
   val empty = Wire(NoCBundle(DimX, DimY, config))
-  def mkPacketRegInit(): NoCBundle = {
-    val pkt = RegInit(
-      NoCBundle(DimX, DimY, config),
-      NoCBundle.empty(DimX, DimY, config)
-    )
-    pkt
-  }
-  val x_reg: NoCBundle   = mkPacketRegInit()
-  val y_reg: NoCBundle   = mkPacketRegInit()
+
+  val x_reg: NoCBundle   = Reg(NoCBundle(DimX, DimY, config))
+  val y_reg: NoCBundle   = Reg(NoCBundle(DimX, DimY, config))
   val terminal_reg: Bool = RegInit(Bool(), false.B)
 
   // default values of the outputs

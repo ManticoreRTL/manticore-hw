@@ -102,6 +102,11 @@ class Management(dimX: Int, dimY: Int) extends Module {
 
   val enable_core_reset = WireDefault(false.B)
 
+  // keep soft reset high for enough cycles to ensure all pipeline stages
+  // are flushed an all NoC packets are discarded
+  val soft_reset_cycle = Counter(32 + (dimX + dimY))
+  // on the neg edge of reset done we can start resetting the cache
+  val core_reset_done_neg = RegNext(io.soft_reset_done) && !io.soft_reset_done
   io.soft_reset := RegNext(state === sCoreReset)
   io.cache_reset_start := (state === sCacheReset)
   io.cache_flush_start := (state === sCacheFlush)
@@ -119,6 +124,7 @@ class Management(dimX: Int, dimY: Int) extends Module {
           true.B,
           false.B
         ) // only enable the clock if we are resuming execution
+        soft_reset_cycle.reset()
         when(command === CMD_START) {
           dev_regs.bootloader_cycles := 0.U
           dev_regs.virtual_cycles    := 0.U
@@ -128,11 +134,14 @@ class Management(dimX: Int, dimY: Int) extends Module {
     }
     is(sCoreReset) {
       clock_active := true.B
-      state        := sCoreResetWait
+      // keep the reset signal high for 32 cycles to ensure all the pipeline
+      // stages are flushed and zombie packets discarded
+      val wraps = soft_reset_cycle.inc()
+      state        := Mux(wraps, sCoreResetWait, sCoreReset)
     }
     is(sCoreResetWait) {
       clock_active := true.B // enable the clock so that cores can be reset
-      when(io.soft_reset_done) {
+      when(core_reset_done_neg) {
         state := sCacheReset
       }
     }
