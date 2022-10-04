@@ -49,13 +49,12 @@ class Management(dimX: Int, dimY: Int) extends Module {
     val execution_active  = Input(Bool())
 
     val soft_reset = Output(Bool())
-    // val soft_reset_done = Input(Bool())
   })
 
   val clock_active = RegInit(true.B)
   io.clock_active := clock_active
   require(dimX < 64 && dimY < 64)
-  io.device_registers.device_info := Cat(dimX.U(6.W), dimY.U(6.W), 0.U(20))
+
   // these two registers help minimize the fan out of clock_active
   val timed_out = Reg(Bool())
   timed_out := false.B
@@ -107,6 +106,9 @@ class Management(dimX: Int, dimY: Int) extends Module {
   io.cache_reset_start := (state === sCacheReset)
   io.cache_flush_start := (state === sCacheFlush)
   io.boot_start        := false.B
+
+  dev_regs.execution_cycles := dev_regs.execution_cycles + 1.U
+
   switch(state) {
 
     is(sIdle) {
@@ -117,9 +119,11 @@ class Management(dimX: Int, dimY: Int) extends Module {
           true.B,
           false.B
         ) // only enable the clock if we are resuming execution
-        dev_regs.bootloader_cycles := 0.U
-        dev_regs.virtual_cycles    := 0.U
-        dev_regs.execution_cycles  := 0.U
+        when(command === CMD_START) {
+          dev_regs.bootloader_cycles := 0.U
+          dev_regs.virtual_cycles    := 0.U
+          dev_regs.execution_cycles  := 0.U
+        }
       }
     }
     is(sCoreReset) {
@@ -149,7 +153,9 @@ class Management(dimX: Int, dimY: Int) extends Module {
       state := sCacheFlushWait
     }
     is(sCacheFlushWait) {
-      state := sDone
+      when(io.cache_done) {
+        state := sDone
+      }
     }
     is(sBoot) {
       dev_regs.bootloader_cycles := dev_regs.bootloader_cycles + 1.U
@@ -160,7 +166,7 @@ class Management(dimX: Int, dimY: Int) extends Module {
     }
 
     is(sVirtualCycle) {
-      dev_regs.execution_cycles := dev_regs.execution_cycles + 1.U
+
       when(clock_active) {
         clock_active := !(io.core_kill_clock || io.core_exception_occurred)
       } otherwise {
@@ -198,7 +204,8 @@ class Management(dimX: Int, dimY: Int) extends Module {
     }
   }
 
-  io.device_registers := dev_regs
+  io.device_registers             := dev_regs
+  io.device_registers.device_info := Cat(dimX.U(6.W), dimY.U(6.W), 0.U(20.W))
 
 }
 

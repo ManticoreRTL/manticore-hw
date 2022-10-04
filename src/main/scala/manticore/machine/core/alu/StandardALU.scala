@@ -23,8 +23,6 @@ class ALUInterface(DATA_BITS: Int) extends Bundle {
   val carry_out = Output(UInt(1.W))
   val funct     = Input(UInt(4.W))
 
-  val valid_in  = Input(Bool()) // Asserted only for MUL and MULH
-  val valid_out = Output(Bool())
 }
 
 class StandardALUComb(DATA_BITS: Int) extends Module {
@@ -77,6 +75,8 @@ class StandardALUComb(DATA_BITS: Int) extends Module {
       io.funct === ISA.Functs.MUX.id.U).asBool,
     3
   ).suggestName("without_dsp")
+
+  val mulh_dsp = Delayed(io.funct === ISA.Functs.MUL2H.id.U, 3)
 
   shamnt := io.in.y(log2Ceil(DATA_BITS) - 1, 0)
   val srl_res = RegNext(io.in.x >> shamnt)
@@ -202,12 +202,12 @@ class StandardALUComb(DATA_BITS: Int) extends Module {
   dsp.io.alumode  := alumode
   dsp.io.setinst  := setinst
 
-  io.out := Mux(without_dsp, no_dsp_res, dsp.io.out)
+  io.out := Mux(without_dsp, no_dsp_res, Mux(mulh_dsp, dsp.io.mul_out >> DATA_BITS.U, dsp.io.out))
 
   io.mul_out   := dsp.io.mul_out
   io.carry_out := dsp.io.carryout
 
-  io.valid_out := Delayed(io.valid_in, 3) // used outside to select the mul result, should be removed
+  // io.valid_out := Delayed(io.valid_in, 3) // used outside to select the mul result, should be removed
 
 }
 

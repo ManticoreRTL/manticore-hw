@@ -1,6 +1,7 @@
 package manticore.machine.core
 
-import Chisel._
+import chisel3._
+import chisel3.util._
 import chisel3.experimental.ChiselEnum
 import chisel3.stage.ChiselStage
 import manticore.machine.ISA
@@ -13,6 +14,7 @@ import manticore.machine.memory.SimpleDualPortMemory
 
 import scala.util.Random
 import manticore.machine.Helpers
+import manticore.machine.memory.CacheCommand
 
 class NamedError(nameBits: Int) extends Bundle {
   val error: Bool = Bool()
@@ -24,11 +26,10 @@ class PeripheryProcessorInterface(config: ISA) extends Bundle {
   val active: Bool = Output(
     Bool()
   ) // high if the processor is in the execution phase
-  val cache: CacheFrontInterface      = Flipped(CacheConfig.frontInterface())
-  val gmem_access_failure_error: Bool = Output(Bool())
-  val exception: NamedError           = Output(new NamedError(config.DataBits))
-  val debug_time: UInt                = Input(UInt(64.W))
-  val dynamic_cycle: Bool             = Output(Bool())
+  val cache: CacheFrontInterface = Flipped(CacheConfig.frontInterface())
+  val exception: NamedError      = Output(new NamedError(config.DataBits))
+  val debug_time: UInt           = Input(UInt(64.W))
+  val dynamic_cycle: Bool        = Output(Bool())
 }
 class ProcessorInterface(config: ISA, DimX: Int, DimY: Int) extends Bundle {
   val packet_in  = Input(new BareNoCBundle(config))
@@ -192,6 +193,7 @@ class Processor(
   def RegNext3[T <: Data](src: T): T = {
     RegNext(RegNext(RegNext(src)))
   }
+  def RegNext2[T <: Data](src: T): T = RegNext(RegNext(src))
 
   object ProcessorPhase extends ChiselEnum {
     val DynamicReceiveProgramLength, // wait for the first message that indicates the length of the program
@@ -251,6 +253,8 @@ class Processor(
 
   if (debug_enable) {
     execute_stage.io.debug_time := io.periphery.debug_time
+  } else {
+    execute_stage.io.debug_time := 0.U
   }
 
   val memory_stage = Module(new MemoryAccess(config, DimX, DimY))
@@ -269,9 +273,6 @@ class Processor(
     )
   )
 
-  val multiplier_res_high = Wire(UInt(config.DataBits.W))
-  val multiplier_res_low  = Wire(UInt(config.DataBits.W))
-
   val skip_exec            = Wire(Bool())
   val skip_sleep           = Wire(Bool())
   val total_program_length = Wire(UInt(config.NumPcBits.W))
@@ -281,6 +282,9 @@ class Processor(
   skip_sleep           := (program_sleep_length === 0.U)
 
   fetch_stage.io.programmer.enable := false.B
+  fetch_stage.io.programmer.instruction := DontCare
+
+  fetch_stage.io.programmer.address := program_pointer
 
   soft_reset := false.B
   switch(state) {
@@ -314,8 +318,7 @@ class Processor(
           fetch_stage.io.programmer.instruction := Cat(
             io.packet_in.data +: inst_builder_reg
           )
-          fetch_stage.io.programmer.address := program_pointer
-          program_pointer                   := program_pointer + 1.U
+          program_pointer := program_pointer + 1.U
           when(program_pointer + 1.U === program_body_length) {
             state := ProcessorPhase.DynamicReceiveEpilogueLength
           } otherwise {
@@ -501,27 +504,18 @@ class Processor(
     forwarding_signals
   )
   execute_stage.io.carry_in := RegNext(register_file.io.rs3.dout(config.DataBits))
-  execute_stage.io.valid_in := decode_stage.io.pipe_out.opcode.mul || decode_stage.io.pipe_out.opcode.mulh
   register_file.io.rs1.addr := decode_stage.io.pipe_out.rs1
   register_file.io.rs2.addr := decode_stage.io.pipe_out.rs2
   register_file.io.rs3.addr := decode_stage.io.pipe_out.rs3
   register_file.io.rs4.addr := decode_stage.io.pipe_out.rs4
 
-  multiplier_res_high := memory_stage.io.pipe_out.result_mul(2 * config.DataBits - 1, config.DataBits)
-  multiplier_res_low  := memory_stage.io.pipe_out.result_mul(config.DataBits - 1, 0)
-
   register_file.io.w.addr := memory_stage.io.pipe_out.rd
-  when(memory_stage.io.valid_out) {
-    register_file.io.w.din := Cat(
-      0.U(1.W),
-      Mux(memory_stage.io.pipe_out.mulh, multiplier_res_high, multiplier_res_low)
-    )
-  } otherwise {
-    register_file.io.w.din := Cat(
-      RegNext3(execute_stage.io.carry_wen & execute_stage.io.carry_out),
-      memory_stage.io.pipe_out.result
-    )
-  }
+
+  register_file.io.w.din := Cat(
+    RegNext3(execute_stage.io.carry_wen & execute_stage.io.carry_out),
+    memory_stage.io.pipe_out.result
+  )
+
   register_file.io.w.en := memory_stage.io.pipe_out.write_back
 
   lut_load_regs.io.din         := decode_stage.io.pipe_out.immediate
@@ -532,7 +526,6 @@ class Processor(
   memory_stage.io.local_memory_interface <> array_memory.io
   memory_stage.io.local_memory_interface.dout := array_memory.io.dout
   memory_stage.io.pipe_in                     := execute_stage.io.pipe_out
-  memory_stage.io.valid_in                    := execute_stage.io.valid_out
 
   register_file.io.w.addr := memory_stage.io.pipe_out.rd
 
@@ -545,39 +538,27 @@ class Processor(
   io.packet_out.valid   := RegNext(decode_stage.io.pipe_out.opcode.send)
 
   if (config.WithGlobalMemory) {
-    memory_stage.io.global_memory_interface ==> io.periphery.cache
+    memory_stage.io.global_memory_interface <> io.periphery.cache
+  } else {
+    io.periphery.cache <> DontCare
+    memory_stage.io.global_memory_interface <> DontCare
   }
 
   // error bit to check whether a memory response came back
   val gmem_expect_response = Reg(Bool())
   gmem_expect_response := memory_stage.io.global_memory_interface.start
-  val gmem_failure = Reg(Bool())
+  val gmem_failure = withReset(soft_reset) { RegInit(false.B) }
+
   gmem_failure := (gmem_expect_response && !io.periphery.cache.done) || gmem_failure
 
-  val exception_occurred: Bool = Reg(Bool())
+  val exception_occurred: Bool = withReset(soft_reset) { RegInit(false.B) }
   val exception_id: UInt       = Reg(UInt(config.DataBits.W))
+  val exception_cond =
+    RegNext(decode_stage.io.pipe_out.opcode.expect) && !RegNext(register_file.io.rs1.dout === register_file.io.rs2.dout)
 
-  val exception_cond: Bool = Wire(Bool())
-
-  // Expect instruction should throw an exception if the result of SetEqual is false.
-  // Using functionality related to the custom ALU is an error if the custom ALU has been disabled.
-  exception_cond := (execute_stage.io.pipe_out.opcode.expect && execute_stage.io.pipe_out.result === 0.U) ||
-    (!enable_custom_alu.B &&
-      (decode_stage.io.pipe_out.opcode.config_cfu ||
-        decode_stage.io.pipe_out.opcode.cust))
-
-  exception_occurred := exception_cond
-
-  when(exception_cond) {
-    exception_id := execute_stage.io.pipe_out.immediate
-  }
-
-  io.periphery.exception.id    := exception_id
+  exception_occurred           := RegNext3(exception_cond)
+  io.periphery.exception.id    := RegNext2(RegEnable(RegNext(decode_stage.io.pipe_out.immediate), exception_cond))
   io.periphery.exception.error := exception_occurred
-  when(soft_reset) {
-    gmem_failure       := false.B
-    exception_occurred := false.B
-  }
 
   io.periphery.dynamic_cycle := execute_stage.io.pipe_out.gmem.start
 
