@@ -160,6 +160,22 @@ class CacheFrontInterface(DataBits: Int, AddressBits: Int) extends Bundle {
 
 }
 
+class CacheFrontPipe(DataBits: Int, AddressBits: Int) extends Module {
+  val io = IO(new Bundle {
+    val in  = new CacheFrontInterface(DataBits, AddressBits)
+    val out = Flipped(new CacheFrontInterface(DataBits, AddressBits))
+  })
+
+  io.out.addr  := RegNext(io.in.addr)
+  io.out.wdata := RegNext(io.in.wdata)
+  io.out.start := RegNext(io.in.start)
+  io.out.cmd   := RegNext(io.in.cmd)
+
+  io.in.rdata := RegNext(io.out.rdata)
+  io.in.done  := RegNext(io.out.done)
+  io.in.idle  := RegNext(io.out.idle)
+}
+
 /** Cache front- and back-end interfaces
   *
   * @param DataBits
@@ -228,6 +244,8 @@ object CacheConfig {
   def backInterface() = new CacheBackInterface(CacheLineBits, UsedAddressBits)
 
   def interface() = new CacheInterface(DataBits, CacheLineBits, UsedAddressBits)
+
+  def frontInterfacePipe() = new CacheFrontPipe(DataBits, UsedAddressBits)
 
 }
 

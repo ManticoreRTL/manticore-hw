@@ -282,11 +282,6 @@ class ManticoreFlatArray(
     )
   }
 
-  controller.io.core_kill_clock := compute_array.io.dynamic_cycle
-  controller.io.cache_done      := io.memory_backend.done
-
-  // controller.io.soft_reset_done := compute_array.io.core_reset_done
-
   memory_intercept.io.cache_flush := controller.io.cache_flush_start
   memory_intercept.io.cache_reset := controller.io.cache_reset_start
 
@@ -301,10 +296,23 @@ class ManticoreFlatArray(
   compute_array.io.mem_access <> memory_intercept.io.core
   bootloader.io.memory_backend <> memory_intercept.io.boot
 
-  io.memory_backend <> memory_intercept.io.cache
+  // This module arbitrates decouples the cache.
+  //
+  //   memory_intercept.io.cache <---> cache_pipe <---> cache
+  //
+  val cache_pipe = withClockAndReset(
+    clock = io.control_clock,
+    reset = io.reset
+  ) {
+    Module(CacheConfig.frontInterfacePipe())
+  }
+  cache_pipe.io.in <> memory_intercept.io.cache
+  io.memory_backend <> cache_pipe.io.out
 
-  memory_intercept.io.core_clock := io.compute_clock
+  // // Original
+  // io.memory_backend <> memory_intercept.io.cache
 
+  memory_intercept.io.core_clock    := io.compute_clock
   memory_intercept.io.config_enable := controller.io.config_enable
 
   controller.io.exception_id            := compute_array.io.exception_id
@@ -312,5 +320,10 @@ class ManticoreFlatArray(
   controller.io.execution_active        := compute_array.io.execution_active
   controller.io.schedule_config         := io.host_registers.schedule_config
   controller.io.clock_locked            := io.clock_stabled
+
+  controller.io.core_kill_clock := compute_array.io.dynamic_cycle
+  controller.io.cache_done      := cache_pipe.io.in.done
+  // // Original
+  // controller.io.cache_done      := io.memory_backend.done
 
 }
