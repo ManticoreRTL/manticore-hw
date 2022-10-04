@@ -410,14 +410,17 @@ class Processor(
   gmem_failure := (gmem_expect_response && !io.periphery.cache.done) || gmem_failure
 
   val exception_occurred: Bool = withReset(soft_reset) { RegInit(false.B) }
-  val exception_id: UInt       = Reg(UInt(config.DataBits.W))
+
   val exception_cond =
     RegNext(decode_stage.io.pipe_out.opcode.expect) && !RegNext(register_file.io.rs1.dout === register_file.io.rs2.dout)
 
+  // effectively 5 registers, because the type is RegInit, and exception_cond is also a register.
+  // Note that 5 is the depth of the execute stage
   exception_occurred           := RegNext3(exception_cond)
-  io.periphery.exception.id    := RegNext2(RegEnable(RegNext(decode_stage.io.pipe_out.immediate), exception_cond))
+  io.periphery.exception.id    := RegNext3(RegEnable(RegNext(decode_stage.io.pipe_out.immediate), exception_cond))
   io.periphery.exception.error := exception_occurred
 
+  // gmem.start goes high 5 cycles after the gld/gst decode, like the exception.
   io.periphery.dynamic_cycle := execute_stage.io.pipe_out.gmem.start
 
 }

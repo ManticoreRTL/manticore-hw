@@ -164,14 +164,14 @@ class UniProcessorGlobalMemoryTester extends AnyFlatSpec with Matchers with Chis
           val mem   = state.mem
           val new_state: TickState = (store, load) match {
             case (None, None) =>
-              if (dut.io.periphery.cache.start.peek().litToBoolean) {
+              if (dut.io.proc.periphery.cache.start.peek().litToBoolean) {
 
                 if (!dut.io.rwb.peek().litToBoolean) {
                   // store
 
                   val new_req = Request(
-                    dut.io.periphery.cache.wdata.peek().litValue.toInt,
-                    dut.io.periphery.cache.addr.peek().litValue.toLong,
+                    dut.io.proc.periphery.cache.wdata.peek().litValue.toInt,
+                    dut.io.proc.periphery.cache.addr.peek().litValue.toLong,
                     10 max rdgen.nextInt(20)
                   )
                   if (mem.getOrElse(new_req.address, 0) != new_req.value) {
@@ -184,11 +184,11 @@ class UniProcessorGlobalMemoryTester extends AnyFlatSpec with Matchers with Chis
                   val new_mem = mem + (new_req.address -> new_req.value)
                   // disable the clock
                   dut.io.clock_enable_n.poke(true.B)
-                  dut.io.periphery.cache.done.poke(false.B)
+                  dut.io.proc.periphery.cache.done.poke(false.B)
                   dut.clock.step()
                   TickState(Some(new_req), None, new_mem)
                 } else { // load
-                  val address = dut.io.periphery.cache.addr.peek().litValue.toLong
+                  val address = dut.io.proc.periphery.cache.addr.peek().litValue.toLong
                   if (!mem.contains(address)) {
                     println(s"Loading 0 from an uninitialized memory location ${address}")
                   }
@@ -199,37 +199,37 @@ class UniProcessorGlobalMemoryTester extends AnyFlatSpec with Matchers with Chis
                   )
                   println(s"GlobalLoad will take ${new_req.latency} cycles")
                   dut.io.clock_enable_n.poke(true.B)
-                  dut.io.periphery.cache.done.poke(false.B)
+                  dut.io.proc.periphery.cache.done.poke(false.B)
                   dut.clock.step()
                   TickState(None, Some(new_req), mem)
                 }
 
               } else {
                 dut.clock.step()
-                dut.io.periphery.cache.done.poke(false.B)
+                dut.io.proc.periphery.cache.done.poke(false.B)
                 dut.io.clock_enable_n.poke(false.B)
                 TickState(None, None, mem)
               }
             case (Some(s), None) =>
               if (s.finished()) {
-                dut.io.periphery.cache.done.poke(true.B)
+                dut.io.proc.periphery.cache.done.poke(true.B)
                 dut.io.clock_enable_n.poke(false.B)
                 dut.clock.step()
                 TickState(None, None, mem)
               } else {
-                dut.io.periphery.cache.done.poke(false.B)
+                dut.io.proc.periphery.cache.done.poke(false.B)
                 dut.clock.step()
                 TickState(Some(s.tick()), None, mem)
               }
             case (None, Some(l)) =>
               if (l.finished()) {
-                dut.io.periphery.cache.done.poke(true.B)
-                dut.io.periphery.cache.rdata.poke(l.value.U)
+                dut.io.proc.periphery.cache.done.poke(true.B)
+                dut.io.proc.periphery.cache.rdata.poke(l.value.U)
                 dut.io.clock_enable_n.poke(false.B)
                 dut.clock.step()
                 TickState(None, None, mem)
               } else {
-                dut.io.periphery.cache.done.poke(false.B)
+                dut.io.proc.periphery.cache.done.poke(false.B)
                 dut.io.clock_enable_n.poke(true.B)
                 dut.clock.step()
                 TickState(None, Some(l.tick()), mem)
@@ -255,7 +255,7 @@ class UniProcessorGlobalMemoryTester extends AnyFlatSpec with Matchers with Chis
           10,
           10,
           5,
-          dut.io.packet_in,
+          dut.io.proc.packet_in,
           dut.clock
         ) {
           true
