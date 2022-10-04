@@ -473,7 +473,7 @@ object U200FloorplanImpl {
 
     def getRootClock(): ClockRegion = ClockRegion(2, 7)
 
-    def getPrivilegedArea(): Set[ClockRegion] = Set(ClockRegion(2, 7))
+    def getPrivilegedArea(): Set[ClockRegion] = Set(ClockRegion(1, 7))
 
     def getCoreToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, ArbitraryPblock] = {
       val torusToPblock  = MMap.empty[TorusLoc, ArbitraryPblock]
