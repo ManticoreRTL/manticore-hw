@@ -134,18 +134,16 @@ class CacheSubsystemInterface extends Bundle {
 class CacheSubsystem extends Module {
   val io = IO(new CacheSubsystemInterface)
 
-  val cache = Module(new Cache)
-  val axi   = Module(new AxiCacheAdapter)
+  val front_pipe = Module(CacheConfig.frontInterfacePipe())
+  val cache      = Module(new Cache)
+  val axi        = Module(new AxiCacheAdapter)
   axi.io.base := io.base
-  io.core <> cache.io.front
+  front_pipe.io.in <> io.core
+  cache.io.front <> front_pipe.io.out
   cache.io.back <> axi.io.cache
   io.bus <> axi.io.bus
 
 }
-
-
-
-
 
 object Generator2132 extends App {
   new ChiselStage().emitVerilog(new AxiCacheAdapter, Array("-td", "gen-dir"))
