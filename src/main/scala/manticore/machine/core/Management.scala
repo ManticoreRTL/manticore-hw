@@ -85,7 +85,7 @@ class Management(dimX: Int, dimY: Int) extends Module {
   val state = RegInit(sIdle)
 
   // Very conservative countdown value. Can technically be matched to the exact latency of the SoftResetTree.
-  val soft_reset_value           = 2 * dimX * dimY - 1
+  val soft_reset_value           = 2 * dimX * dimY
   val soft_reset_countdown_timer = Reg(UInt(unsignedBitLength(soft_reset_value).W))
 
   val done_out = RegNext(state === sDone)
@@ -124,17 +124,19 @@ class Management(dimX: Int, dimY: Int) extends Module {
           dev_regs.virtual_cycles    := 0.U
           dev_regs.execution_cycles  := 0.U
         }
+        soft_reset_countdown_timer := soft_reset_value.U
       }
     }
     is(sCoreReset) {
       clock_active               := true.B
-      soft_reset_countdown_timer := soft_reset_value.U
-      state                      := sCoreResetWait
+      soft_reset_countdown_timer := soft_reset_countdown_timer - 1.U
+      when(soft_reset_countdown_timer === (soft_reset_value / 2).U) {
+        state := sCoreResetWait
+      }
     }
     is(sCoreResetWait) {
       clock_active               := true.B // enable the clock so that cores can be reset
       soft_reset_countdown_timer := soft_reset_countdown_timer - 1.U
-      // when(io.soft_reset_done) {
       when(soft_reset_countdown_timer === 0.U) {
         state := sCacheReset
       }

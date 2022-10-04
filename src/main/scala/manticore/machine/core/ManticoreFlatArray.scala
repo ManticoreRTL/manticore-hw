@@ -102,8 +102,7 @@ class ComputeArray(
   case class FatCore(core: ProcessorWithSendRecvPipe, switch: Switch, x: Int, y: Int)
 
   // Allow placement flexibility between cores and switches by using a dedicated reset tree for each.
-  val core_reset_tree   = Module(new CoreResetTree(dimx, dimy))
-  val switch_reset_tree = Module(new SwitchResetTree(dimx, dimy))
+  val core_reset_tree = Module(new CoreResetTree(dimx, dimy))
 
   // io.core_reset_done := core_reset_tree.io.last
   // val reset_tree = Module(new SoftResetTree(dimx, dimy))
@@ -132,11 +131,9 @@ class ComputeArray(
       }
       core.suggestName(s"core_${x}_${y}")
 
-      val switch = withReset(switch_reset_tree.io.taps(x)(y)) {
-        Module(
-          new Switch(dimx, dimy, core_conf, n_hop)
-        )
-      }
+      val switch = Module(
+        new Switch(dimx, dimy, core_conf, n_hop)
+      )
       switch.suggestName(s"switch_${x}_${y}")
 
       FatCore(core, switch, x, y)
