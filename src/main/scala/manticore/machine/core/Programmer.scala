@@ -44,31 +44,26 @@ class Programmer(config: ISA, DimX: Int, DimY: Int) extends Module {
   val io: ProgrammerInterface = IO(new ProgrammerInterface(config, DimX, DimY))
 
   object Phase extends ChiselEnum {
-    val Idle, StartCacheRead, StreamDest, StreamBodyLength, StreamInstruction,
-        StreamEpilogueLength, StreamSleepLength, StreamCountDown,
+    val Idle, StartCacheRead, StreamDest, StreamBodyLength, StreamInstruction, StreamEpilogueLength, StreamSleepLength,
+        StreamCountDown,
     // WaitForCountDownEndn states are only there to ensure io.running
     // goes high at the same time processors become active. Notice that
     // if more pipeline register are added on the io.packet_out path,
     // more WaitForCountDownEndn states are needed!
-    WaitForCountDownEnd1, WaitForCountDownEnd2, WaitForCountDownEnd3, Running,
-        Paused = Value
+    WaitForCountDownEnd1, WaitForCountDownEnd2, WaitForCountDownEnd3, Running, Paused = Value
   }
 
   val phase: Phase.Type = RegInit(Phase.Type(), Phase.Idle)
 
-  val instruction_stream_addr_reg: UInt = Reg(
-    io.instruction_stream_base.cloneType
-  )
-  val enable_addr_increment: Bool = Wire(Bool())
+  val instruction_stream_addr_reg: UInt = Reg(io.instruction_stream_base.cloneType)
+  val enable_addr_increment: Bool       = Wire(Bool())
 
   require(CacheConfig.UsedAddressBits > config.NumPcBits)
   val body_length_end: UInt = Reg(UInt(CacheConfig.UsedAddressBits.W))
 
   val delay_value: UInt = Reg(UInt(config.DataBits.W))
 
-  when(io.start) {
-    instruction_stream_addr_reg := io.instruction_stream_base >> 1
-  }.elsewhen(enable_addr_increment) {
+  when(enable_addr_increment) {
     instruction_stream_addr_reg := instruction_stream_addr_reg + 1.U
   }
 
@@ -130,8 +125,7 @@ class Programmer(config: ISA, DimX: Int, DimY: Int) extends Module {
 
   io.memory_backend.start := false.B
   io.memory_backend.wdata := 0.U
-  io.memory_backend.addr :=
-    instruction_stream_addr_reg
+  io.memory_backend.addr  := instruction_stream_addr_reg
 
   io.memory_backend.cmd := CacheCommand.Read
 
@@ -157,7 +151,7 @@ class Programmer(config: ISA, DimX: Int, DimY: Int) extends Module {
         // twe should fix the initial delay to a value such that
         // the last processors receives the delay value when the programmer
         // transitions to State.Running.
-        delay_value := (DimX * DimY - (DimX + DimY - 1)).U // magic formula
+        delay_value                 := (DimX * DimY - (DimX + DimY - 1)).U // magic formula
         instruction_stream_addr_reg := io.instruction_stream_base
 
       }
@@ -190,10 +184,7 @@ class Programmer(config: ISA, DimX: Int, DimY: Int) extends Module {
           config.NumBits % config.DataBits == 0,
           "Instruction length should be aligned to data length"
         )
-        body_length_end :=
-          instruction_stream_addr_reg + (mem_rdata << log2Ceil(
-            config.NumBits / config.DataBits
-          ))
+        body_length_end := instruction_stream_addr_reg + (mem_rdata << log2Ceil(config.NumBits / config.DataBits))
         when(mem_rdata === 0.U) {
           // no instructions
           phase_next := Phase.StreamEpilogueLength
