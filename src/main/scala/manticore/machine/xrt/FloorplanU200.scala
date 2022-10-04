@@ -580,7 +580,7 @@ object U200FloorplanImpl {
       // (4) The switch reset tree is in SLR1.
       // (5) The core reset tree is split between SLR0/SLR2 and its SLR-crossing pipe is mapped to opposite pblocks.
       {
-        constraints += s"add_cells_to_pblock ${sPblock.name} [get_cells ${SwitchResetTree.cellName}]"
+        // constraints += s"add_cells_to_pblock ${sPblock.name} [get_cells ${SwitchResetTree.cellName}]"
 
         Seq(
           CoreResetTree.topControllerSideCellName,
