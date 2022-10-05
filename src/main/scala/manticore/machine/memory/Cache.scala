@@ -110,6 +110,23 @@ class CacheBackInterface(CacheLineBits: Int, AddressBits: Int) extends Bundle {
 
 }
 
+class CacheBackPipe(CacheLineBits: Int, AddressBits: Int) extends Module {
+  val io = IO(new Bundle {
+    val in  = Flipped(new CacheBackInterface(CacheLineBits, AddressBits))
+    val out = new CacheBackInterface(CacheLineBits, AddressBits)
+  })
+
+  io.in.done  := RegNext(io.out.done)
+  io.in.rline := RegNext(io.out.rline)
+
+  io.out.raddr := RegNext(io.in.raddr)
+  io.out.waddr := RegNext(io.in.waddr)
+  io.out.start := RegNext(io.in.start)
+  io.out.cmd   := RegNext(io.in.cmd)
+  io.out.wline := RegNext(io.in.wline)
+
+}
+
 /** Cache sub-system command types
   */
 object CacheCommand extends ChiselEnum {
@@ -245,8 +262,9 @@ object CacheConfig {
 
   def interface() = new CacheInterface(DataBits, CacheLineBits, UsedAddressBits)
 
-  def frontInterfacePipe() = new CacheFrontPipe(DataBits, UsedAddressBits)
+  def frontPipe() = new CacheFrontPipe(DataBits, UsedAddressBits)
 
+  def backPipe() = new CacheBackPipe(CacheLineBits, UsedAddressBits)
 }
 
 /** Cache module
