@@ -1,6 +1,7 @@
 package manticore.machine.memory
 
-import Chisel._
+import chisel3._
+import chisel3.util._
 import chisel3.experimental.ChiselEnum
 import chisel3.stage.ChiselStage
 
@@ -59,10 +60,11 @@ class CacheBackInterface(CacheLineBits: Int, AddressBits: Int) extends Bundle {
     */
   def disabled(): Unit = {
     start := false.B
-    waddr := 0.U
-    raddr := 0.U
-    wline := 0.U
-    //cmd   := CacheBackendCommand.Read.id.U
+    waddr := DontCare
+    raddr := DontCare
+    wline := DontCare
+    // cmd   := CacheBackendCommand.Read.id.U
+    cmd   := DontCare
 
   }
 
@@ -133,30 +135,6 @@ class CacheFrontInterface(DataBits: Int, AddressBits: Int) extends Bundle {
   val rdata = Output(UInt(DataBits.W))
   val done  = Output(Bool())
   val idle  = Output(Bool())
-
-  def ==>(that: CacheFrontInterface): Unit = {
-    this.addr.dir match {
-      case INPUT =>
-        throwException("Cannot bind, invalid direction")
-      case OUTPUT =>
-        that.addr  := this.addr
-        that.wdata := this.wdata
-        that.start := this.start
-        that.cmd   := this.cmd
-        this.rdata := that.rdata
-        this.done  := that.done
-    }
-  }
-
-  def bindToFlipped(thatFlipped: CacheFrontInterface): Unit = {
-    require(thatFlipped.addr.dir == OUTPUT)
-    this.addr         := thatFlipped.addr
-    this.wdata        := thatFlipped.wdata
-    this.start        := thatFlipped.start
-    this.cmd          := thatFlipped.cmd
-    thatFlipped.rdata := this.rdata
-    thatFlipped.done  := this.done
-  }
 
 }
 
@@ -269,9 +247,12 @@ class Cache extends Module {
     val cached_hwords = Reg(Vec(BankLineHalfWords, UInt(DataBits.W)))
     val cached_tag    = Reg(UInt(TagBits.W))
 
-    val write_hwords = Wire(Vec(BankLineHalfWords, UInt(DataBits.W)))
-    val write_tag    = Wire(UInt(TagBits.W))
-    val write_addr   = Wire(UInt(IndexBits.W))
+    val write_hwords = WireDefault(VecInit.fill(BankLineHalfWords) { 0.U(DataBits.W) })
+    write_hwords.foreach(_ := DontCare)
+    val write_tag = WireDefault(0.U(TagBits.W))
+    write_tag := DontCare
+    val write_addr = WireDefault(0.U(IndexBits.W))
+    write_addr := DontCare
 
     // cached_tag := module.io.dout.head(TagBits)
     // cached_hwords.zipWithIndex.foreach { case (chw, i) =>
@@ -386,7 +367,7 @@ class Cache extends Module {
   def registerCacheLine() = {
     banks.foreach { b =>
       if (b == banks.last)
-        b.cached_tag := Cat(UInt("b00"), b.module.io.dout.head(TagBits).tail(2))
+        b.cached_tag := Cat("b00".U(2.W), b.module.io.dout.head(TagBits).tail(2))
       else
         b.cached_tag := b.module.io.dout.head(TagBits)
       val half_word_base = b.id * BankLineHalfWords
@@ -448,10 +429,11 @@ class Cache extends Module {
           banks.foreach { b =>
             b.module.io.wen := true.B
             // the cachline is valid and dirty
-            if (b == banks.last)
-              b.write_tag := Cat(UInt("b11"), b.cached_tag.tail(2))
-            else
-              b.write_tag  := b.cached_tag
+            if (b == banks.last) {
+              b.write_tag := Cat("b11".U(2.W), b.cached_tag.tail(2))
+            } else {
+              b.write_tag := b.cached_tag
+            }
             b.write_hwords := b.cached_hwords
             b.write_hwords.zipWithIndex.foreach { case (hword, hword_ix) =>
               val hword_offset = b.id * BankLineHalfWords + hword_ix
@@ -495,7 +477,7 @@ class Cache extends Module {
             b.module.io.wen := true.B
             if (b == banks.last)
               b.write_tag := Cat(
-                UInt("b11"), // make the line dirty
+                "b11".U(2.W), // make the line dirty
                 addr_tag((b.id + 1) * TagBits - 1, b.id * TagBits).tail(2)
               )
             else
@@ -518,7 +500,7 @@ class Cache extends Module {
             b.module.io.wen := true.B
             if (b == banks.last)
               b.write_tag := Cat(
-                UInt("b10"),
+                "b10".U(2.W),
                 addr_tag((b.id + 1) * TagBits - 1, b.id * TagBits).tail(2)
               )
             else
