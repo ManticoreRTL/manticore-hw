@@ -104,14 +104,14 @@ class UniProcessorExceptionTester extends AnyFlatSpec with Matchers
 
       UniProcessorTestUtils.programProcessor(
         program.map(inst => Assembler.assemble(inst)(equations)),
-        5, 50, 5, dut.io.packet_in, dut.clock
+        5, 50, 5, dut.io.proc.packet_in, dut.clock
       ) {
         true
       }
 
       @tailrec
       def waitForStart(): Unit = {
-        if (dut.io.periphery.active.peek().litToBoolean == false){
+        if (dut.io.proc.periphery.active.peek().litToBoolean == false){
           dut.clock.step()
           waitForStart()
         }
@@ -119,9 +119,9 @@ class UniProcessorExceptionTester extends AnyFlatSpec with Matchers
 
       @tailrec
       def catchIfAny(to_catch: Seq[Int]): Seq[Int] = {
-        if (dut.io.periphery.active.peek().litToBoolean == true) {
-          if (dut.io.periphery.exception.error.peek().litToBoolean) {
-            dut.io.periphery.exception.id.expect(to_catch.head.U)
+        if (dut.io.proc.periphery.active.peek().litToBoolean == true) {
+          if (dut.io.proc.periphery.exception.error.peek().litToBoolean) {
+            dut.io.proc.periphery.exception.id.expect(to_catch.head.U)
             println(s"Successfully caught exception ${to_catch.head}, killing the clock to handle the exception!")
             dut.io.clock_enable_n.poke(true.B)
             dut.clock.step(rdgen.nextInt(20) + 2)
