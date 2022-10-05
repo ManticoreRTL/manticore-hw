@@ -100,7 +100,7 @@ class Management(dimX: Int, dimY: Int) extends Module {
   io.config_enable := config_enable
 
   val execution_active         = RegNext(io.execution_active)
-  val execution_active_negedge = execution_active && !io.execution_active
+  val execution_active_negedge = RegNext(execution_active && !io.execution_active)
 
   val enable_core_reset = WireDefault(false.B)
 
