@@ -104,8 +104,8 @@ class Programmer(config: ISA, DimX: Int, DimY: Int) extends Module {
     y_counter.io.en := x_counter.io.wrap
   }
 
-  val dest_x: UInt = RegInit(0.U(log2Ceil(DimX).W))
-  val dest_y: UInt = RegInit(0.U(log2Ceil(DimY).W))
+  val dest_x: UInt = RegInit(0.U(log2Up(DimX).W))
+  val dest_y: UInt = RegInit(0.U(log2Up(DimY).W))
 
   // register memory response for better timing closure
   val mem_resp_done = Reg(Bool())
