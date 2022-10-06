@@ -110,6 +110,8 @@ class ManticoreFlatKernel(
 
   slave.io.dev_regs := manticore.io.device_registers
 
+  slave.io.cache_regs := axi_cache.io.counters
+
   manticore.io.start := slave.io.control.ap_start
 
   slave.io.control.ap_done  := manticore.io.done
@@ -201,6 +203,7 @@ class ManticoreFlatSimKernel(
   axi_mem.io.sim.wen   := io.dmi.wen
   io.dmi.rdata         := axi_mem.io.sim.rdata
 
+  
 }
 
 object GenerateIPs {

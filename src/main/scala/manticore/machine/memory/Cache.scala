@@ -4,6 +4,7 @@ import chisel3._
 import chisel3.util._
 import chisel3.experimental.ChiselEnum
 import chisel3.stage.ChiselStage
+import manticore.machine.PerfCounter
 
 /** Cache back-end interface. The backend interface connects to a module that
   * talks to the memory through a bus (e.g., AXI). Such a back-end should be
@@ -64,7 +65,7 @@ class CacheBackInterface(CacheLineBits: Int, AddressBits: Int) extends Bundle {
     raddr := DontCare
     wline := DontCare
     // cmd   := CacheBackendCommand.Read.id.U
-    cmd   := DontCare
+    cmd := DontCare
 
   }
 
@@ -137,6 +138,11 @@ class CacheFrontInterface(DataBits: Int, AddressBits: Int) extends Bundle {
   val idle  = Output(Bool())
 
 }
+class CacheCounterInterface() extends Bundle {
+  val hit   = Output(UInt(64.W))
+  val miss  = Output(UInt(64.W))
+  val stall = Output(UInt(64.W))
+}
 
 /** Cache front- and back-end interfaces
   *
@@ -150,6 +156,7 @@ class CacheFrontInterface(DataBits: Int, AddressBits: Int) extends Bundle {
 class CacheInterface(DataBits: Int, CacheLineBits: Int, AddressBits: Int) extends Bundle {
   val front = new CacheFrontInterface(DataBits, AddressBits)
   val back  = new CacheBackInterface(CacheLineBits, AddressBits)
+  val perf  = new CacheCounterInterface()
 }
 
 object CacheConfig {
@@ -207,6 +214,7 @@ object CacheConfig {
 
   def interface() = new CacheInterface(DataBits, CacheLineBits, UsedAddressBits)
 
+  def counterInterface() = new CacheCounterInterface()
 }
 
 /** Cache module
@@ -240,6 +248,17 @@ class Cache extends Module {
   require(DataBits == 16, "only 16-bit data width is implemented!")
   val io = IO(interface())
 
+  /* performance counters */
+  val hitCounter   = PerfCounter(24, 2) // 48-bit counter
+  val missCounter  = PerfCounter(24, 2) // 48-bit counter
+  val stallCounter = PerfCounter(24, 2) // 48-bit counter
+
+
+  io.perf.hit   := hitCounter.value.pad(64)
+  io.perf.miss  := missCounter.value.pad(64)
+  io.perf.stall := stallCounter.value.pad(64)
+
+  /* state variable */
   val pstate = RegInit(StateValue.Type(), StateValue.Idle)
 
   case class BankCollection(module: SimpleDualPortMemory, id: Int) {
@@ -449,7 +468,8 @@ class Cache extends Module {
           io.front.rdata := rdata
           io.front.done  := true.B
         }
-        pstate := StateValue.Idle
+        hitCounter.inc()
+        pstate           := StateValue.Idle
       } otherwise {
         val offset_mask = 0.U(OffsetBits.W)
         when(dirty_bit) {
@@ -465,7 +485,8 @@ class Cache extends Module {
             Cat(addr_reg.head(AddressBits - OffsetBits), offset_mask)
           )
         }
-        pstate := StateValue.WaitResponse
+        missCounter.inc()
+        pstate            := StateValue.WaitResponse
       }
     }
     is(StateValue.WaitResponse) {
@@ -512,6 +533,7 @@ class Cache extends Module {
         }
         pstate := StateValue.Idle
       }
+      stallCounter.inc()
     }
 
     is(StateValue.Flush) {
@@ -567,6 +589,10 @@ class Cache extends Module {
     }
 
     is(StateValue.Reset) {
+
+      hitCounter.clear()
+      missCounter.clear()
+      stallCounter.clear()
 
       when(flush_pointer === ((1 << IndexBits) - 1).U) {
         pstate        := StateValue.Idle
