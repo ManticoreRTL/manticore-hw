@@ -69,11 +69,11 @@ object AxiSlave {
   case object TraceDumpHead               extends DevReg64
   case object DeviceInfo                  extends DevReg32
 
-  case object CacheHits   extends DevReg64
-  case object CacheMisses extends DevReg64
-  case object CacheStalls extends DevReg64
+  case object CacheHits   extends DevReg32
+  case object CacheMisses extends DevReg32
+  case object CacheStalls extends DevReg32
 
-  case object ClockStalls extends DevReg64
+  case object ClockStalls extends DevReg32
 
   case object DramBank0Base extends DramPointerReg {
 
@@ -476,16 +476,12 @@ class AxiSlave(config: ISA) extends Module {
         sreg(0) := io.dev_regs.device_info
       case ClockStalls =>
         sreg(0) := io.dev_regs.clock_stalls
-        sreg(1) := io.dev_regs.clock_stalls >> 32.U
       case CacheHits =>
         sreg(0) := io.cache_regs.hit
-        sreg(1) := io.cache_regs.hit >> 32.U
       case CacheMisses =>
         sreg(0) := io.cache_regs.miss
-        sreg(1) := io.cache_regs.miss >> 32.U
       case CacheStalls =>
         sreg(0) := io.cache_regs.stall
-        sreg(1) := io.cache_regs.stall >> 32.U
 
     }
   }

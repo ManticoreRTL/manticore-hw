@@ -165,21 +165,21 @@ class AxiSlaveTester extends AnyFlatSpec with ChiselScalatestTester with Matcher
             dut.clock.step()
             read64(addr) shouldEqual w64
           case CacheHits =>
-            dut.io.cache_regs.hit.poke(w64)
+            dut.io.cache_regs.hit.poke(w32)
             dut.clock.step()
-            read64(addr) shouldEqual w64
+            read32(addr) shouldEqual w32
           case CacheMisses =>
-            dut.io.cache_regs.miss.poke(w64)
+            dut.io.cache_regs.miss.poke(w32)
             dut.clock.step()
-            read64(addr) shouldEqual w64
+            read32(addr) shouldEqual w32
           case CacheStalls =>
-            dut.io.cache_regs.stall.poke(w64)
+            dut.io.cache_regs.stall.poke(w32)
             dut.clock.step()
-            read64(addr) shouldEqual w64
+            read32(addr) shouldEqual w32
           case ClockStalls =>
-            dut.io.dev_regs.clock_stalls.poke(w64)
+            dut.io.dev_regs.clock_stalls.poke(w32)
             dut.clock.step()
-            read64(addr) shouldEqual w64
+            read32(addr) shouldEqual w32
 
 
         }

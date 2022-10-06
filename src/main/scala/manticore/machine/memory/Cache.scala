@@ -249,9 +249,9 @@ class Cache extends Module {
   val io = IO(interface())
 
   /* performance counters */
-  val hitCounter   = PerfCounter(24, 2) // 48-bit counter
-  val missCounter  = PerfCounter(24, 2) // 48-bit counter
-  val stallCounter = PerfCounter(24, 2) // 48-bit counter
+  val hitCounter   = PerfCounter(32, 1) // 32-bit counter
+  val missCounter  = PerfCounter(32, 1) // 32-bit counter
+  val stallCounter = PerfCounter(32, 1) // 32-bit counter
 
 
   io.perf.hit   := hitCounter.value.pad(64)

@@ -64,10 +64,10 @@ class Management(dimX: Int, dimY: Int) extends Module {
   val core_exception_id = Reg(io.exception_id.cloneType)
 
   /* performance counters */
-  val vcycleCount     = PerfCounter(16, 4) // 64-bit counter, i.e., count up to 256 trillion cycles
-  val totalCycleCount = PerfCounter(16, 4) // 64-bit counter
-  val bootCycleCount  = PerfCounter(16, 2) // 32-bit counter
-  val clockStallCount = PerfCounter(16, 4) // 64-bit counter
+  val vcycleCount     = PerfCounter(40, 1) // 40-bit counter, i.e., count up to 256 trillion cycles
+  val totalCycleCount = PerfCounter(40, 1) // 40-bit counter
+  val bootCycleCount  = PerfCounter(32, 1) // 32-bit counter
+  val clockStallCount = PerfCounter(32, 1) // 32-bit counter
 
   val start_reg   = RegNext(io.start)
   val start_pulse = WireDefault((!start_reg) & io.start)
