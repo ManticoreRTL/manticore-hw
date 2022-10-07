@@ -26,8 +26,6 @@ class Management(dimX: Int, dimY: Int) extends Module {
     val done  = Output(Bool())
     val idle  = Output(Bool())
 
-    val compute_clock = Input(Clock())
-
     val device_registers = Output(new DeviceRegisters)
 
     val boot_start    = Output(Bool())

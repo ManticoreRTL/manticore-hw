@@ -238,14 +238,13 @@ class ManticoreFlatArray(
   io.clock_active := controller.io.clock_active
 
   val bootloader = withClockAndReset(
-    clock = io.control_clock,
+    clock = io.compute_clock,
     reset = controller.io.soft_reset
   ) {
     Module(
       new Programmer(ManticoreFullISA, dimx, dimy)
     )
   }
-  controller.io.compute_clock := io.compute_clock
   controller.io.start         := io.start
   io.done                     := controller.io.done
   io.idle                     := controller.io.idle
