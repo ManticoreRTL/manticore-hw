@@ -129,6 +129,7 @@ class CacheSubsystemInterface extends Bundle {
   val core = CacheConfig.frontInterface()
   val bus  = new AxiMasterIF(AxiCacheAdapter.CacheAxiParameters)
   val base = Input(UInt(64.W))
+  val counters = CacheConfig.counterInterface()
 }
 
 class CacheSubsystem extends Module {
@@ -145,6 +146,9 @@ class CacheSubsystem extends Module {
   back_pipe.io.in <> cache.io.back
   axi.io.cache <> back_pipe.io.out
   io.bus <> axi.io.bus
+
+  io.counters := cache.io.perf
+
 
 }
 

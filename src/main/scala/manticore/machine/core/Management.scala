@@ -6,6 +6,7 @@ import chisel3.experimental.ChiselEnum
 import manticore.machine.ManticoreFullISA
 import manticore.machine.memory.CacheConfig
 import manticore.machine.memory.CacheCommand
+import manticore.machine.PerfCounter
 
 object ManagementConstants {
 
@@ -61,10 +62,16 @@ class Management(dimX: Int, dimY: Int) extends Module {
 
   val core_exception_id = Reg(io.exception_id.cloneType)
 
+  /* performance counters */
+  val vcycleCount     = PerfCounter(40, 1) // 40-bit counter, i.e., count up to 256 trillion cycles
+  val totalCycleCount = PerfCounter(40, 1) // 40-bit counter
+  val bootCycleCount  = PerfCounter(32, 1) // 32-bit counter
+  val clockStallCount = PerfCounter(32, 1) // 32-bit counter
+
   val start_reg   = RegNext(io.start)
   val start_pulse = WireDefault((!start_reg) & io.start)
 
-  val dev_regs = Reg(new DeviceRegisters)
+  // val dev_regs = Reg(new DeviceRegisters)
 
   // |               schedule_config                  |
   // +------------------------------------------------+
@@ -109,7 +116,19 @@ class Management(dimX: Int, dimY: Int) extends Module {
   io.cache_flush_start := (state === sCacheFlush)
   io.boot_start        := false.B
 
-  dev_regs.execution_cycles := dev_regs.execution_cycles + 1.U
+  // performance counter events
+  totalCycleCount.inc()
+  when(state === sVirtualCycle && execution_active_negedge) {
+    vcycleCount.inc()
+  }
+  when(state === sBoot) {
+    bootCycleCount.inc()
+  }
+  when(state === sVirtualCycle && !clock_active) {
+    clockStallCount.inc()
+  }
+
+  // dev_regs.execution_cycles := dev_regs.execution_cycles + 1.U
 
   switch(state) {
 
@@ -122,9 +141,12 @@ class Management(dimX: Int, dimY: Int) extends Module {
           false.B
         ) // only enable the clock if we are resuming execution
         when(command === CMD_START) {
-          dev_regs.bootloader_cycles := 0.U
-          dev_regs.virtual_cycles    := 0.U
-          dev_regs.execution_cycles  := 0.U
+
+          totalCycleCount.clear()
+          vcycleCount.clear()
+          bootCycleCount.clear()
+          clockStallCount.clear()
+
         }
         soft_reset_countdown_timer := soft_reset_value.U
       }
@@ -151,7 +173,7 @@ class Management(dimX: Int, dimY: Int) extends Module {
         state         := sBoot
         io.boot_start := true.B
       }
-      dev_regs.bootloader_cycles := dev_regs.bootloader_cycles + 1.U
+      // dev_regs.bootloader_cycles := dev_regs.bootloader_cycles + 1.U
     }
     is(sCacheFlush) {
       state := sCacheFlushWait
@@ -162,8 +184,8 @@ class Management(dimX: Int, dimY: Int) extends Module {
       }
     }
     is(sBoot) {
-      dev_regs.bootloader_cycles := dev_regs.bootloader_cycles + 1.U
-      clock_active               := true.B // enable the clock so that NoC can be used
+      // dev_regs.bootloader_cycles := dev_regs.bootloader_cycles + 1.U
+      clock_active := true.B // enable the clock so that NoC can be used
       when(io.boot_finished) {
         state := sVirtualCycle
       }
@@ -185,7 +207,7 @@ class Management(dimX: Int, dimY: Int) extends Module {
           // dev_regs.exception_id := io.exception_id
           timed_out := false.B
 
-        }.elsewhen(timeout_enabled && dev_regs.virtual_cycles === timeout) {
+        }.elsewhen(timeout_enabled && vcycleCount.value === timeout) {
           // or when we timeout
           // don't register exception_id here, causes large fan out on clock_active!
           // dev_regs.exception_id := EXCEPTION_TIMEOUT
@@ -197,20 +219,23 @@ class Management(dimX: Int, dimY: Int) extends Module {
         }
 
       }
-      when(execution_active_negedge) {
-        dev_regs.virtual_cycles := dev_regs.virtual_cycles + 1.U
-      }
+
     }
     is(sDone) {
-      dev_regs.exception_id := Mux(timed_out, EXCEPTION_TIMEOUT, core_exception_id)
-      clock_active          := false.B
-      state                 := sIdle
+      clock_active := false.B
+      state        := sIdle
     }
   }
 
-  io.device_registers             := dev_regs
+  io.device_registers.exception_id      := RegEnable(Mux(timed_out, EXCEPTION_TIMEOUT, core_exception_id), state === sDone)
+  io.device_registers.bootloader_cycles := bootCycleCount.value
+  io.device_registers.virtual_cycles    := vcycleCount.value
+  io.device_registers.execution_cycles  := totalCycleCount.value
+  io.device_registers.clock_stalls      := clockStallCount.value
+
   io.device_registers.device_info := Cat(dimX.U(6.W), dimY.U(6.W), 0.U(20.W))
 
+  io.device_registers.trace_dump_head := 0.U
 }
 
 class MemoryIntercept extends Module {

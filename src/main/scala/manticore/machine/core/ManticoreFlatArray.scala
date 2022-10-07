@@ -35,7 +35,8 @@ class DeviceRegisters extends Bundle {
   val exception_id: UInt      = UInt(32.W)
   val execution_cycles: UInt  = UInt(64.W)
   val trace_dump_head: UInt   = UInt(64.W)
-  var device_info: UInt       = UInt(32.W)
+  val device_info: UInt       = UInt(32.W)
+  val clock_stalls: UInt      = UInt(64.W)
 }
 
 class ManticoreFlatArrayInterface extends Bundle {

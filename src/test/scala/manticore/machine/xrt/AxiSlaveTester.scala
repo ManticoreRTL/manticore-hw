@@ -18,6 +18,11 @@ import manticore.machine.xrt.AxiSlave.ExceptionId
 import manticore.machine.xrt.AxiSlave.CycleCount
 import manticore.machine.xrt.AxiSlave.TraceDumpHead
 import manticore.machine.xrt.AxiSlave.VirtualCycleCount
+import manticore.machine.xrt.AxiSlave.CacheHits
+import manticore.machine.xrt.AxiSlave.CacheMisses
+import manticore.machine.xrt.AxiSlave.CacheStalls
+import manticore.machine.xrt.AxiSlave.ClockStalls
+
 
 class AxiSlaveTester extends AnyFlatSpec with ChiselScalatestTester with Matchers {
 
@@ -88,7 +93,7 @@ class AxiSlaveTester extends AnyFlatSpec with ChiselScalatestTester with Matcher
 
   it should "handle host register read/writes" in {
     test(new AxiSlave(ManticoreFullISA))
-      .withAnnotations(Seq(WriteVcdAnnotation)) { implicit dut =>
+      .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { implicit dut =>
         dut.clock.step(1)
         val hostRegs = AxiSlave.listRegs.collect { case r: AxiSlave.HostReg => r }
         hostRegs.foreach { hr =>
@@ -159,6 +164,24 @@ class AxiSlaveTester extends AnyFlatSpec with ChiselScalatestTester with Matcher
             dut.io.dev_regs.virtual_cycles.poke(w64)
             dut.clock.step()
             read64(addr) shouldEqual w64
+          case CacheHits =>
+            dut.io.cache_regs.hit.poke(w32)
+            dut.clock.step()
+            read32(addr) shouldEqual w32
+          case CacheMisses =>
+            dut.io.cache_regs.miss.poke(w32)
+            dut.clock.step()
+            read32(addr) shouldEqual w32
+          case CacheStalls =>
+            dut.io.cache_regs.stall.poke(w32)
+            dut.clock.step()
+            read32(addr) shouldEqual w32
+          case ClockStalls =>
+            dut.io.dev_regs.clock_stalls.poke(w32)
+            dut.clock.step()
+            read32(addr) shouldEqual w32
+
+
         }
 
       }

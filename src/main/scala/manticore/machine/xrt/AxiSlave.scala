@@ -9,6 +9,7 @@ import manticore.machine.ISA
 import manticore.machine.ManticoreFullISA
 import manticore.machine.core.DeviceRegisters
 import manticore.machine.core.HostRegisters
+import manticore.machine.memory.CacheCounterInterface
 
 object AxiSlave {
   sealed trait RegPort
@@ -67,6 +68,13 @@ object AxiSlave {
   case object CycleCount                  extends DevReg64
   case object TraceDumpHead               extends DevReg64
   case object DeviceInfo                  extends DevReg32
+
+  case object CacheHits   extends DevReg32
+  case object CacheMisses extends DevReg32
+  case object CacheStalls extends DevReg32
+
+  case object ClockStalls extends DevReg32
+
   case object DramBank0Base extends DramPointerReg {
 
     val port              = MasterPort("m_axi_bank_0")
@@ -125,9 +133,10 @@ object AxiSlave {
     val host_regs    = Output(new HostRegisters)
     val pointer_regs = Output(new MemoryPointers())
     val dev_regs     = Input(new DeviceRegisters)
+    val cache_regs   = Flipped(new CacheCounterInterface())
 
     val AxiSlaveAddrWidth = log2Ceil(
-      listRegs.map(addressOf).max
+      listRegs.map(addressOf).max + 12
     )
 
     val core = new AxiSlaveCoreInterface(
@@ -170,12 +179,17 @@ object AxiSlave {
 
   def listRegs: List[SlaveReg] = List(
     // write by the device
-    VirtualCycleCount,
-    BootloaderCycleCount,
     ExceptionId,
-    CycleCount,
     TraceDumpHead,
     DeviceInfo,
+    // profiling
+    CycleCount,
+    VirtualCycleCount,
+    BootloaderCycleCount,
+    ClockStalls,
+    CacheHits,
+    CacheMisses,
+    CacheStalls,
     // written by the host
     ScheduleConfig,
     TraceDumpBase,
@@ -418,7 +432,6 @@ class AxiSlave(config: ISA) extends Module {
     val mask = wmask.asUInt
     desc match {
       case hr: HostReg =>
-
         sreg match {
           case Seq(low, high) =>
             when(w_hs) {
@@ -461,31 +474,46 @@ class AxiSlave(config: ISA) extends Module {
         sreg(1) := io.dev_regs.trace_dump_head >> 32.U
       case DeviceInfo =>
         sreg(0) := io.dev_regs.device_info
+      case ClockStalls =>
+        sreg(0) := io.dev_regs.clock_stalls
+      case CacheHits =>
+        sreg(0) := io.cache_regs.hit
+      case CacheMisses =>
+        sreg(0) := io.cache_regs.miss
+      case CacheStalls =>
+        sreg(0) := io.cache_regs.stall
+
     }
   }
 
-  // handle reading
   val ctrl_vec = Cat(0.U(28), int_ap_ready, int_ap_idle, int_ap_done, int_ap_start)
+
+
+    // handle reading
+  val addressMap = List(
+    ApControlAddress             -> ctrl_vec,
+    GlobalInterruptEnableAddress -> int_gie.asUInt,
+    IpInterruptEnableRegister    -> int_ier.asUInt,
+    IpInterruptStatusRegister    -> int_isr.asUInt
+  ) ++ registers.flatMap {
+    case (desc, Seq(low, high)) =>
+      Seq(
+        AxiSlave.addressOf(desc)       -> low,
+        AxiSlave.addressOf(desc) + 4 -> high
+      )
+    case (desc, Seq(low)) =>
+      Seq(
+        AxiSlave.addressOf(desc) -> low
+      )
+  }
+
+  // print(addressMap)
+
   when(ar_hs) {
     rdata := MuxLookup(
       io.core.ARADDR,
       0.U(32.W),
-      List(
-        ApControlAddress.U             -> ctrl_vec,
-        GlobalInterruptEnableAddress.U -> int_gie.asUInt,
-        IpInterruptEnableRegister.U    -> int_ier.asUInt,
-        IpInterruptStatusRegister.U    -> int_isr.asUInt
-      ) ++ registers.flatMap {
-        case (desc, Seq(low, high)) =>
-          Seq(
-            AxiSlave.addressOf(desc).U       -> low,
-            AxiSlave.addressOf(desc).U + 4.U -> high
-          )
-        case (desc, Seq(low)) =>
-          Seq(
-            AxiSlave.addressOf(desc).U -> low
-          )
-      }
+      addressMap.map { case (a, v) => a.U -> v }
     )
   }
 
