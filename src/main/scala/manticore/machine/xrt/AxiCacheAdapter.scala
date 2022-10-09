@@ -7,6 +7,7 @@ import manticore.machine.memory.Cache
 import manticore.machine.memory.CacheConfig
 import manticore.machine.memory.CacheBackendCommand
 import chisel3.stage.ChiselStage
+import manticore.machine.core.SkidBuffer
 
 object AxiCacheAdapter {
   object CacheAxiParameters extends AxiParameters {
@@ -20,6 +21,118 @@ class AxiCacheAdapterInterface extends Bundle {
   val bus   = new AxiMasterIF(AxiCacheAdapter.CacheAxiParameters)
   val base  = Input(UInt(64.W)) // base of memory
 
+}
+
+class AxiCacheBusSkidBuffer extends Module {
+  val io = IO(new Bundle {
+    val enq = Flipped(new AxiCacheAdapterInterface().bus)
+    val deq = new AxiCacheAdapterInterface().bus
+  })
+
+  class AddressChannel(
+      addrWidth: Int
+  ) extends Bundle {
+    val ADDR  = UInt(addrWidth.W)
+    val LEN   = UInt(8.W)
+    val SIZE  = UInt(3.W)
+    val BURST = UInt(3.W)
+  }
+
+  class WriteDataChannel(
+      dataWidth: Int
+  ) extends Bundle {
+    val DATA = UInt(dataWidth.W)
+    val STRB = UInt((dataWidth / 8).W)
+    val LAST = Bool()
+  }
+
+  class WriteResponseChannel extends Bundle {
+    val BRESP = UInt(2.W)
+  }
+
+  class ReadDataChannel(
+      dataWidth: Int
+  ) extends Bundle {
+    val RDATA = UInt(dataWidth.W)
+    val RLAST = Bool()
+    val RRESP = UInt(2.W)
+  }
+
+  val ar_skid = Module(new SkidBuffer(new AddressChannel(io.enq.AR.ARADDR.getWidth)))
+  val r_skid  = Module(new SkidBuffer(new ReadDataChannel(io.enq.R.RDATA.getWidth)))
+  val aw_skid = Module(new SkidBuffer(new AddressChannel(io.enq.AW.AWADDR.getWidth)))
+  val w_skid  = Module(new SkidBuffer(new WriteDataChannel(io.enq.W.WDATA.getWidth)))
+  val b_skid  = Module(new SkidBuffer(new WriteResponseChannel))
+
+  // AR channel
+  // enq-side
+  ar_skid.io.enq.bits.ADDR  := io.enq.AR.ARADDR
+  ar_skid.io.enq.bits.BURST := io.enq.AR.ARBURST
+  ar_skid.io.enq.bits.LEN   := io.enq.AR.ARLEN
+  ar_skid.io.enq.bits.SIZE  := io.enq.AR.ARSIZE
+  ar_skid.io.enq.valid      := io.enq.AR.ARVALID
+  io.enq.AR.ARREADY         := ar_skid.io.enq.ready
+  // deq-side
+  io.deq.AR.ARADDR     := ar_skid.io.deq.bits.ADDR
+  io.deq.AR.ARBURST    := ar_skid.io.deq.bits.BURST
+  io.deq.AR.ARLEN      := ar_skid.io.deq.bits.LEN
+  io.deq.AR.ARSIZE     := ar_skid.io.deq.bits.SIZE
+  io.deq.AR.ARVALID    := ar_skid.io.deq.valid
+  ar_skid.io.deq.ready := io.deq.AR.ARREADY
+
+  // R channel
+  // enq-side
+  r_skid.io.enq.bits.RDATA := io.deq.R.RDATA
+  r_skid.io.enq.bits.RLAST := io.deq.R.RLAST
+  r_skid.io.enq.bits.RRESP := io.deq.R.RRESP
+  r_skid.io.enq.valid      := io.deq.R.RVALID
+  io.deq.R.RREADY          := r_skid.io.enq.ready
+  // deq-side
+  io.enq.R.RDATA      := r_skid.io.deq.bits.RDATA
+  io.enq.R.RLAST      := r_skid.io.deq.bits.RLAST
+  io.enq.R.RRESP      := r_skid.io.deq.bits.RRESP
+  io.enq.R.RVALID     := r_skid.io.deq.valid
+  r_skid.io.deq.ready := io.enq.R.RREADY
+
+  // AW channel
+  // enq-side
+  aw_skid.io.enq.bits.ADDR  := io.enq.AW.AWADDR
+  aw_skid.io.enq.bits.BURST := io.enq.AW.AWBURST
+  aw_skid.io.enq.bits.LEN   := io.enq.AW.AWLEN
+  aw_skid.io.enq.bits.SIZE  := io.enq.AW.AWSIZE
+  aw_skid.io.enq.valid      := io.enq.AW.AWVALID
+  io.enq.AW.AWREADY         := aw_skid.io.enq.ready
+  // deq-side
+  io.deq.AW.AWADDR     := aw_skid.io.deq.bits.ADDR
+  io.deq.AW.AWBURST    := aw_skid.io.deq.bits.BURST
+  io.deq.AW.AWLEN      := aw_skid.io.deq.bits.LEN
+  io.deq.AW.AWSIZE     := aw_skid.io.deq.bits.SIZE
+  io.deq.AW.AWVALID    := aw_skid.io.deq.valid
+  aw_skid.io.deq.ready := io.deq.AW.AWREADY
+
+  // W channel
+  // enq-side
+  w_skid.io.enq.bits.DATA := io.enq.W.WDATA
+  w_skid.io.enq.bits.STRB := io.enq.W.WSTRB
+  w_skid.io.enq.bits.LAST := io.enq.W.WLAST
+  w_skid.io.enq.valid     := io.enq.W.WVALID
+  io.enq.W.WREADY         := w_skid.io.enq.ready
+  // deq-side
+  io.deq.W.WDATA      := w_skid.io.deq.bits.DATA
+  io.deq.W.WSTRB      := w_skid.io.deq.bits.STRB
+  io.deq.W.WLAST      := w_skid.io.deq.bits.LAST
+  io.deq.W.WVALID     := w_skid.io.deq.valid
+  w_skid.io.deq.ready := io.deq.W.WREADY
+
+  // B channel
+  // enq-side
+  b_skid.io.enq.bits.BRESP := io.deq.B.BRESP
+  b_skid.io.enq.valid      := io.deq.B.BVALID
+  io.deq.B.BREADY          := b_skid.io.enq.ready
+  // deq-side
+  io.enq.B.BRESP      := b_skid.io.deq.bits.BRESP
+  io.enq.B.BVALID     := b_skid.io.deq.valid
+  b_skid.io.deq.ready := io.enq.B.BREADY
 }
 
 // set the base address base on the memory bank you wish to use
@@ -139,14 +252,15 @@ class CacheSubsystem extends Module {
   val cache      = Module(new Cache)
   val back_pipe  = Module(CacheConfig.backPipe())
   val axi        = Module(new AxiCacheAdapter)
+  val bus_skid   = Module(new AxiCacheBusSkidBuffer)
 
   axi.io.base := io.base
   front_pipe.io.in <> io.core
   cache.io.front <> front_pipe.io.out
   back_pipe.io.in <> cache.io.back
   axi.io.cache <> back_pipe.io.out
-  io.bus <> axi.io.bus
-
+  bus_skid.io.enq <> axi.io.bus
+  io.bus <> bus_skid.io.deq
   io.counters := cache.io.perf
 
 }

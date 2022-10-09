@@ -17,7 +17,6 @@ object DefaultAxiParameters extends AxiParameters
 class AxiMasterIF(params: AxiParameters) extends Bundle {
 
   val AR = new Bundle {
-    // val ARID    = Output(UInt(width = params.IdWidth.W))
     val ARADDR  = Output(UInt(width = params.AddrWidth.W))
     val ARVALID = Output(Bool())
     val ARREADY = Input(Bool())
@@ -30,9 +29,8 @@ class AxiMasterIF(params: AxiParameters) extends Bundle {
     val RDATA  = Input(UInt(width = params.DataWidth.W))
     val RVALID = Input(Bool())
     val RREADY = Output(Bool())
-    // val RID    = Input(UInt(width = params.IdWidth.W))
-    val RLAST = Input(Bool())
-    val RRESP = Input(UInt(2.W))
+    val RLAST  = Input(Bool())
+    val RRESP  = Input(UInt(2.W))
   }
 
   val AW = new Bundle {
