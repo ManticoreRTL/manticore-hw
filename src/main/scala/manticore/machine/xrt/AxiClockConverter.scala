@@ -11,8 +11,8 @@ object AxiLiteClockConverter {
 // vivado creates and IP with lower case names, so we can not use manticore.machine.xrt.AxiSlave.AxiSlaveInterface :(
   class AxiLiteConverterInterface(AxiSlaveAddrWidth: Int = 8, AxiSlaveDataWidth: Int = 32) extends Bundle {
 
-    val awaddr  = Input(UInt(AxiSlaveAddrWidth.W))
-    val awprot  = Input(UInt(3.W)) // should be hardcoded to 0
+    val awaddr = Input(UInt(AxiSlaveAddrWidth.W))
+    val awprot = Input(UInt(3.W)) // should be hardcoded to 0
 
     val awvalid = Input(Bool())
     val awready = Output(Bool())
@@ -49,7 +49,6 @@ object AxiLiteClockConverter {
 
 }
 class AxiLiteClockConverter(AxiSlaveAddrWidth: Int = 8, AxiSlaveDataWidth: Int = 32) extends RawModule {
-
 
   val s_axi        = IO(new AxiSlaveCoreInterface(AxiSlaveAddrWidth, AxiSlaveDataWidth))
   val s_axi_aclk   = IO(Input(Clock()))
@@ -176,71 +175,70 @@ class Axi4ClockConverter(params: AxiParameters) extends RawModule {
 
   impl.io.m_axi_aclk    := m_axi_aclk
   impl.io.m_axi_aresetn := m_axi_aresetn
-  impl.io.m_axi.awaddr <> m_axi.AWADDR
-  impl.io.m_axi.awlen <> m_axi.AWLEN
-  impl.io.m_axi.awsize <> m_axi.AWSIZE
-  impl.io.m_axi.awburst <> m_axi.AWBURST
+  impl.io.m_axi.awaddr <> m_axi.AW.AWADDR
+  impl.io.m_axi.awlen <> m_axi.AW.AWLEN
+  impl.io.m_axi.awsize <> m_axi.AW.AWSIZE
+  impl.io.m_axi.awburst <> m_axi.AW.AWBURST
 
-  impl.io.m_axi.awvalid <> m_axi.AWVALID
-  impl.io.m_axi.awready <> m_axi.AWREADY
-  impl.io.m_axi.wdata <> m_axi.WDATA
-  impl.io.m_axi.wstrb <> m_axi.WSTRB
-  impl.io.m_axi.wlast <> m_axi.WLAST
-  impl.io.m_axi.wvalid <> m_axi.WVALID
-  impl.io.m_axi.wready <> m_axi.WREADY
-  impl.io.m_axi.bresp <> m_axi.BRESP
-  impl.io.m_axi.bvalid <> m_axi.BVALID
-  impl.io.m_axi.bready <> m_axi.BREADY
-  impl.io.m_axi.araddr <> m_axi.ARADDR
-  impl.io.m_axi.arlen <> m_axi.ARLEN
-  impl.io.m_axi.arsize <> m_axi.ARSIZE
-  impl.io.m_axi.arburst <> m_axi.ARBURST
+  impl.io.m_axi.awvalid <> m_axi.AW.AWVALID
+  impl.io.m_axi.awready <> m_axi.AW.AWREADY
+  impl.io.m_axi.wdata <> m_axi.W.WDATA
+  impl.io.m_axi.wstrb <> m_axi.W.WSTRB
+  impl.io.m_axi.wlast <> m_axi.W.WLAST
+  impl.io.m_axi.wvalid <> m_axi.W.WVALID
+  impl.io.m_axi.wready <> m_axi.W.WREADY
+  impl.io.m_axi.bresp <> m_axi.B.BRESP
+  impl.io.m_axi.bvalid <> m_axi.B.BVALID
+  impl.io.m_axi.bready <> m_axi.B.BREADY
+  impl.io.m_axi.araddr <> m_axi.AR.ARADDR
+  impl.io.m_axi.arlen <> m_axi.AR.ARLEN
+  impl.io.m_axi.arsize <> m_axi.AR.ARSIZE
+  impl.io.m_axi.arburst <> m_axi.AR.ARBURST
 
-  impl.io.m_axi.arvalid <> m_axi.ARVALID
-  impl.io.m_axi.arready <> m_axi.ARREADY
-  impl.io.m_axi.rdata <> m_axi.RDATA
-  impl.io.m_axi.rresp <> m_axi.RRESP
-  impl.io.m_axi.rlast <> m_axi.RLAST
-  impl.io.m_axi.rvalid <> m_axi.RVALID
-  impl.io.m_axi.rready <> m_axi.RREADY
+  impl.io.m_axi.arvalid <> m_axi.AR.ARVALID
+  impl.io.m_axi.arready <> m_axi.AR.ARREADY
+  impl.io.m_axi.rdata <> m_axi.R.RDATA
+  impl.io.m_axi.rresp <> m_axi.R.RRESP
+  impl.io.m_axi.rlast <> m_axi.R.RLAST
+  impl.io.m_axi.rvalid <> m_axi.R.RVALID
+  impl.io.m_axi.rready <> m_axi.R.RREADY
 
   impl.io.s_axi_aclk    := s_axi_aclk
   impl.io.s_axi_aresetn := s_axi_aresetn
-  impl.io.s_axi.awaddr <> s_axi.AWADDR
-  impl.io.s_axi.awlen <> s_axi.AWLEN
-  impl.io.s_axi.awsize <> s_axi.AWSIZE
-  impl.io.s_axi.awburst <> s_axi.AWBURST
+  impl.io.s_axi.awaddr <> s_axi.AW.AWADDR
+  impl.io.s_axi.awlen <> s_axi.AW.AWLEN
+  impl.io.s_axi.awsize <> s_axi.AW.AWSIZE
+  impl.io.s_axi.awburst <> s_axi.AW.AWBURST
   // impl.io.s_axi.awlock unused
   // impl.io.s_axi.awcache unused
   // impl.io.awprot unused
   // impl.io.s_axi.awregion unused
   // impl.io.s_axi.awqos unused
-  impl.io.s_axi.awvalid <> s_axi.AWVALID
-  impl.io.s_axi.awready <> s_axi.AWREADY
-  impl.io.s_axi.wdata <> s_axi.WDATA
-  impl.io.s_axi.wstrb <> s_axi.WSTRB
-  impl.io.s_axi.wlast <> s_axi.WLAST
-  impl.io.s_axi.wvalid <> s_axi.WVALID
-  impl.io.s_axi.wready <> s_axi.WREADY
-  impl.io.s_axi.bresp <> s_axi.BRESP
-  impl.io.s_axi.bvalid <> s_axi.BVALID
-  impl.io.s_axi.bready <> s_axi.BREADY
-  impl.io.s_axi.araddr <> s_axi.ARADDR
-  impl.io.s_axi.arlen <> s_axi.ARLEN
-  impl.io.s_axi.arsize <> s_axi.ARSIZE
-  impl.io.s_axi.arburst <> s_axi.ARBURST
+  impl.io.s_axi.awvalid <> s_axi.AW.AWVALID
+  impl.io.s_axi.awready <> s_axi.AW.AWREADY
+  impl.io.s_axi.wdata <> s_axi.W.WDATA
+  impl.io.s_axi.wstrb <> s_axi.W.WSTRB
+  impl.io.s_axi.wlast <> s_axi.W.WLAST
+  impl.io.s_axi.wvalid <> s_axi.W.WVALID
+  impl.io.s_axi.wready <> s_axi.W.WREADY
+  impl.io.s_axi.bresp <> s_axi.B.BRESP
+  impl.io.s_axi.bvalid <> s_axi.B.BVALID
+  impl.io.s_axi.bready <> s_axi.B.BREADY
+  impl.io.s_axi.araddr <> s_axi.AR.ARADDR
+  impl.io.s_axi.arlen <> s_axi.AR.ARLEN
+  impl.io.s_axi.arsize <> s_axi.AR.ARSIZE
+  impl.io.s_axi.arburst <> s_axi.AR.ARBURST
   // impl.io.s_axi.arlock unused
   // impl.io.s_axi.arcache unused
   // impl.io.s_axi.arprot unused
   // impl.io.s_axi.arregion unused
   // impl.io.s_axi.arqos unused
-  impl.io.s_axi.arvalid <> s_axi.ARVALID
-  impl.io.s_axi.arready <> s_axi.ARREADY
-  impl.io.s_axi.rdata <> s_axi.RDATA
-  impl.io.s_axi.rresp <> s_axi.RRESP
-  impl.io.s_axi.rlast <> s_axi.RLAST
-  impl.io.s_axi.rvalid <> s_axi.RVALID
-  impl.io.s_axi.rready <> s_axi.RREADY
+  impl.io.s_axi.arvalid <> s_axi.AR.ARVALID
+  impl.io.s_axi.arready <> s_axi.AR.ARREADY
+  impl.io.s_axi.rdata <> s_axi.R.RDATA
+  impl.io.s_axi.rresp <> s_axi.R.RRESP
+  impl.io.s_axi.rlast <> s_axi.R.RLAST
+  impl.io.s_axi.rvalid <> s_axi.R.RVALID
+  impl.io.s_axi.rready <> s_axi.R.RREADY
 
 }
-

@@ -13,7 +13,6 @@ class AxiMemoryModelSimInterface(userDataWidth: Int) extends Bundle {
 }
 class AxiMemoryModel(axiParams: AxiParameters, memorySize: Int, dataWidth: Int) extends Module {
 
-
   val io = IO(new Bundle {
     val axi = Flipped(new AxiMasterIF(axiParams))
     val sim = new AxiMemoryModelSimInterface(dataWidth)
@@ -37,36 +36,34 @@ class AxiMemoryModel(axiParams: AxiParameters, memorySize: Int, dataWidth: Int) 
 
   impl.io.S_AXI_ARESETN := !reset.asBool
   impl.io.S_AXI_ACLK    := clock
-  impl.io.S_AXI_AWADDR  := io.axi.AWADDR
-  impl.io.S_AXI_AWLEN   := io.axi.AWLEN
-  impl.io.S_AXI_AWSIZE  := io.axi.AWSIZE
-  impl.io.S_AXI_AWBURST := io.axi.AWBURST
-  impl.io.S_AXI_AWVALID := io.axi.AWVALID
-  io.axi.AWREADY        := impl.io.S_AXI_AWREADY
+  impl.io.S_AXI_AWADDR  := io.axi.AW.AWADDR
+  impl.io.S_AXI_AWLEN   := io.axi.AW.AWLEN
+  impl.io.S_AXI_AWSIZE  := io.axi.AW.AWSIZE
+  impl.io.S_AXI_AWBURST := io.axi.AW.AWBURST
+  impl.io.S_AXI_AWVALID := io.axi.AW.AWVALID
+  io.axi.AW.AWREADY     := impl.io.S_AXI_AWREADY
 
-  impl.io.S_AXI_WDATA  := io.axi.WDATA
-  impl.io.S_AXI_WSTRB  := io.axi.WSTRB
-  impl.io.S_AXI_WLAST  := io.axi.WLAST
-  impl.io.S_AXI_WVALID := io.axi.WVALID
-  io.axi.WREADY        := impl.io.S_AXI_WREADY
-  io.axi.BRESP         := impl.io.S_AXI_BRESP
+  impl.io.S_AXI_WDATA  := io.axi.W.WDATA
+  impl.io.S_AXI_WSTRB  := io.axi.W.WSTRB
+  impl.io.S_AXI_WLAST  := io.axi.W.WLAST
+  impl.io.S_AXI_WVALID := io.axi.W.WVALID
+  io.axi.W.WREADY      := impl.io.S_AXI_WREADY
+  io.axi.B.BRESP       := impl.io.S_AXI_BRESP
 
-  io.axi.BVALID         := impl.io.S_AXI_BVALID
-  impl.io.S_AXI_BREADY  := io.axi.BREADY
-  impl.io.S_AXI_ARADDR  := io.axi.ARADDR
-  impl.io.S_AXI_ARLEN   := io.axi.ARLEN
-  impl.io.S_AXI_ARSIZE  := io.axi.ARSIZE
-  impl.io.S_AXI_ARVALID := io.axi.ARVALID
-  io.axi.ARREADY        := impl.io.S_AXI_ARREADY
-  io.axi.RDATA          := impl.io.S_AXI_RDATA
-  io.axi.RLAST          := impl.io.S_AXI_RLAST
-  io.axi.RVALID         := impl.io.S_AXI_RVALID
-  impl.io.S_AXI_RREADY  := io.axi.RREADY
-  io.axi.RRESP          := impl.io.S_AXI_RRESP
+  io.axi.B.BVALID       := impl.io.S_AXI_BVALID
+  impl.io.S_AXI_BREADY  := io.axi.B.BREADY
+  impl.io.S_AXI_ARADDR  := io.axi.AR.ARADDR
+  impl.io.S_AXI_ARLEN   := io.axi.AR.ARLEN
+  impl.io.S_AXI_ARSIZE  := io.axi.AR.ARSIZE
+  impl.io.S_AXI_ARVALID := io.axi.AR.ARVALID
+  io.axi.AR.ARREADY     := impl.io.S_AXI_ARREADY
+  io.axi.R.RDATA        := impl.io.S_AXI_RDATA
+  io.axi.R.RLAST        := impl.io.S_AXI_RLAST
+  io.axi.R.RVALID       := impl.io.S_AXI_RVALID
+  impl.io.S_AXI_RREADY  := io.axi.R.RREADY
+  io.axi.R.RRESP        := impl.io.S_AXI_RRESP
 
 }
-
-
 
 class axislave_vip(
     val C_S_AXI_ADDR_WIDTH: Int,

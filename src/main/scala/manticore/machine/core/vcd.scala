@@ -42,18 +42,14 @@ class VcdEngine(config: ISA) extends Module {
     override val DataWidth: Int = VcdConstants.DataOutWidth
   }
 
-
-
   val io = IO(new Bundle {
-    val id_in        = Input(UInt(config.IdBits.W))
-    val valid        = Input(Bool())
-    val data_in      = Input(UInt(config.DataBits.W))
-    val m_axi = new AxiMasterIF(axiParams)
-    val kill_clock   = Output(Bool())
+    val id_in      = Input(UInt(config.IdBits.W))
+    val valid      = Input(Bool())
+    val data_in    = Input(UInt(config.DataBits.W))
+    val m_axi      = new AxiMasterIF(axiParams)
+    val kill_clock = Output(Bool())
     val root_clock = Input(Clock())
   })
-
-
 
   val vcd_clock = clock
 
@@ -71,19 +67,24 @@ class VcdEngine(config: ISA) extends Module {
   flush_bram.io.clock := clock
   val AxiMaster = withClockAndReset(vcd_clock, reset) {
     Module(
-      new AxiMaster(axiParams, VcdConstants.MemoryBaseAddress, VcdConstants.MemoryAddressWidth, VcdConstants.DataOutWidth)
+      new AxiMaster(
+        axiParams,
+        VcdConstants.MemoryBaseAddress,
+        VcdConstants.MemoryAddressWidth,
+        VcdConstants.DataOutWidth
+      )
     )
   }
   val virtual_cycles = withClockAndReset(vcd_clock, reset) { RegInit(UInt(32.W), 0.U) }
   AxiMaster.io.axi <> io.m_axi
-  
+
   //initialising AxiMaster inputs
-  AxiMaster.io.read_txn_start := 0.B
+  AxiMaster.io.read_txn_start  := 0.B
   AxiMaster.io.write_txn_start := 0.B
-  AxiMaster.io.write_addr := 0.B
-  AxiMaster.io.read_addr := 0.B
-  AxiMaster.io.data_in := withClock(vcd_clock) { flush_bram.io.dout }
-  AxiMaster.io.burst_size := VcdConstants.BurstLength 
+  AxiMaster.io.write_addr      := 0.B
+  AxiMaster.io.read_addr       := 0.B
+  AxiMaster.io.data_in         := withClock(vcd_clock) { flush_bram.io.dout }
+  AxiMaster.io.burst_size      := VcdConstants.BurstLength
 
   object FillValue extends ChiselEnum {
     val Idle, Start, FillCheck, FillWait, FillActive, Done = Value
@@ -101,7 +102,6 @@ class VcdEngine(config: ISA) extends Module {
       )
     )
   }
-
 
   val virtual_cycle_complete = WireInit(Bool(), 0.B)
 
@@ -128,9 +128,9 @@ class VcdEngine(config: ISA) extends Module {
   val active_bram_size = withClockAndReset(vcd_clock, reset) { RegInit(UInt(32.W), 0.U) }
 
   when(active_bram_size >= VcdConstants.KillClockThreshold) {
-    io.kill_clock                          := withClock(clock) { 1.B }
+    io.kill_clock := withClock(clock) { 1.B }
   }.otherwise {
-    io.kill_clock                          := withClock(clock) { 0.B }
+    io.kill_clock := withClock(clock) { 0.B }
   }
 
   when(start_pointer >= flush_pointer) {
@@ -150,7 +150,6 @@ class VcdEngine(config: ISA) extends Module {
   current_value_uram.io.waddr := 0.B
   current_value_uram.io.raddr := 0.B
   current_value_uram.io.din   := 0.B
-
 
   switch(flush_state) {
     is(FlushValue.Idle) {
@@ -205,7 +204,7 @@ class VcdEngine(config: ISA) extends Module {
 
     is(FlushValue.WaitForSlave) {
 
-      when(AxiMaster.io.axi.AWREADY === 1.B && AxiMaster.io.axi.AWVALID === 1.B) {
+      when(AxiMaster.io.axi.AW.AWREADY === 1.B && AxiMaster.io.axi.AW.AWVALID === 1.B) {
         flush_state := withClock(vcd_clock) { FlushValue.FlushBurst }
         when(flush_pointer === VcdConstants.MaxBramCapacity - 2.U) {
           flush_pointer := withClock(vcd_clock) { 0.U }

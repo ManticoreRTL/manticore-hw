@@ -55,31 +55,31 @@ class AxiCacheAdapter extends Module {
   }
 
   // read address channel default values
-  io.bus.ARADDR  := ((raddr + (base >> 1)) << 1.U)            // bytes-align the address
-  io.bus.ARVALID := false.B
-  io.bus.ARLEN   := 0.U                                       // burst length is 1
-  io.bus.ARSIZE  := log2Ceil(CacheConfig.CacheLineBits / 8).U // each transfer contains (256 / 8) = 32 bytes
-  io.bus.ARBURST := 1.U                                       // incr burst mode, not really used
+  io.bus.AR.ARADDR  := ((raddr + (base >> 1)) << 1.U)            // bytes-align the address
+  io.bus.AR.ARVALID := false.B
+  io.bus.AR.ARLEN   := 0.U                                       // burst length is 1
+  io.bus.AR.ARSIZE  := log2Ceil(CacheConfig.CacheLineBits / 8).U // each transfer contains (256 / 8) = 32 bytes
+  io.bus.AR.ARBURST := 1.U                                       // incr burst mode, not really used
 
   // read data channel defaults
-  io.bus.RREADY := false.B
+  io.bus.R.RREADY := false.B
 
   // write address channel defaults
-  io.bus.AWADDR  := ((waddr + (base >> 1)) << 1.U)            // bytes-align the address
-  io.bus.AWLEN   := 0.U                                       // burst length is 1
-  io.bus.AWSIZE  := log2Ceil(CacheConfig.CacheLineBits / 8).U // 32 bytes in each transfer
-  io.bus.AWVALID := false.B
+  io.bus.AW.AWADDR  := ((waddr + (base >> 1)) << 1.U)            // bytes-align the address
+  io.bus.AW.AWLEN   := 0.U                                       // burst length is 1
+  io.bus.AW.AWSIZE  := log2Ceil(CacheConfig.CacheLineBits / 8).U // 32 bytes in each transfer
+  io.bus.AW.AWVALID := false.B
 
   // write data channel defaults
-  io.bus.WDATA   := wline
-  io.bus.WSTRB   := Fill(CacheConfig.CacheLineBits / 8, 1.U)
-  io.bus.WLAST   := false.B
-  io.bus.WVALID  := false.B
-  io.bus.BREADY  := true.B // ignores the response
-  io.bus.AWBURST := 1.U    // incr burst, not used
+  io.bus.W.WDATA    := wline
+  io.bus.W.WSTRB    := Fill(CacheConfig.CacheLineBits / 8, 1.U)
+  io.bus.W.WLAST    := false.B
+  io.bus.W.WVALID   := false.B
+  io.bus.B.BREADY   := true.B // ignores the response
+  io.bus.AW.AWBURST := 1.U    // incr burst, not used
 
-  when(state === sAxiReadData && io.bus.RVALID) {
-    rline := io.bus.RDATA
+  when(state === sAxiReadData && io.bus.R.RVALID) {
+    rline := io.bus.R.RDATA
   }
   switch(state) {
     is(sIdle) {
@@ -92,28 +92,28 @@ class AxiCacheAdapter extends Module {
       }
     }
     is(sAxiWriteAddr) {
-      io.bus.AWVALID := true.B
-      when(io.bus.AWREADY) {
+      io.bus.AW.AWVALID := true.B
+      when(io.bus.AW.AWREADY) {
         state := sAxiWriteData
       }
     }
     is(sAxiWriteData) {
-      io.bus.WVALID := true.B
-      io.bus.WLAST  := true.B
-      when(io.bus.WREADY) {
+      io.bus.W.WVALID := true.B
+      io.bus.W.WLAST  := true.B
+      when(io.bus.W.WREADY) {
         // go to idle if the command was a write, otherwise perform a read
         state := Mux(decode(cmd, CacheBackendCommand.WriteBack), sAxiReadAddr, sDone)
       }
     }
     is(sAxiReadAddr) {
-      io.bus.ARVALID := true.B
-      when(io.bus.ARREADY) {
+      io.bus.AR.ARVALID := true.B
+      when(io.bus.AR.ARREADY) {
         state := sAxiReadData
       }
     }
     is(sAxiReadData) {
-      io.bus.RREADY := true.B
-      when(io.bus.RVALID) {
+      io.bus.R.RREADY := true.B
+      when(io.bus.R.RVALID) {
         state := sDone
       }
     }
@@ -126,9 +126,9 @@ class AxiCacheAdapter extends Module {
 }
 
 class CacheSubsystemInterface extends Bundle {
-  val core = CacheConfig.frontInterface()
-  val bus  = new AxiMasterIF(AxiCacheAdapter.CacheAxiParameters)
-  val base = Input(UInt(64.W))
+  val core     = CacheConfig.frontInterface()
+  val bus      = new AxiMasterIF(AxiCacheAdapter.CacheAxiParameters)
+  val base     = Input(UInt(64.W))
   val counters = CacheConfig.counterInterface()
 }
 
@@ -148,7 +148,6 @@ class CacheSubsystem extends Module {
   io.bus <> axi.io.bus
 
   io.counters := cache.io.perf
-
 
 }
 
