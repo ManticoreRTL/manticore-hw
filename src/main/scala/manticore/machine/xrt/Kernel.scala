@@ -204,7 +204,7 @@ class ManticoreFlatSimKernel(
   axi_mem.io.sim.wen   := io.dmi.wen
   io.dmi.rdata         := axi_mem.io.sim.rdata
 
-  
+
 }
 
 object GenerateIPs {
@@ -554,12 +554,12 @@ object ManticoreKernelGenerator {
       )
     )
 
-    // Insert KEEP_HIERARCHY annotations.
+    // Insert KEEP_HIERARCHY annotations on elements which are manually floorplanned.
     val manticoreVlogWithKeepHierarchy = manticoreVlogOrig
       .split("\n")
       .map { line =>
         val pattern = new Regex(
-          """(\s*)(Processor|Switch|WrappedPipeWithStyle|BoolTree)(_\d+)?\s+\w+""",
+          """(\s*)(Processor|Switch|WrappedPipeWithStyle|BoolTree|CacheFrontPipe|Cache)(_\d+)?\s+\w+""",
           "indent"
         )
         pattern.findFirstMatchIn(line) match {
