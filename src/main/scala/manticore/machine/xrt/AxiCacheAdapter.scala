@@ -58,81 +58,81 @@ class AxiCacheBusSkidBuffer extends Module {
     val RRESP = UInt(2.W)
   }
 
-  val ar_skid = Module(new SkidBuffer(new AddressChannel(io.enq.AR.ARADDR.getWidth)))
-  val r_skid  = Module(new SkidBuffer(new ReadDataChannel(io.enq.R.RDATA.getWidth)))
-  val aw_skid = Module(new SkidBuffer(new AddressChannel(io.enq.AW.AWADDR.getWidth)))
-  val w_skid  = Module(new SkidBuffer(new WriteDataChannel(io.enq.W.WDATA.getWidth)))
+  val ar_skid = Module(new SkidBuffer(new AddressChannel(io.enq.ARADDR.getWidth)))
+  val r_skid  = Module(new SkidBuffer(new ReadDataChannel(io.enq.RDATA.getWidth)))
+  val aw_skid = Module(new SkidBuffer(new AddressChannel(io.enq.AWADDR.getWidth)))
+  val w_skid  = Module(new SkidBuffer(new WriteDataChannel(io.enq.WDATA.getWidth)))
   val b_skid  = Module(new SkidBuffer(new WriteResponseChannel))
 
   // AR channel
   // enq-side
-  ar_skid.io.enq.bits.ADDR  := io.enq.AR.ARADDR
-  ar_skid.io.enq.bits.BURST := io.enq.AR.ARBURST
-  ar_skid.io.enq.bits.LEN   := io.enq.AR.ARLEN
-  ar_skid.io.enq.bits.SIZE  := io.enq.AR.ARSIZE
-  ar_skid.io.enq.valid      := io.enq.AR.ARVALID
-  io.enq.AR.ARREADY         := ar_skid.io.enq.ready
+  ar_skid.io.enq.bits.ADDR  := io.enq.ARADDR
+  ar_skid.io.enq.bits.BURST := io.enq.ARBURST
+  ar_skid.io.enq.bits.LEN   := io.enq.ARLEN
+  ar_skid.io.enq.bits.SIZE  := io.enq.ARSIZE
+  ar_skid.io.enq.valid      := io.enq.ARVALID
+  io.enq.ARREADY            := ar_skid.io.enq.ready
   // deq-side
-  io.deq.AR.ARADDR     := ar_skid.io.deq.bits.ADDR
-  io.deq.AR.ARBURST    := ar_skid.io.deq.bits.BURST
-  io.deq.AR.ARLEN      := ar_skid.io.deq.bits.LEN
-  io.deq.AR.ARSIZE     := ar_skid.io.deq.bits.SIZE
-  io.deq.AR.ARVALID    := ar_skid.io.deq.valid
-  ar_skid.io.deq.ready := io.deq.AR.ARREADY
+  io.deq.ARADDR        := ar_skid.io.deq.bits.ADDR
+  io.deq.ARBURST       := ar_skid.io.deq.bits.BURST
+  io.deq.ARLEN         := ar_skid.io.deq.bits.LEN
+  io.deq.ARSIZE        := ar_skid.io.deq.bits.SIZE
+  io.deq.ARVALID       := ar_skid.io.deq.valid
+  ar_skid.io.deq.ready := io.deq.ARREADY
 
   // R channel
   // enq-side
-  r_skid.io.enq.bits.RDATA := io.deq.R.RDATA
-  r_skid.io.enq.bits.RLAST := io.deq.R.RLAST
-  r_skid.io.enq.bits.RRESP := io.deq.R.RRESP
-  r_skid.io.enq.valid      := io.deq.R.RVALID
-  io.deq.R.RREADY          := r_skid.io.enq.ready
+  r_skid.io.enq.bits.RDATA := io.deq.RDATA
+  r_skid.io.enq.bits.RLAST := io.deq.RLAST
+  r_skid.io.enq.bits.RRESP := io.deq.RRESP
+  r_skid.io.enq.valid      := io.deq.RVALID
+  io.deq.RREADY            := r_skid.io.enq.ready
   // deq-side
-  io.enq.R.RDATA      := r_skid.io.deq.bits.RDATA
-  io.enq.R.RLAST      := r_skid.io.deq.bits.RLAST
-  io.enq.R.RRESP      := r_skid.io.deq.bits.RRESP
-  io.enq.R.RVALID     := r_skid.io.deq.valid
-  r_skid.io.deq.ready := io.enq.R.RREADY
+  io.enq.RDATA        := r_skid.io.deq.bits.RDATA
+  io.enq.RLAST        := r_skid.io.deq.bits.RLAST
+  io.enq.RRESP        := r_skid.io.deq.bits.RRESP
+  io.enq.RVALID       := r_skid.io.deq.valid
+  r_skid.io.deq.ready := io.enq.RREADY
 
   // AW channel
   // enq-side
-  aw_skid.io.enq.bits.ADDR  := io.enq.AW.AWADDR
-  aw_skid.io.enq.bits.BURST := io.enq.AW.AWBURST
-  aw_skid.io.enq.bits.LEN   := io.enq.AW.AWLEN
-  aw_skid.io.enq.bits.SIZE  := io.enq.AW.AWSIZE
-  aw_skid.io.enq.valid      := io.enq.AW.AWVALID
-  io.enq.AW.AWREADY         := aw_skid.io.enq.ready
+  aw_skid.io.enq.bits.ADDR  := io.enq.AWADDR
+  aw_skid.io.enq.bits.BURST := io.enq.AWBURST
+  aw_skid.io.enq.bits.LEN   := io.enq.AWLEN
+  aw_skid.io.enq.bits.SIZE  := io.enq.AWSIZE
+  aw_skid.io.enq.valid      := io.enq.AWVALID
+  io.enq.AWREADY            := aw_skid.io.enq.ready
   // deq-side
-  io.deq.AW.AWADDR     := aw_skid.io.deq.bits.ADDR
-  io.deq.AW.AWBURST    := aw_skid.io.deq.bits.BURST
-  io.deq.AW.AWLEN      := aw_skid.io.deq.bits.LEN
-  io.deq.AW.AWSIZE     := aw_skid.io.deq.bits.SIZE
-  io.deq.AW.AWVALID    := aw_skid.io.deq.valid
-  aw_skid.io.deq.ready := io.deq.AW.AWREADY
+  io.deq.AWADDR        := aw_skid.io.deq.bits.ADDR
+  io.deq.AWBURST       := aw_skid.io.deq.bits.BURST
+  io.deq.AWLEN         := aw_skid.io.deq.bits.LEN
+  io.deq.AWSIZE        := aw_skid.io.deq.bits.SIZE
+  io.deq.AWVALID       := aw_skid.io.deq.valid
+  aw_skid.io.deq.ready := io.deq.AWREADY
 
   // W channel
   // enq-side
-  w_skid.io.enq.bits.DATA := io.enq.W.WDATA
-  w_skid.io.enq.bits.STRB := io.enq.W.WSTRB
-  w_skid.io.enq.bits.LAST := io.enq.W.WLAST
-  w_skid.io.enq.valid     := io.enq.W.WVALID
-  io.enq.W.WREADY         := w_skid.io.enq.ready
+  w_skid.io.enq.bits.DATA := io.enq.WDATA
+  w_skid.io.enq.bits.STRB := io.enq.WSTRB
+  w_skid.io.enq.bits.LAST := io.enq.WLAST
+  w_skid.io.enq.valid     := io.enq.WVALID
+  io.enq.WREADY           := w_skid.io.enq.ready
   // deq-side
-  io.deq.W.WDATA      := w_skid.io.deq.bits.DATA
-  io.deq.W.WSTRB      := w_skid.io.deq.bits.STRB
-  io.deq.W.WLAST      := w_skid.io.deq.bits.LAST
-  io.deq.W.WVALID     := w_skid.io.deq.valid
-  w_skid.io.deq.ready := io.deq.W.WREADY
+  io.deq.WDATA        := w_skid.io.deq.bits.DATA
+  io.deq.WSTRB        := w_skid.io.deq.bits.STRB
+  io.deq.WLAST        := w_skid.io.deq.bits.LAST
+  io.deq.WVALID       := w_skid.io.deq.valid
+  w_skid.io.deq.ready := io.deq.WREADY
 
   // B channel
   // enq-side
-  b_skid.io.enq.bits.BRESP := io.deq.B.BRESP
-  b_skid.io.enq.valid      := io.deq.B.BVALID
-  io.deq.B.BREADY          := b_skid.io.enq.ready
+  b_skid.io.enq.bits.BRESP := io.deq.BRESP
+  b_skid.io.enq.valid      := io.deq.BVALID
+  io.deq.BREADY            := b_skid.io.enq.ready
   // deq-side
-  io.enq.B.BRESP      := b_skid.io.deq.bits.BRESP
-  io.enq.B.BVALID     := b_skid.io.deq.valid
-  b_skid.io.deq.ready := io.enq.B.BREADY
+  io.enq.BRESP        := b_skid.io.deq.bits.BRESP
+  io.enq.BVALID       := b_skid.io.deq.valid
+  b_skid.io.deq.ready := io.enq.BREADY
 }
 
 // set the base address base on the memory bank you wish to use
@@ -168,31 +168,31 @@ class AxiCacheAdapter extends Module {
   }
 
   // read address channel default values
-  io.bus.AR.ARADDR  := ((raddr + (base >> 1)) << 1.U)            // bytes-align the address
-  io.bus.AR.ARVALID := false.B
-  io.bus.AR.ARLEN   := 0.U                                       // burst length is 1
-  io.bus.AR.ARSIZE  := log2Ceil(CacheConfig.CacheLineBits / 8).U // each transfer contains (256 / 8) = 32 bytes
-  io.bus.AR.ARBURST := 1.U                                       // incr burst mode, not really used
+  io.bus.ARADDR  := ((raddr + (base >> 1)) << 1.U)            // bytes-align the address
+  io.bus.ARVALID := false.B
+  io.bus.ARLEN   := 0.U                                       // burst length is 1
+  io.bus.ARSIZE  := log2Ceil(CacheConfig.CacheLineBits / 8).U // each transfer contains (256 / 8) = 32 bytes
+  io.bus.ARBURST := 1.U                                       // incr burst mode, not really used
 
   // read data channel defaults
-  io.bus.R.RREADY := false.B
+  io.bus.RREADY := false.B
 
   // write address channel defaults
-  io.bus.AW.AWADDR  := ((waddr + (base >> 1)) << 1.U)            // bytes-align the address
-  io.bus.AW.AWLEN   := 0.U                                       // burst length is 1
-  io.bus.AW.AWSIZE  := log2Ceil(CacheConfig.CacheLineBits / 8).U // 32 bytes in each transfer
-  io.bus.AW.AWVALID := false.B
+  io.bus.AWADDR  := ((waddr + (base >> 1)) << 1.U)            // bytes-align the address
+  io.bus.AWLEN   := 0.U                                       // burst length is 1
+  io.bus.AWSIZE  := log2Ceil(CacheConfig.CacheLineBits / 8).U // 32 bytes in each transfer
+  io.bus.AWVALID := false.B
 
   // write data channel defaults
-  io.bus.W.WDATA    := wline
-  io.bus.W.WSTRB    := Fill(CacheConfig.CacheLineBits / 8, 1.U)
-  io.bus.W.WLAST    := false.B
-  io.bus.W.WVALID   := false.B
-  io.bus.B.BREADY   := true.B // ignores the response
-  io.bus.AW.AWBURST := 1.U    // incr burst, not used
+  io.bus.WDATA   := wline
+  io.bus.WSTRB   := Fill(CacheConfig.CacheLineBits / 8, 1.U)
+  io.bus.WLAST   := false.B
+  io.bus.WVALID  := false.B
+  io.bus.BREADY  := true.B // ignores the response
+  io.bus.AWBURST := 1.U    // incr burst, not used
 
-  when(state === sAxiReadData && io.bus.R.RVALID) {
-    rline := io.bus.R.RDATA
+  when(state === sAxiReadData && io.bus.RVALID) {
+    rline := io.bus.RDATA
   }
   switch(state) {
     is(sIdle) {
@@ -205,28 +205,28 @@ class AxiCacheAdapter extends Module {
       }
     }
     is(sAxiWriteAddr) {
-      io.bus.AW.AWVALID := true.B
-      when(io.bus.AW.AWREADY) {
+      io.bus.AWVALID := true.B
+      when(io.bus.AWREADY) {
         state := sAxiWriteData
       }
     }
     is(sAxiWriteData) {
-      io.bus.W.WVALID := true.B
-      io.bus.W.WLAST  := true.B
-      when(io.bus.W.WREADY) {
+      io.bus.WVALID := true.B
+      io.bus.WLAST  := true.B
+      when(io.bus.WREADY) {
         // go to idle if the command was a write, otherwise perform a read
         state := Mux(decode(cmd, CacheBackendCommand.WriteBack), sAxiReadAddr, sDone)
       }
     }
     is(sAxiReadAddr) {
-      io.bus.AR.ARVALID := true.B
-      when(io.bus.AR.ARREADY) {
+      io.bus.ARVALID := true.B
+      when(io.bus.ARREADY) {
         state := sAxiReadData
       }
     }
     is(sAxiReadData) {
-      io.bus.R.RREADY := true.B
-      when(io.bus.R.RVALID) {
+      io.bus.RREADY := true.B
+      when(io.bus.RVALID) {
         state := sDone
       }
     }

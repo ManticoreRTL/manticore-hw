@@ -204,7 +204,7 @@ class VcdEngine(config: ISA) extends Module {
 
     is(FlushValue.WaitForSlave) {
 
-      when(AxiMaster.io.axi.AW.AWREADY === 1.B && AxiMaster.io.axi.AW.AWVALID === 1.B) {
+      when(AxiMaster.io.axi.AWREADY === 1.B && AxiMaster.io.axi.AWVALID === 1.B) {
         flush_state := withClock(vcd_clock) { FlushValue.FlushBurst }
         when(flush_pointer === VcdConstants.MaxBramCapacity - 2.U) {
           flush_pointer := withClock(vcd_clock) { 0.U }
