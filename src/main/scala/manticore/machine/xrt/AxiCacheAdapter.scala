@@ -252,16 +252,16 @@ class CacheSubsystem extends Module {
   val cache      = Module(new Cache)
   val back_pipe  = Module(CacheConfig.backPipe())
   val axi        = Module(new AxiCacheAdapter)
-  // val bus_skid   = Module(new AxiCacheBusSkidBuffer)
+  val bus_skid   = Module(new AxiCacheBusSkidBuffer)
 
   axi.io.base := io.base
   front_pipe.io.in <> io.core
   cache.io.front <> front_pipe.io.out
   back_pipe.io.in <> cache.io.back
   axi.io.cache <> back_pipe.io.out
-  io.bus <> axi.io.bus
-  // bus_skid.io.enq <> axi.io.bus
-  // io.bus <> bus_skid.io.deq
+  // io.bus <> axi.io.bus
+  bus_skid.io.enq <> axi.io.bus
+  io.bus <> bus_skid.io.deq
 
   io.counters := cache.io.perf
 

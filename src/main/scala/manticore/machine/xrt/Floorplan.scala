@@ -37,13 +37,13 @@ trait Floorplan {
     if (x == 0 && y == 0) {
       Seq(
         // Leave the cache's back_pipe, axi interface and axi skid_buffer outside of placement so vivado has flexibility.
-        s"${getManticoreKernelInstName()}/axi_cache/front_pipe",
+        // s"${getManticoreKernelInstName()}/axi_cache/front_pipe",
         // s"${getManticoreKernelInstName()}/axi_cache/cache",
         // s"${getManticoreKernelInstName()}/m_axi_bank_0_clock_crossing",
         // s"${getManticoreKernelInstName()}/s_axi_clock_crossing",
         // s"${getManticoreKernelInstName()}/slave",
         // s"${getManticoreKernelInstName()}/manticore/bootloader",
-        s"${getManticoreKernelInstName()}/manticore/controller",
+        s"${getManticoreKernelInstName()}/manticore/controller"
         // s"${getManticoreKernelInstName()}/manticore/memory_intercept"
       )
     } else {
