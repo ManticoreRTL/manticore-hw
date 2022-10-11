@@ -38,7 +38,7 @@ trait Floorplan {
       Seq(
         // Leave the cache's back_pipe, axi interface and axi skid_buffer outside of placement so vivado has flexibility.
         s"${getManticoreKernelInstName()}/axi_cache/front_pipe",
-        s"${getManticoreKernelInstName()}/axi_cache/cache",
+        // s"${getManticoreKernelInstName()}/axi_cache/cache",
         // s"${getManticoreKernelInstName()}/m_axi_bank_0_clock_crossing",
         // s"${getManticoreKernelInstName()}/s_axi_clock_crossing",
         // s"${getManticoreKernelInstName()}/slave",
