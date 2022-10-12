@@ -290,7 +290,6 @@ class Cache extends Module {
   val missCounter  = PerfCounter(32, 1) // 32-bit counter
   val stallCounter = PerfCounter(32, 1) // 32-bit counter
 
-
   io.perf.hit   := hitCounter.value.pad(64)
   io.perf.miss  := missCounter.value.pad(64)
   io.perf.stall := stallCounter.value.pad(64)
@@ -337,17 +336,16 @@ class Cache extends Module {
   }
 
   val banks = Range(0, NumBanks).map { i =>
-    BankCollection(
-      Module(
-        new SimpleDualPortMemory(
-          ADDRESS_WIDTH = 12,
-          READ_LATENCY = 2,
-          DATA_WIDTH = 72,
-          STYLE = MemStyle.URAM // URAM has higher capacity and can not be initialized
-        )
-      ),
-      i
+    val cache_bank = Module(
+      new SimpleDualPortMemory(
+        ADDRESS_WIDTH = 12,
+        READ_LATENCY = 2,
+        DATA_WIDTH = 72,
+        STYLE = MemStyle.URAM // URAM has higher capacity and can not be initialized
+      )
     )
+    cache_bank.suggestName(s"cache_bank_${i}")
+    BankCollection(cache_bank, i)
   }
 
   // banks.last.cached_tag := banks.last.module.io.dout.head(TagBits).tail(2)
@@ -506,7 +504,7 @@ class Cache extends Module {
           io.front.done  := true.B
         }
         hitCounter.inc()
-        pstate           := StateValue.Idle
+        pstate := StateValue.Idle
       } otherwise {
         val offset_mask = 0.U(OffsetBits.W)
         when(dirty_bit) {
@@ -523,7 +521,7 @@ class Cache extends Module {
           )
         }
         missCounter.inc()
-        pstate            := StateValue.WaitResponse
+        pstate := StateValue.WaitResponse
       }
     }
     is(StateValue.WaitResponse) {
