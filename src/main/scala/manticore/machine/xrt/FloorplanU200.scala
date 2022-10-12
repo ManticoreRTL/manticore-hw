@@ -615,16 +615,23 @@ object U200FloorplanImpl {
       // Separator for legibility.
       constraints += ""
 
+      // Ensure the URAM banks are placed next to each other.
+      val cacheBankRlocs = cacheBankCellNames().toSeq
+        .sortBy { case (bankIdx, bankName) =>
+          bankIdx
+        }
+        .map { case (bankIdx, bankName) =>
+          s"\t\t${bankName} X0Y${bankIdx} \\"
+        }
+        .mkString("\n")
       constraints += s"""|
-                         |
                          |create_macro cache_banks
-                         |update_macro m1 [list
-                         |  level0_i/ulp/ManticoreKernel_1/inst/axi_cache/cache/SimpleDualPortMemory/impl/uram_inst/xpm_memory_base_inst/gen_wr_a.gen_word_narrow.mem_reg_uram_0    X0Y0
-                         |  level0_i/ulp/ManticoreKernel_1/inst/axi_cache/cache/SimpleDualPortMemory_1/impl/uram_inst/xpm_memory_base_inst/gen_wr_a.gen_word_narrow.mem_reg_uram_0  X0Y1
-                         |  level0_i/ulp/ManticoreKernel_1/inst/axi_cache/cache/SimpleDualPortMemory_2/impl/uram_inst/xpm_memory_base_inst/gen_wr_a.gen_word_narrow.mem_reg_uram_0  X0Y2
-                         |  level0_i/ulp/ManticoreKernel_1/inst/axi_cache/cache/SimpleDualPortMemory_3/impl/uram_inst/xpm_memory_base_inst/gen_wr_a.gen_word_narrow.mem_reg_uram_0  X0Y3
-                         |]
-      """.stripMargin
+                         |update_macro cache_banks [list \\
+                         |${cacheBankRlocs}
+                         |]""".stripMargin
+
+      // Separator for legibility.
+      constraints += ""
 
       Some(constraints.mkString("\n"))
     }

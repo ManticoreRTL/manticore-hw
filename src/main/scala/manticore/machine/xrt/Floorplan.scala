@@ -55,6 +55,20 @@ trait Floorplan {
     s"${getManticoreKernelInstName()}/clock_distribution"
   }
 
+  def cacheCellName(): String = {
+    s"${getManticoreKernelInstName()}/axi_cache/cache"
+  }
+
+  // Map[bank_idx, bank_name]
+  def cacheBankCellNames(): Map[Int, String] = {
+    Range
+      .inclusive(0, 3)
+      .map { i =>
+        i -> s"${cacheCellName()}/bank_${i}/impl/uram_inst/xpm_memory_base_inst/gen_wr_a.gen_word_narrow.mem_reg_uram_0"
+      }
+      .toMap
+  }
+
   def switchCellName(x: Int, y: Int): String = {
     s"${computeArrayCellName}/switch_${x}_${y}"
   }

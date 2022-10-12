@@ -336,7 +336,7 @@ class Cache extends Module {
   }
 
   val banks = Range(0, NumBanks).map { i =>
-    val cache_bank = Module(
+    val bank = Module(
       new SimpleDualPortMemory(
         ADDRESS_WIDTH = 12,
         READ_LATENCY = 2,
@@ -344,8 +344,8 @@ class Cache extends Module {
         STYLE = MemStyle.URAM // URAM has higher capacity and can not be initialized
       )
     )
-    cache_bank.suggestName(s"cache_bank_${i}")
-    BankCollection(cache_bank, i)
+    bank.suggestName(s"bank_${i}")
+    BankCollection(bank, i)
   }
 
   // banks.last.cached_tag := banks.last.module.io.dout.head(TagBits).tail(2)
