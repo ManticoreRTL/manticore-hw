@@ -43,6 +43,7 @@ trait Floorplan {
         // s"${getManticoreKernelInstName()}/s_axi_clock_crossing",
         // s"${getManticoreKernelInstName()}/slave",
         // s"${getManticoreKernelInstName()}/manticore/bootloader",
+        controllerCellName()
         // s"${getManticoreKernelInstName()}/manticore/memory_intercept"
       )
     } else {
@@ -307,7 +308,7 @@ trait Floorplan {
     val rootClockRegion = getRootClock()
 
     val pblock = ClockDistributionPblock(rootClockRegion).toTcl(
-      Seq(clockDistributionCellName(), controllerCellName())
+      Seq(clockDistributionCellName())
     )
 
     // No need to set wiz/inst/clk_out1 as a root clock as it is not driven by a global clock buffer (the output of the
