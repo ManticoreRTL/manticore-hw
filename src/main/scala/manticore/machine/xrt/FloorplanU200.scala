@@ -616,6 +616,7 @@ object U200FloorplanImpl {
       constraints += ""
 
       // Ensure the URAM banks are placed next to each other.
+      val cacheMacroName = "cache_banks"
       val cacheBankRlocs = cacheBankCellNames().toSeq
         .sortBy { case (bankIdx, bankName) =>
           bankIdx
@@ -625,10 +626,33 @@ object U200FloorplanImpl {
         }
         .mkString("\n")
       constraints += s"""|
-                         |create_macro cache_banks
-                         |update_macro cache_banks [list \\
+                         |create_macro ${cacheMacroName}
+                         |update_macro ${cacheMacroName} [list \\
                          |${cacheBankRlocs}
                          |]""".stripMargin
+
+      // Separator for legibility.
+      constraints += ""
+
+      // Ensure the register file BRAM banks are placed next to each other.
+      Range.inclusive(0, dimY - 1).foreach { y =>
+        Range.inclusive(0, dimX - 1).foreach { x =>
+          val registerFileMacroName = s"register_files_${x}_${y}"
+          val registerFileBankRlocs = registerFileBankCellNames(x, y).toSeq
+            .sortBy { case (bankIdx, bankName) =>
+              bankIdx
+            }
+            .map { case (bankIdx, bankName) =>
+              s"\t\t${bankName} X0Y${bankIdx - 1} \\"
+            }
+            .mkString("\n")
+          constraints += s"""|
+                         |create_macro ${registerFileMacroName}
+                         |update_macro ${registerFileMacroName} [list \\
+                         |${registerFileBankRlocs}
+                         |]""".stripMargin
+        }
+      }
 
       // Separator for legibility.
       constraints += ""

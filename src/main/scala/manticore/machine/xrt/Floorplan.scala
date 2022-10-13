@@ -69,6 +69,19 @@ trait Floorplan {
       .toMap
   }
 
+  def registerFileCellName(x: Int, y: Int): String = {
+    s"${procCellName(x, y)}/register_file"
+  }
+
+  def registerFileBankCellNames(x: Int, y: Int): Map[Int, String] = {
+    Range
+      .inclusive(1, 4)
+      .map { i =>
+        i -> s"${registerFileCellName(x, y)}/rs${i}bank/impl/bram_inst/xpm_memory_base_inst/gen_wr_a.gen_word_narrow.mem_reg_bram_0"
+      }
+      .toMap
+  }
+
   def switchCellName(x: Int, y: Int): String = {
     s"${computeArrayCellName}/switch_${x}_${y}"
   }
