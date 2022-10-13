@@ -36,19 +36,22 @@ trait Floorplan {
   def procAuxiliaryCellNames(x: Int, y: Int): Seq[String] = {
     if (x == 0 && y == 0) {
       Seq(
-        // Leave the cache's back_pipe, axi interface and axi skid_buffer outside of placement so vivado has flexibility.
+        // These are the cells that should be co-located with the privileged core.
         // s"${getManticoreKernelInstName()}/axi_cache/front_pipe",
         // s"${getManticoreKernelInstName()}/axi_cache/cache",
         // s"${getManticoreKernelInstName()}/m_axi_bank_0_clock_crossing",
         // s"${getManticoreKernelInstName()}/s_axi_clock_crossing",
         // s"${getManticoreKernelInstName()}/slave",
         // s"${getManticoreKernelInstName()}/manticore/bootloader",
-        s"${getManticoreKernelInstName()}/manticore/controller"
         // s"${getManticoreKernelInstName()}/manticore/memory_intercept"
       )
     } else {
       Seq()
     }
+  }
+
+  def controllerCellName(): String = {
+    s"${getManticoreKernelInstName()}/manticore/controller"
   }
 
   def clockDistributionCellName(): String = {
@@ -304,7 +307,7 @@ trait Floorplan {
     val rootClockRegion = getRootClock()
 
     val pblock = ClockDistributionPblock(rootClockRegion).toTcl(
-      Seq(clockDistributionCellName())
+      Seq(clockDistributionCellName(), controllerCellName())
     )
 
     // No need to set wiz/inst/clk_out1 as a root clock as it is not driven by a global clock buffer (the output of the
