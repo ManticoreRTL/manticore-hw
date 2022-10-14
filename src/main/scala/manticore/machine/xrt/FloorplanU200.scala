@@ -509,19 +509,23 @@ object U200FloorplanImpl {
       // know what the torus looks like horizontally. The vertical aspect of the torus is partitioned ahead of time by
       // the hardware itself as we had to assign cores to either the top reset tree or the bottom reset tree.
       val gridToTorus = getGridLocToTorusLocMap(dimX, dimY, GridLoc(dimX - 1, dimY / 2))
+      val torusToGrid = gridToTorus.map(_.swap)
 
       val torusToPblock  = MMap.empty[TorusLoc, HierarchicalPblock]
       val privilegedCore = TorusLoc(0, 0)
 
       Range.inclusive(0, dimX - 1).foreach { x =>
         Range.inclusive(0, dimY - 1).foreach { y =>
-          val gridLoc  = GridLoc(x, y)
-          val torusLoc = gridToTorus(gridLoc)
+          val torusLoc = TorusLoc(x, y)
+          // GridLoc(0, 0) is the BOTTOM-LEFT corner of the chip.
+          val gridLoc = torusToGrid(torusLoc)
 
           // If the grid size is not a multiple of 2, then we want the Left side to have more
           // cores as it is directly above the non-shell part of SLR1 and will not have to traverse
           // the chip horizontally as much as if more cores were on the Right side.
           // This is why I do the math.ceil().
+          // We use gridLoc here as we want to know the physical placement of the cores (gridLocs are
+          // physical placements, torusLocs are logical placements).
           val side = if (gridLoc.c < math.ceil(dimX / 2.0).toInt) Left else Right
 
           // ATTENTION:
@@ -529,7 +533,8 @@ object U200FloorplanImpl {
           // are ASSUMPTIONs that map to how the reset tree is partitioned into a TOP/BOTTOM part in the chisel code!
           // Here I cannot do the math.ceil() technique from above as the chisel code uses "< dimY / 2".
           // Asymmetry between top and bottom doesn't matter though, so it should be fine.
-          val slrPblock = if (gridLoc.r < dimY / 2) slr2SidePblock(side) else slr0SidePblock(side)
+          // We use torusLoc here as the chisel code uses a core's (x,y) value which are torus locations.
+          val slrPblock = if (torusLoc.y < dimY / 2) slr2SidePblock(side) else slr0SidePblock(side)
 
           // We do not place the privileged core as the parent Floorplan.scala places that one.
           if (torusLoc != privilegedCore) {

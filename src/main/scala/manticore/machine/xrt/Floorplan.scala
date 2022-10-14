@@ -5,6 +5,7 @@ import collection.mutable.ArrayBuffer
 import manticore.machine.Helpers
 
 object Coordinates {
+  // Note that GridLoc(r = 0, c = 0) is the bottom-left corner of a rectangle for us.
   case class GridLoc(c: Int, r: Int)
   case class TorusLoc(x: Int, y: Int)
   case class ClockRegion(x: Int, y: Int)
