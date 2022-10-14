@@ -271,12 +271,12 @@ trait Floorplan {
     switchToPblock
       .groupMap(_._2)(_._1)
       .toSeq
-      .sortBy { case (pblock, cores) =>
+      .sortBy { case (pblock, switches) =>
         pblock.name
       }
-      .foreach { case (pblock, switch) =>
-        val cells = switch.toSeq
-          .sortBy(core => (core.y, core.x))
+      .foreach { case (pblock, switches) =>
+        val cells = switches.toSeq
+          .sortBy(switch => (switch.y, switch.x))
           .map { switch =>
             val switchCell = switchCellName(switch.x, switch.y)
             switchCell
@@ -284,6 +284,21 @@ trait Floorplan {
 
         pblockCells(pblock) ++= cells
       }
+
+    getSendRecvPipeToPblockMap(dimX, dimY) match {
+      case None =>
+      // Nothing to do
+      case Some(sendRecvPblock) =>
+        sendRecvPblock
+          .groupMap(_._2)(_._1)
+          .toSeq
+          .sortBy { case (pblock, cells) =>
+            pblock.name
+          }
+          .foreach { case (pblock, cells) =>
+            pblockCells(pblock) ++= cells
+          }
+    }
 
     val constraints = ArrayBuffer.empty[String]
 
@@ -380,7 +395,10 @@ trait Floorplan {
   def getManticoreKernelInstName(): String
   def getCoreToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, Pblock]
   def getSwitchToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, Pblock]
-  def getCustomConstraints(dimX: Int, dimY: Int): Option[String] = None
+
+  // Optional
+  def getSendRecvPipeToPblockMap(dimX: Int, dimY: Int): Option[Map[String, Pblock]] = None
+  def getCustomConstraints(dimX: Int, dimY: Int): Option[String]                    = None
 }
 
 trait Pblock {
@@ -390,7 +408,7 @@ trait Pblock {
   def toTcl(
       cells: Seq[String]
   ): String = {
-    val cellsStr = cells.map(cell => s"\t\t${cell} \\").mkString("\n")
+    val cellsStr = cells.sorted.map(cell => s"\t\t${cell} \\").mkString("\n")
     s"""|
         |create_pblock ${name}
         |resize_pblock ${name} -add ${resources}
