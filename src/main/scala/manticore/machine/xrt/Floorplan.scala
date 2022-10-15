@@ -43,7 +43,7 @@ trait Floorplan {
         // s"${getManticoreKernelInstName()}/m_axi_bank_0_clock_crossing",
         // s"${getManticoreKernelInstName()}/s_axi_clock_crossing",
         // s"${getManticoreKernelInstName()}/slave",
-        // s"${getManticoreKernelInstName()}/manticore/bootloader",
+        bootloaderCellName(),
         controllerCellName()
         // s"${getManticoreKernelInstName()}/manticore/memory_intercept"
       )
@@ -54,6 +54,10 @@ trait Floorplan {
 
   def controllerCellName(): String = {
     s"${getManticoreKernelInstName()}/manticore/controller"
+  }
+
+  def bootloaderCellName(): String = {
+    s"${getManticoreKernelInstName()}/manticore/bootloader"
   }
 
   def clockDistributionCellName(): String = {
