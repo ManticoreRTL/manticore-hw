@@ -349,11 +349,11 @@ trait Floorplan {
       computeClockNetName
     ).map(net => s"\t\t${net} \\").mkString("\n")
 
+    // |set_property CLOCK_DELAY_GROUP ManticoreClk [get_nets [list \\
+    // |${netsStr}
+    // |]]
     val clkRootConstraints =
       s"""|
-          |set_property CLOCK_DELAY_GROUP ManticoreClk [get_nets [list \\
-          |${netsStr}
-          |]]
           |set_property USER_CLOCK_ROOT X${rootClockRegion.x}Y${rootClockRegion.y} [get_nets [list \\
           |${netsStr}
           |]]
