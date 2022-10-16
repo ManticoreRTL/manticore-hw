@@ -45,40 +45,26 @@ clk_dist wiz
 );
 
 (* DONT_TOUCH = "yes" *)
-BUFGCE_1 ctrl_buf (
-  .O(control_clock), // 1-bit output: Clock output.
-  .CE(1'b1), // 1-bit input: Clock buffer active-High enable.
-  .I(naked_clock) // 1-bit input: Clock input.
+BUFGCE #(
+  .CE_TYPE("SYNC"),
+  .IS_CE_INVERTED(1'b0),
+  .IS_I_INVERTED(1'b0)
+) ctrl_buf (
+  .O(control_clock),
+  .I(naked_clock),
+  .CE(1'b1)
 );
 
 (* DONT_TOUCH = "yes" *)
-BUFGCE_1 comp_buf (
-  .O(compute_clock), // 1-bit output: Clock output.
-  .CE(compute_clock_en), // 1-bit input: Clock buffer active-High enable.
-  .I(control_clock) // 1-bit input: Clock input.
+BUFGCE #(
+  .CE_TYPE("SYNC"),
+  .IS_CE_INVERTED(1'b0),
+  .IS_I_INVERTED(1'b0)
+) comp_buf (
+  .O(compute_clock),
+  .I(control_clock),
+  .CE(compute_clock_en)
 );
-
-// (* DONT_TOUCH = "yes" *)
-// BUFGCE #(
-//   .CE_TYPE("SYNC"),
-//   .IS_CE_INVERTED(1'b0),
-//   .IS_I_INVERTED(1'b0)
-// ) ctrl_buf (
-//   .O(control_clock),
-//   .I(naked_clock),
-//   .CE(1'b1)
-// );
-
-// (* DONT_TOUCH = "yes" *)
-// BUFGCE #(
-//   .CE_TYPE("SYNC"),
-//   .IS_CE_INVERTED(1'b0),
-//   .IS_I_INVERTED(1'b0)
-// ) comp_buf (
-//   .O(compute_clock),
-//   .I(control_clock),
-//   .CE(compute_clock_en)
-// );
 
 `endif
 
