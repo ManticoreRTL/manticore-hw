@@ -729,6 +729,13 @@ object U200FloorplanImpl {
       // Separator for legibility.
       constraints += ""
 
+      // Place ctrl_buf and comp_buf adjacent (by default they are placed at a large distance).
+      constraints += s"set_property LOC BUFGCE_X0Y168 [get_cells ${ctrlBufCellName()}]"
+      constraints += s"set_property LOC BUFGCE_X0Y169 [get_cells ${compBufCellname()}]"
+
+      // Separator for legibility.
+      constraints += ""
+
       Some(constraints.mkString("\n"))
     }
   }
