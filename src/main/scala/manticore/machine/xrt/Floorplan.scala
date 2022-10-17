@@ -43,7 +43,7 @@ trait Floorplan {
         // s"${getManticoreKernelInstName()}/m_axi_bank_0_clock_crossing",
         // s"${getManticoreKernelInstName()}/s_axi_clock_crossing",
         // s"${getManticoreKernelInstName()}/slave",
-        bootloaderCellName(),
+        // bootloaderCellName(),
         controllerCellName()
         // s"${getManticoreKernelInstName()}/manticore/memory_intercept"
       )

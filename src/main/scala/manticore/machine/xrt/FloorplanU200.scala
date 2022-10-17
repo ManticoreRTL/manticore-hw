@@ -504,37 +504,40 @@ object U200FloorplanImpl {
 
     def getPrivilegedArea(): Set[ClockRegion] = Set(ClockRegion(1, 7))
 
-    def getCoreToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, HierarchicalPblock] = {
+    def getCoreToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, ArbitraryPblock] = {
       // The anchor is the right-most X-value in the abstract Grid. We don't care about the Y-value as we only need to
       // know what the torus looks like horizontally. The vertical aspect of the torus is partitioned ahead of time by
       // the hardware itself as we had to assign cores to either the top reset tree or the bottom reset tree.
       val gridToTorus = getGridLocToTorusLocMap(dimX, dimY, GridLoc(dimX - 1, dimY / 2))
       val torusToGrid = gridToTorus.map(_.swap)
 
-      val torusToPblock  = MMap.empty[TorusLoc, HierarchicalPblock]
+      val torusToPblock  = MMap.empty[TorusLoc, ArbitraryPblock]
       val privilegedCore = TorusLoc(0, 0)
 
       Range.inclusive(0, dimX - 1).foreach { x =>
         Range.inclusive(0, dimY - 1).foreach { y =>
           val torusLoc = TorusLoc(x, y)
-          // GridLoc(0, 0) is the BOTTOM-LEFT corner of the chip.
-          val gridLoc = torusToGrid(torusLoc)
 
-          // If the grid size is not a multiple of 2, then we want the Left side to have more
-          // cores as it is directly above the non-shell part of SLR1 and will not have to traverse
-          // the chip horizontally as much as if more cores were on the Right side.
-          // This is why I do the math.ceil().
-          // We use gridLoc here as we want to know the physical placement of the cores (gridLocs are
-          // physical placements, torusLocs are logical placements).
-          val side = if (gridLoc.c < math.ceil(dimX / 2.0).toInt) Left else Right
+          // // GridLoc(0, 0) is the BOTTOM-LEFT corner of the chip.
+          // val gridLoc = torusToGrid(torusLoc)
 
-          // ATTENTION:
-          // y < dimY/2 -> TOP   and    y >= dimY/2 -> BOTTOM
-          // are ASSUMPTIONs that map to how the reset tree is partitioned into a TOP/BOTTOM part in the chisel code!
-          // Here I cannot do the math.ceil() technique from above as the chisel code uses "< dimY / 2".
-          // Asymmetry between top and bottom doesn't matter though, so it should be fine.
-          // We use torusLoc here as the chisel code uses a core's (x,y) value which are torus locations.
-          val slrPblock = if (torusLoc.y < dimY / 2) slr2SidePblock(side) else slr0SidePblock(side)
+          // // If the grid size is not a multiple of 2, then we want the Left side to have more
+          // // cores as it is directly above the non-shell part of SLR1 and will not have to traverse
+          // // the chip horizontally as much as if more cores were on the Right side.
+          // // This is why I do the math.ceil().
+          // // We use gridLoc here as we want to know the physical placement of the cores (gridLocs are
+          // // physical placements, torusLocs are logical placements).
+          // val side = if (gridLoc.c < math.ceil(dimX / 2.0).toInt) Left else Right
+
+          // // ATTENTION:
+          // // y < dimY/2 -> TOP   and    y >= dimY/2 -> BOTTOM
+          // // are ASSUMPTIONs that map to how the reset tree is partitioned into a TOP/BOTTOM part in the chisel code!
+          // // Here I cannot do the math.ceil() technique from above as the chisel code uses "< dimY / 2".
+          // // Asymmetry between top and bottom doesn't matter though, so it should be fine.
+          // // We use torusLoc here as the chisel code uses a core's (x,y) value which are torus locations.
+          // val slrPblock = if (torusLoc.y < dimY / 2) slr2SidePblock(side) else slr0SidePblock(side)
+
+          val slrPblock = if (torusLoc.y < dimY / 2) slr2Pblock else slr0Pblock
 
           // We do not place the privileged core as the parent Floorplan.scala places that one.
           if (torusLoc != privilegedCore) {
@@ -593,7 +596,7 @@ object U200FloorplanImpl {
               SwitchToProcessor.procSideCellName(core.x, core.y),
               SwitchToProcessor.slrCrossingProcSideCellName(core.x, core.y)
             ).foreach { cell =>
-              cellToPblock += cell -> cPblock.parentPblock
+              cellToPblock += cell -> cPblock//.parentPblock
             }
             Seq(
               ProcessorToSwitch.switchSideCellName(core.x, core.y),
@@ -639,8 +642,6 @@ object U200FloorplanImpl {
       val constraints = ArrayBuffer.empty[String]
 
       val corePblocks = getCoreToPblockMap(dimY, dimY)
-
-      val sPblock = slr1NonShellPblock
 
       // We want to place the send/recv pipe registers such that:
       // (1) The processor-side pipe is in the same SLR as the processor.
@@ -719,19 +720,19 @@ object U200FloorplanImpl {
             }
             .mkString("\n")
           constraints += s"""|
-                         |create_macro ${registerFileMacroName}
-                         |update_macro ${registerFileMacroName} [list \\
-                         |${registerFileBankRlocs}
-                         |]""".stripMargin
+                             |create_macro ${registerFileMacroName}
+                             |update_macro ${registerFileMacroName} [list \\
+                             |${registerFileBankRlocs}
+                             |]""".stripMargin
         }
       }
 
       // Separator for legibility.
       constraints += ""
 
-      // Place ctrl_buf and comp_buf adjacent (by default they are placed at a large distance).
-      constraints += s"set_property LOC BUFGCE_X0Y168 [get_cells ${ctrlBufCellName()}]"
-      constraints += s"set_property LOC BUFGCE_X0Y169 [get_cells ${compBufCellname()}]"
+      // // Place ctrl_buf and comp_buf adjacent (by default they are placed at a large distance).
+      // constraints += s"set_property LOC BUFGCE_X0Y168 [get_cells ${ctrlBufCellName()}]"
+      // constraints += s"set_property LOC BUFGCE_X0Y169 [get_cells ${compBufCellname()}]"
 
       // Separator for legibility.
       constraints += ""
