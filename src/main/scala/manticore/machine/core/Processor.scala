@@ -531,11 +531,11 @@ class Processor(
 
   // io.packet_out := memory_stage.io.pipe_out.packet
   val hop_bits: Int = decode_stage.io.pipe_out.immediate.getWidth / 2
-  io.packet_out.xHops   := RegNext(decode_stage.io.pipe_out.immediate.tail(hop_bits))
-  io.packet_out.yHops   := RegNext(decode_stage.io.pipe_out.immediate.head(hop_bits))
+  io.packet_out.xHops   := decode_stage.io.pipe_out.immediate.tail(hop_bits)
+  io.packet_out.yHops   := decode_stage.io.pipe_out.immediate.head(hop_bits)
   io.packet_out.data    := register_file.io.rs2.dout
-  io.packet_out.address := RegNext(decode_stage.io.pipe_out.rd)
-  io.packet_out.valid   := RegNext(decode_stage.io.pipe_out.opcode.send)
+  io.packet_out.address := decode_stage.io.pipe_out.rd
+  io.packet_out.valid   := decode_stage.io.pipe_out.opcode.send
 
   if (config.WithGlobalMemory) {
     memory_stage.io.global_memory_interface <> io.periphery.cache
