@@ -638,7 +638,7 @@ object U200FloorplanImpl {
       Some(cellToPblock.toMap)
     }
 
-    override def getCustomConstraints(dimX: Int, dimY: Int): Option[String] = {
+    override def getCustomConstraints(dimX: Int, dimY: Int, enable_custom_alu: Boolean): Option[String] = {
       val constraints = ArrayBuffer.empty[String]
 
       val corePblocks = getCoreToPblockMap(dimY, dimY)
@@ -711,7 +711,7 @@ object U200FloorplanImpl {
       Range.inclusive(0, dimY - 1).foreach { y =>
         Range.inclusive(0, dimX - 1).foreach { x =>
           val registerFileMacroName = s"register_files_${x}_${y}"
-          val registerFileBankRlocs = registerFileBankCellNames(x, y).toSeq
+          val registerFileBankRlocs = registerFileBankCellNames(x, y, enable_custom_alu).toSeq
             .sortBy { case (bankIdx, bankName) =>
               bankIdx
             }

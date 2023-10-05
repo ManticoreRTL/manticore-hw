@@ -163,19 +163,19 @@ object Main {
           )
 
           if (cfg.placement_alg == U200FloorplanImpl.Auto.getName()) {
-            U200FloorplanImpl.Auto.toTcl(cfg.dimx, cfg.dimy)
+            U200FloorplanImpl.Auto.toTcl(cfg.dimx, cfg.dimy, cfg.enable_custom_alu)
           } else if (cfg.placement_alg == U200FloorplanImpl.HighwaySwitch.getName()) {
-            U200FloorplanImpl.HighwaySwitch.toTcl(cfg.dimx, cfg.dimy)
+            U200FloorplanImpl.HighwaySwitch.toTcl(cfg.dimx, cfg.dimy, cfg.enable_custom_alu)
           } else if (cfg.placement_alg == U200FloorplanImpl.RigidIslandSwitchRigidCores.getName()) {
-            U200FloorplanImpl.RigidIslandSwitchRigidCores.toTcl(cfg.dimx, cfg.dimy)
+            U200FloorplanImpl.RigidIslandSwitchRigidCores.toTcl(cfg.dimx, cfg.dimy, cfg.enable_custom_alu)
           } else if (cfg.placement_alg == U200FloorplanImpl.LooseIslandSwitchRigidCores.getName()) {
-            U200FloorplanImpl.LooseIslandSwitchRigidCores.toTcl(cfg.dimx, cfg.dimy)
+            U200FloorplanImpl.LooseIslandSwitchRigidCores.toTcl(cfg.dimx, cfg.dimy, cfg.enable_custom_alu)
           } else if (cfg.placement_alg == U200FloorplanImpl.LooseIslandSwitchLooseCores.getName()) {
-            U200FloorplanImpl.LooseIslandSwitchLooseCores.toTcl(cfg.dimx, cfg.dimy)
+            U200FloorplanImpl.LooseIslandSwitchLooseCores.toTcl(cfg.dimx, cfg.dimy, cfg.enable_custom_alu)
           } else if (cfg.placement_alg == U200FloorplanImpl.LooseIslandSwitchRigidCoresCenterOutward.getName()) {
-            U200FloorplanImpl.LooseIslandSwitchRigidCoresCenterOutward.toTcl(cfg.dimx, cfg.dimy)
+            U200FloorplanImpl.LooseIslandSwitchRigidCoresCenterOutward.toTcl(cfg.dimx, cfg.dimy, cfg.enable_custom_alu)
           } else if (cfg.placement_alg == U200FloorplanImpl.LooseIslandSwitchLooseCoresCenterOutward.getName()) {
-            U200FloorplanImpl.LooseIslandSwitchLooseCoresCenterOutward.toTcl(cfg.dimx, cfg.dimy)
+            U200FloorplanImpl.LooseIslandSwitchLooseCoresCenterOutward.toTcl(cfg.dimx, cfg.dimy, cfg.enable_custom_alu)
           } else {
             sys.error(s"Invalid placement algorithm! Valid choices are ${validChoices.mkString(", ")}")
           }
@@ -185,7 +185,7 @@ object Main {
             U250FloorplanImpl.LooseSlr2Slr3.getName()
           )
           if (cfg.placement_alg == U250FloorplanImpl.LooseSlr2Slr3.getName()) {
-            U250FloorplanImpl.LooseSlr2Slr3.toTcl(cfg.dimx, cfg.dimy)
+            U250FloorplanImpl.LooseSlr2Slr3.toTcl(cfg.dimx, cfg.dimy, cfg.enable_custom_alu)
           } else {
             sys.error(s"Invalid placement algorithm! Valid choices are ${validChoices.mkString(", ")}")
           }
@@ -195,7 +195,7 @@ object Main {
             U280FloorplanImpl.LooseNonShell.getName()
           )
           if (cfg.placement_alg == U280FloorplanImpl.LooseNonShell.getName()) {
-            U280FloorplanImpl.LooseNonShell.toTcl(cfg.dimx, cfg.dimy)
+            U280FloorplanImpl.LooseNonShell.toTcl(cfg.dimx, cfg.dimy, cfg.enable_custom_alu)
           } else {
             sys.error(s"Invalid placement algorithm! Valid choices are ${validChoices.mkString(", ")}")
           }

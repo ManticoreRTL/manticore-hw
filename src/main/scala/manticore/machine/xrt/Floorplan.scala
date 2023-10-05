@@ -82,9 +82,10 @@ trait Floorplan {
     s"${procCellName(x, y)}/register_file"
   }
 
-  def registerFileBankCellNames(x: Int, y: Int): Map[Int, String] = {
+  def registerFileBankCellNames(x: Int, y: Int, enable_custom_alu: Boolean): Map[Int, String] = {
+    val upperRfIdx = if (enable_custom_alu) 4 else 3
     Range
-      .inclusive(1, 4)
+      .inclusive(1, upperRfIdx)
       .map { i =>
         i -> s"${registerFileCellName(x, y)}/rs${i}bank/impl/bram_inst/xpm_memory_base_inst/gen_wr_a.gen_word_narrow.mem_reg_bram_0"
       }
@@ -392,12 +393,12 @@ trait Floorplan {
     constraints
   }
 
-  def toTcl(dimX: Int, dimY: Int): String = {
+  def toTcl(dimX: Int, dimY: Int, enable_custom_alu: Boolean): String = {
     Seq(
       getPblockConstrains(dimX, dimY),
       getPrivilegedAreaConstraints(),
       getClockConstraints(),
-      getCustomConstraints(dimX, dimY).getOrElse("")
+      getCustomConstraints(dimX, dimY, enable_custom_alu).getOrElse("")
     ).mkString("\n")
   }
 
@@ -410,8 +411,8 @@ trait Floorplan {
   def getSwitchToPblockMap(dimX: Int, dimY: Int): Map[TorusLoc, Pblock]
 
   // Optional
-  def getSendRecvPipeToPblockMap(dimX: Int, dimY: Int): Option[Map[String, Pblock]] = None
-  def getCustomConstraints(dimX: Int, dimY: Int): Option[String]                    = None
+  def getSendRecvPipeToPblockMap(dimX: Int, dimY: Int): Option[Map[String, Pblock]]          = None
+  def getCustomConstraints(dimX: Int, dimY: Int, enable_custom_alu: Boolean): Option[String] = None
 }
 
 trait Pblock {
